@@ -471,10 +471,12 @@ QuickEval/
 
 领域实体、状态机、MySQL 表结构、约束和索引已经完成设计，见 [QuickEval V1 领域模型与数据库设计](./quickeval-v1-database-design.md)。
 
+REST API 路径、权限、请求响应、错误码和事务边界已经完成设计，见 [QuickEval V1 REST API 设计](./quickeval-v1-api-design.md)。
+
+前端信息架构、页面路由、关键交互和视觉稿映射已经完成设计，见 [QuickEval V1 前端页面与关键交互设计](./quickeval-v1-frontend-design.md)。
+
 以下内容尚未在本规格中展开，进入实现前需要继续设计：
 
-1. REST API 路径、请求响应结构和错误码。
-2. 前端信息架构、页面清单和关键交互流程。
-3. OA 身份提供方接口定义。
-4. 数据库备份、升级和回滚流程。
-5. 测试策略和 V1 迭代拆分。
+1. OA 身份提供方接口定义。
+2. 数据库备份、升级和回滚流程。
+3. 测试策略和 V1 迭代拆分。
