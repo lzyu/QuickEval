@@ -1,0 +1,113 @@
+<script setup lang="ts">
+import {
+  Collection,
+  HomeFilled,
+  List,
+  Operation,
+  Setting,
+  Tickets,
+  User,
+} from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+import { apiClient, apiErrorMessage } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const passwordDialog = ref(false)
+const passwordForm = reactive({ current_password: '', new_password: '' })
+const navigation = computed(() => [
+  { label: '首页', icon: HomeFilled, to: '/', enabled: true },
+  { label: '评测集', icon: Collection, enabled: false },
+  { label: '我的评测', icon: List, enabled: false },
+  ...(auth.isAdmin
+    ? [
+        { label: '基础目录', icon: Operation, to: '/admin/catalog', enabled: true },
+        { label: '问题标签', icon: Tickets, to: '/admin/issue-tags', enabled: true },
+        { label: '用户管理', icon: User, to: '/admin/users', enabled: true },
+        { label: '审计日志', icon: Setting, to: '/admin/audit-logs', enabled: true },
+      ]
+    : []),
+])
+
+async function logout() {
+  await auth.logout()
+  await router.replace('/login')
+}
+
+async function changePassword() {
+  try {
+    await apiClient.post('/api/v1/auth/change-password', passwordForm)
+    passwordDialog.value = false
+    auth.clear()
+    ElMessage.success('密码已修改，请重新登录')
+    await router.replace('/login')
+  } catch (error) {
+    ElMessage.error(apiErrorMessage(error))
+  }
+}
+</script>
+
+<template>
+  <div class="app-shell">
+    <aside class="app-sidebar" aria-label="主导航">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">Q</span>
+        <span>QuickEval</span>
+      </div>
+      <nav class="navigation">
+        <button
+          v-for="item in navigation"
+          :key="item.label"
+          class="nav-item"
+          :class="{ active: item.to === route.path }"
+          :disabled="!item.enabled"
+          type="button"
+          @click="item.to && router.push(item.to)"
+        >
+          <el-icon :size="18"><component :is="item.icon" /></el-icon>
+          <span>{{ item.label }}</span>
+        </button>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="app-header">
+        <span class="header-title">{{ String(route.meta.title || 'QuickEval') }}</span>
+        <el-dropdown>
+          <button class="user-menu" type="button">
+            <span class="avatar">{{ auth.user?.display_name.slice(0, 1) }}</span>
+            <span>{{ auth.user?.display_name }}</span>
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="passwordDialog = true">修改密码</el-dropdown-item>
+              <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </header>
+      <main class="app-content"><RouterView /></main>
+    </div>
+  </div>
+
+  <el-dialog v-model="passwordDialog" title="修改密码" width="440">
+    <el-form label-position="top">
+      <el-form-item label="当前密码">
+        <el-input v-model="passwordForm.current_password" type="password" show-password />
+      </el-form-item>
+      <el-form-item label="新密码">
+        <el-input v-model="passwordForm.new_password" type="password" show-password />
+        <small class="form-help">至少 10 位字符</small>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="passwordDialog = false">取消</el-button>
+      <el-button type="primary" @click="changePassword">确认修改</el-button>
+    </template>
+  </el-dialog>
+</template>

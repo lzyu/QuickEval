@@ -1,0 +1,60 @@
+name: quickeval-dev
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: quickeval_root_dev
+      MYSQL_DATABASE: quickeval
+      MYSQL_USER: quickeval
+      MYSQL_PASSWORD: quickeval_dev
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - quickeval_mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - -h
+        - 127.0.0.1
+        - -uquickeval
+        - -pquickeval_dev
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - quickeval_dev
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - quickeval_redis_data:/data
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - -a
+        - quickeval_dev
+        - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  quickeval_mysql_data:
+  quickeval_redis_data:

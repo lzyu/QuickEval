@@ -1,0 +1,977 @@
+openapi: 3.1.0
+info:
+  title: QuickEval V1 API
+  version: 0.1.0
+  description: Internal API for the QuickEval Vue SPA.
+servers:
+  - url: /
+tags:
+  - name: System
+    description: Runtime health and system metadata.
+  - name: Authentication
+  - name: Users
+  - name: Catalog
+  - name: Audit
+paths:
+  /health/live:
+    get:
+      tags:
+        - System
+      operationId: getLiveness
+      summary: Check whether the API process is alive
+      security: []
+      responses:
+        "200":
+          description: The API process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+  /health/ready:
+    get:
+      tags:
+        - System
+      operationId: getReadiness
+      summary: Check whether required dependencies are ready
+      security: []
+      responses:
+        "200":
+          description: MySQL and Redis are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: A required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login succeeded and the session cookie was set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/session:
+    get:
+      tags: [Authentication]
+      operationId: getSession
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Current session bootstrap data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Authentication]
+      operationId: logout
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "204":
+          description: Session revoked.
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/change-password:
+    post:
+      tags: [Authentication]
+      operationId: changePassword
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed and all sessions revoked.
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, disabled] }
+        - name: role
+          in: query
+          schema: { type: string, enum: [admin, member] }
+        - name: keyword
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: User page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPageResponse"
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Users]
+      operationId: createUser
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+  /api/v1/users/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserID"
+    get:
+      tags: [Users]
+      operationId: getUser
+      responses:
+        "200":
+          description: User detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+    put:
+      tags: [Users]
+      operationId: updateUser
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+  /api/v1/users/{user_id}/{state_action}:
+    parameters:
+      - $ref: "#/components/parameters/UserID"
+      - name: state_action
+        in: path
+        required: true
+        schema: { type: string, enum: [enable, disable] }
+    post:
+      tags: [Users]
+      operationId: setUserState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StateRequest"
+      responses:
+        "200":
+          description: User state changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+  /api/v1/users/{user_id}/reset-password:
+    parameters:
+      - $ref: "#/components/parameters/UserID"
+    post:
+      tags: [Users]
+      operationId: resetUserPassword
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "204":
+          description: Password reset and user sessions revoked.
+  /api/v1/evaluation-targets:
+    get:
+      tags: [Catalog]
+      operationId: listEvaluationTargets
+      responses:
+        "200":
+          description: Evaluation target page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogPageResponse"
+    post:
+      tags: [Catalog]
+      operationId: createEvaluationTarget
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Named"
+      responses:
+        "201":
+          description: Evaluation target created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogItemResponse"
+  /api/v1/evaluation-targets/{target_id}:
+    parameters:
+      - $ref: "#/components/parameters/TargetID"
+    get:
+      tags: [Catalog]
+      operationId: getEvaluationTarget
+      responses:
+        "200":
+          description: Evaluation target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogItemResponse"
+    put:
+      tags: [Catalog]
+      operationId: updateEvaluationTarget
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Named"
+      responses:
+        "200":
+          description: Evaluation target updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogItemResponse"
+  /api/v1/evaluation-targets/{target_id}/{state_action}:
+    parameters:
+      - $ref: "#/components/parameters/TargetID"
+      - $ref: "#/components/parameters/StateAction"
+    post:
+      tags: [Catalog]
+      operationId: setEvaluationTargetState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/State"
+      responses:
+        "200":
+          description: Evaluation target state changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogItemResponse"
+  /api/v1/scenarios:
+    get:
+      tags: [Catalog]
+      operationId: listScenarios
+      responses:
+        "200":
+          description: Scenario page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioPageResponse"
+    post:
+      tags: [Catalog]
+      operationId: createScenario
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioRequest"
+      responses:
+        "201":
+          description: Scenario created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+  /api/v1/scenarios/{scenario_id}:
+    parameters:
+      - $ref: "#/components/parameters/ScenarioID"
+    get:
+      tags: [Catalog]
+      operationId: getScenario
+      responses:
+        "200":
+          description: Scenario.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+    put:
+      tags: [Catalog]
+      operationId: updateScenario
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioRequest"
+      responses:
+        "200":
+          description: Scenario updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+  /api/v1/scenarios/{scenario_id}/{state_action}:
+    parameters:
+      - $ref: "#/components/parameters/ScenarioID"
+      - $ref: "#/components/parameters/StateAction"
+    post:
+      tags: [Catalog]
+      operationId: setScenarioState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/State"
+      responses:
+        "200":
+          description: Scenario state changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+  /api/v1/scenarios/{scenario_id}/case-tags:
+    parameters:
+      - $ref: "#/components/parameters/ScenarioID"
+    get:
+      tags: [Catalog]
+      operationId: listCaseTags
+      responses:
+        "200":
+          description: Case tags for the scenario.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagListResponse"
+    post:
+      tags: [Catalog]
+      operationId: createCaseTag
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Named"
+      responses:
+        "201":
+          description: Case tag created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+  /api/v1/case-tags/{tag_id}:
+    parameters:
+      - $ref: "#/components/parameters/TagID"
+    put:
+      tags: [Catalog]
+      operationId: updateCaseTag
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Named"
+      responses:
+        "200":
+          description: Case tag updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+  /api/v1/case-tags/{tag_id}/{state_action}:
+    parameters:
+      - $ref: "#/components/parameters/TagID"
+      - $ref: "#/components/parameters/StateAction"
+    post:
+      tags: [Catalog]
+      operationId: setCaseTagState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/State"
+      responses:
+        "200":
+          description: Case tag state changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+  /api/v1/scenarios/{scenario_id}/case-tags/reorder:
+    parameters:
+      - $ref: "#/components/parameters/ScenarioID"
+    put:
+      tags: [Catalog]
+      operationId: reorderCaseTags
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Reorder"
+      responses:
+        "204":
+          description: Case tags reordered.
+  /api/v1/issue-tags:
+    get:
+      tags: [Catalog]
+      operationId: listIssueTags
+      responses:
+        "200":
+          description: Issue tags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagListResponse"
+    post:
+      tags: [Catalog]
+      operationId: createIssueTag
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Named"
+      responses:
+        "201":
+          description: Issue tag created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+  /api/v1/issue-tags/{tag_id}:
+    parameters:
+      - $ref: "#/components/parameters/TagID"
+    put:
+      tags: [Catalog]
+      operationId: updateIssueTag
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Named"
+      responses:
+        "200":
+          description: Issue tag updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+  /api/v1/issue-tags/{tag_id}/{state_action}:
+    parameters:
+      - $ref: "#/components/parameters/TagID"
+      - $ref: "#/components/parameters/StateAction"
+    post:
+      tags: [Catalog]
+      operationId: setIssueTagState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/State"
+      responses:
+        "200":
+          description: Issue tag state changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+  /api/v1/issue-tags/reorder:
+    put:
+      tags: [Catalog]
+      operationId: reorderIssueTags
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/Reorder"
+      responses:
+        "204":
+          description: Issue tags reordered.
+  /api/v1/audit-logs:
+    get:
+      tags: [Audit]
+      operationId: listAuditLogs
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Audit log page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditPageResponse"
+components:
+  responses:
+    Error:
+      description: Request failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    UserID:
+      name: user_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    TargetID:
+      name: target_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    ScenarioID:
+      name: scenario_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    TagID:
+      name: tag_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    StateAction:
+      name: state_action
+      in: path
+      required: true
+      schema: { type: string, enum: [enable, disable] }
+  requestBodies:
+    Named:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/NamedRequest"
+    State:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StateRequest"
+    Reorder:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ReorderRequest"
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: quickeval_session
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+    UTCTimestamp:
+      type: string
+      format: date-time
+      examples:
+        - 2026-07-27T06:20:00.000Z
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1 }
+        password: { type: string, minLength: 1 }
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string }
+        new_password: { type: string, minLength: 10 }
+    CreateUserRequest:
+      type: object
+      required: [username, display_name, role, password]
+      properties:
+        username: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,63}$" }
+        display_name: { type: string, minLength: 1 }
+        email: { type: [string, "null"], format: email }
+        role: { type: string, enum: [admin, member] }
+        password: { type: string, minLength: 10 }
+    UpdateUserRequest:
+      type: object
+      required: [display_name, role, expected_lock_version]
+      properties:
+        display_name: { type: string, minLength: 1 }
+        email: { type: [string, "null"], format: email }
+        role: { type: string, enum: [admin, member] }
+        expected_lock_version: { type: integer, minimum: 0 }
+    ResetPasswordRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 10 }
+    StateRequest:
+      type: object
+      required: [expected_lock_version]
+      properties:
+        expected_lock_version: { type: integer, minimum: 0 }
+    NamedRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, "null"] }
+        expected_lock_version: { type: integer, minimum: 0, default: 0 }
+    ScenarioRequest:
+      allOf:
+        - $ref: "#/components/schemas/NamedRequest"
+        - type: object
+          required: [evaluation_target_id]
+          properties:
+            evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+    ReorderRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [id, sort_order, expected_lock_version]
+            properties:
+              id: { $ref: "#/components/schemas/UUID" }
+              sort_order: { type: integer, minimum: 0 }
+              expected_lock_version: { type: integer, minimum: 0 }
+    User:
+      type: object
+      required: [id, username, display_name, role, status, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        username: { type: string }
+        display_name: { type: string }
+        email: { type: [string, "null"], format: email }
+        role: { type: string, enum: [admin, member] }
+        status: { type: string, enum: [active, disabled] }
+        lock_version: { type: integer, minimum: 0 }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    Session:
+      type: object
+      required: [user, permissions, features, upload_policy, csrf_token]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        permissions:
+          type: object
+          additionalProperties: { type: boolean }
+        features:
+          type: object
+          required: [oa_login_enabled]
+          properties:
+            oa_login_enabled: { type: boolean }
+        upload_policy:
+          type: object
+          required: [allowed_media_types, max_file_size, max_files_per_owner]
+          properties:
+            allowed_media_types:
+              type: array
+              items: { type: string }
+            max_file_size: { type: integer }
+            max_files_per_owner: { type: integer }
+        csrf_token: { type: string }
+    CatalogItem:
+      type: object
+      required: [id, name, status, lock_version, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        status: { type: string, enum: [active, disabled] }
+        lock_version: { type: integer, minimum: 0 }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    Scenario:
+      allOf:
+        - $ref: "#/components/schemas/CatalogItem"
+        - type: object
+          required: [evaluation_target_id, evaluation_target_name]
+          properties:
+            evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+            evaluation_target_name: { type: string }
+    Tag:
+      allOf:
+        - $ref: "#/components/schemas/CatalogItem"
+        - type: object
+          required: [sort_order]
+          properties:
+            scenario_id: { $ref: "#/components/schemas/UUID" }
+            sort_order: { type: integer, minimum: 0 }
+    AuditLog:
+      type: object
+      required: [id, action, entity_type, entity_id, request_id, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        actor_user_id: { type: [string, "null"], format: uuid }
+        action: { type: string }
+        entity_type: { type: string }
+        entity_id: { $ref: "#/components/schemas/UUID" }
+        before_data: {}
+        after_data: {}
+        request_id: { type: string }
+        ip_address: { type: string }
+        user_agent: { type: string }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    SessionResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Session" }
+    UserResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/User" }
+    CatalogItemResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/CatalogItem" }
+    ScenarioResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Scenario" }
+    TagResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Tag" }
+    UserPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/UserPage"
+    CatalogPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CatalogPage"
+    ScenarioPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ScenarioPage"
+    AuditPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AuditPage"
+    TagListResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/Tag" }
+    UserPage:
+      $ref: "#/components/schemas/PageBase"
+    CatalogPage:
+      $ref: "#/components/schemas/PageBase"
+    ScenarioPage:
+      $ref: "#/components/schemas/PageBase"
+    AuditPage:
+      $ref: "#/components/schemas/PageBase"
+    PageBase:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: {}
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+    ResponseEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {}
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    ResponseMeta:
+      type: object
+      required:
+        - request_id
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+    Liveness:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          const: ok
+    Readiness:
+      type: object
+      required:
+        - status
+        - dependencies
+      properties:
+        status:
+          type: string
+          const: ok
+        dependencies:
+          type: object
+          required:
+            - mysql
+            - redis
+          properties:
+            mysql:
+              type: string
+              const: ok
+            redis:
+              type: string
+              const: ok
+    LivenessResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: "#/components/schemas/Liveness"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ReadinessResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: "#/components/schemas/Readiness"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    FieldError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Error:
+      type: object
+      required:
+        - code
+        - message
+        - field_errors
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        field_errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+        details:
+          type: object
+          additionalProperties: true
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - meta
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"

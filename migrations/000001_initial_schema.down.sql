@@ -1,0 +1,17 @@
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS attachments;
+DROP TABLE IF EXISTS badcase_activities;
+DROP TABLE IF EXISTS badcase_issue_tags;
+DROP TABLE IF EXISTS issue_tags;
+DROP TABLE IF EXISTS badcases;
+DROP TABLE IF EXISTS case_results;
+DROP TABLE IF EXISTS evaluation_runs;
+DROP TABLE IF EXISTS version_case_tags;
+DROP TABLE IF EXISTS version_cases;
+DROP TABLE IF EXISTS dataset_versions;
+DROP TABLE IF EXISTS datasets;
+DROP TABLE IF EXISTS case_tags;
+DROP TABLE IF EXISTS scenarios;
+DROP TABLE IF EXISTS evaluation_targets;
+DROP TABLE IF EXISTS user_identities;
+DROP TABLE IF EXISTS users;

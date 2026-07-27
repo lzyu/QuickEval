@@ -1,0 +1,29 @@
+.DS_Store
+
+# Local runtime state
+/config/quickeval.yaml
+/config/secrets.yaml
+/logs/
+/uploads/
+
+# Go
+/bin/
+/coverage/
+*.test
+
+# Node
+node_modules/
+dist/
+playwright-report/
+test-results/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/
+*.swp
