@@ -80,6 +80,7 @@ func (handler Handler) List(ctx *gin.Context) {
 		ctx.Request.Context(), page.Page, page.PageSize,
 		Filters{
 			Status: ctx.Query("status"), SourceType: ctx.Query("source_type"),
+			Open:     ctx.Query("open") == "1",
 			Validity: ctx.Query("validity"), Environment: ctx.Query("environment"),
 			AgentVersion: ctx.Query("agent_version"), TargetID: targetID,
 			ScenarioID: scenarioID, AssigneeID: assigneeID,

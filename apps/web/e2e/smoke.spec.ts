@@ -50,6 +50,27 @@ const caseId = '019fa2a2-ed09-7660-988d-38cb279d5105'
 const caseKey = '019fa2a2-ed09-7660-988d-38cb279d5106'
 const tagId = '019fa2a2-ed09-7660-988d-38cb279d5107'
 const meta = { request_id: 'e2e-dataset' }
+const homeData = {
+  metrics: [
+    { key: 'in_progress', label: '我的进行中评测', value: 1, url: '/evaluations?status=in_progress' },
+    { key: 'completed', label: '我的已完成评测', value: 2, url: '/evaluations?status=completed' },
+    { key: 'assigned_badcases', label: '分配给我的未关闭 Badcase', value: 1, url: '/badcases?assigned_to_me=1&open=1' },
+  ],
+  continue_evaluations: [],
+  assigned_badcases: [],
+  recent_datasets: [],
+  recent_activities: [],
+}
+
+async function mockHome(page: Page) {
+  await page.route('**/api/v1/pages/home', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: homeData, meta }),
+    })
+  })
+}
 
 const target = {
   id: targetId,
@@ -195,6 +216,7 @@ async function mockDraftReads(page: Page) {
 test('logs in, restores the shell, and exposes admin navigation', async ({ page }) => {
   let authenticated = false
   await mockHealth(page)
+  await mockHome(page)
   await page.route('**/api/v1/auth/session', async (route) => {
     if (route.request().method() === 'DELETE') {
       authenticated = false
@@ -222,8 +244,8 @@ test('logs in, restores the shell, and exposes admin navigation', async ({ page 
   await page.getByLabel('密码').fill('mock-password')
   await page.getByRole('button', { name: '登录' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Agent 人工评测平台' })).toBeVisible()
-  await expect(page.getByText('后端、MySQL 与 Redis 已就绪')).toBeVisible()
+  await expect(page.getByText('我的进行中评测')).toBeVisible()
+  await expect(page.getByText('我的已完成评测')).toBeVisible()
   await expect(page.getByRole('button', { name: /用户管理/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /审计日志/ })).toBeVisible()
 })
@@ -927,4 +949,96 @@ test('registers a business Badcase and advances its processing timeline', async 
 
   await expect(page.getByText('处理中', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('已确认预算过滤条件未生效')).toBeVisible()
+})
+
+test('renders personal home, dashboard metrics, charts, and global search', async ({ page }) => {
+  await mockAdminSession(page)
+  await mockHome(page)
+  const searchBadcaseId = '019fa2a2-ed09-7660-988d-38cb279d5501'
+  const dashboardData = {
+    metrics: {
+      completed_run_count: 2,
+      evaluated_case_count: 3,
+      scored_case_count: 3,
+      average_score: 3.67,
+      evaluation_badcase_count: 1,
+      evaluation_badcase_rate: 1 / 3,
+      valid_badcase_count: 2,
+      skipped_case_count: 1,
+    },
+    score_distribution: [1, 2, 3, 4, 5].map((score) => ({
+      key: String(score),
+      label: `${score} 分`,
+      count: score === 4 ? 2 : score === 3 ? 1 : 0,
+    })),
+    issue_tag_distribution: [{ key: tagId, label: '事实准确性', count: 2 }],
+    status_distribution: [{ key: 'pending', label: '待处理', count: 2 }],
+    source_distribution: [
+      { key: 'evaluation', label: '评测发现', count: 1 },
+      { key: 'business', label: '业务登记', count: 1 },
+    ],
+    skip_reason_distribution: [{ key: '当前账号无权限', label: '当前账号无权限', count: 1 }],
+    version_comparison: [],
+    options: {
+      evaluation_targets: [{ id: targetId, name: target.name }],
+      scenarios: [{ id: scenarioId, name: scenario.name, parent_id: targetId }],
+      datasets: [{ id: datasetId, name: dataset.name, parent_id: scenarioId }],
+      dataset_versions: [{ id: draftId, name: `${dataset.name} V1`, parent_id: datasetId }],
+      evaluators: [{ id: adminSession.data.user.id, name: '系统管理员' }],
+      agent_versions: ['2026.07.28'],
+      issue_tags: [{ id: tagId, name: '事实准确性' }],
+    },
+  }
+  await page.route('**/api/v1/pages/dashboard*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: dashboardData, meta }),
+    })
+  })
+  await page.route('**/api/v1/search?*', async (route) => {
+    expect(new URL(route.request().url()).searchParams.get('q')).toBe('预算错误')
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          items: [{
+            type: 'badcase',
+            id: searchBadcaseId,
+            title: '采购助手忽略预算',
+            subtitle: '智能采购 Agent / 采购询价',
+            snippet: '预算为 10 万元时仍推荐超预算商品',
+            url: `/badcases/${searchBadcaseId}`,
+          }],
+          page: 1,
+          page_size: 12,
+          total: 1,
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/pages/badcases/${searchBadcaseId}`, async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'RESOURCE_NOT_FOUND', message: 'not found' }, meta }),
+    })
+  })
+
+  await page.goto('/')
+  await expect(page.getByText('我的进行中评测')).toBeVisible()
+  await expect(page.getByText('分配给我的未关闭 Badcase')).toBeVisible()
+
+  await page.getByRole('button', { name: /数据看板/ }).click()
+  await expect(page).toHaveURL('/dashboard')
+  await expect(page.getByRole('heading', { name: '数据看板' })).toBeVisible()
+  await expect(page.getByText('3.67')).toBeVisible()
+  await expect(page.locator('canvas')).toHaveCount(4)
+
+  await page.getByPlaceholder('搜索场景、评测集、用例或 Badcase').fill('预算错误')
+  await expect(page.getByText('采购助手忽略预算')).toBeVisible()
+  await page.getByText('采购助手忽略预算').click()
+  await expect(page).toHaveURL(`/badcases/${searchBadcaseId}`)
 })

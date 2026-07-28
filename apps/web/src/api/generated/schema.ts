@@ -1152,6 +1152,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pages/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getHomePage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pages/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDashboardPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pages/datasets/{dataset_id}/version-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getDatasetVersionComparison"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["globalSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/evaluation-results.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportEvaluationResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/badcases.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportBadcases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/badcase-distribution.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportBadcaseDistribution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1825,6 +1939,129 @@ export interface components {
             data: components["schemas"]["Readiness"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        HomeMetric: {
+            key: string;
+            label: string;
+            value: number;
+            url: string;
+        };
+        HomeEvaluation: {
+            id: components["schemas"]["UUID"];
+            dataset_name: string;
+            version_no: number;
+            scenario_name: string;
+            agent_version: string;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            completed_count: number;
+            total_count: number;
+            updated_at: components["schemas"]["UTCTimestamp"];
+        };
+        HomeBadcase: {
+            id: components["schemas"]["UUID"];
+            title: string;
+            scenario_name: string;
+            status: components["schemas"]["BadcaseStatus"];
+            /** @enum {string} */
+            source_type: "evaluation" | "business";
+            updated_at: components["schemas"]["UTCTimestamp"];
+        };
+        HomeDataset: {
+            dataset_id: components["schemas"]["UUID"];
+            version_id: components["schemas"]["UUID"];
+            dataset_name: string;
+            scenario_name: string;
+            evaluation_target_name: string;
+            version_no: number;
+            case_count: number;
+            published_at: components["schemas"]["UTCTimestamp"];
+        };
+        HomeActivity: {
+            id: components["schemas"]["UUID"];
+            badcase_id: components["schemas"]["UUID"];
+            badcase_title: string;
+            activity_type: string;
+            note?: string | null;
+            actor_name: string;
+            created_at: components["schemas"]["UTCTimestamp"];
+        };
+        HomePageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                metrics: components["schemas"]["HomeMetric"][];
+                continue_evaluations: components["schemas"]["HomeEvaluation"][];
+                assigned_badcases: components["schemas"]["HomeBadcase"][];
+                recent_datasets: components["schemas"]["HomeDataset"][];
+                recent_activities: components["schemas"]["HomeActivity"][];
+            };
+        };
+        DashboardMetrics: {
+            completed_run_count: number;
+            evaluated_case_count: number;
+            scored_case_count: number;
+            average_score?: number | null;
+            evaluation_badcase_count: number;
+            evaluation_badcase_rate?: number | null;
+            valid_badcase_count: number;
+            skipped_case_count: number;
+        };
+        DistributionItem: {
+            key: string;
+            label: string;
+            count: number;
+        };
+        VersionComparison: {
+            version_id: components["schemas"]["UUID"];
+            version_no: number;
+            completed_run_count: number;
+            evaluated_case_count: number;
+            average_score?: number | null;
+            evaluation_badcase_count: number;
+            evaluation_badcase_rate?: number | null;
+        };
+        DashboardOption: {
+            id: components["schemas"]["UUID"];
+            name: string;
+            parent_id?: components["schemas"]["UUID"] | null;
+        };
+        DashboardOptions: {
+            evaluation_targets: components["schemas"]["DashboardOption"][];
+            scenarios: components["schemas"]["DashboardOption"][];
+            datasets: components["schemas"]["DashboardOption"][];
+            dataset_versions: components["schemas"]["DashboardOption"][];
+            evaluators: components["schemas"]["DashboardOption"][];
+            agent_versions: string[];
+            issue_tags: components["schemas"]["DashboardOption"][];
+        };
+        DashboardResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                metrics: components["schemas"]["DashboardMetrics"];
+                score_distribution: components["schemas"]["DistributionItem"][];
+                issue_tag_distribution: components["schemas"]["DistributionItem"][];
+                status_distribution: components["schemas"]["DistributionItem"][];
+                source_distribution: components["schemas"]["DistributionItem"][];
+                skip_reason_distribution: components["schemas"]["DistributionItem"][];
+                version_comparison: components["schemas"]["VersionComparison"][];
+                options: components["schemas"]["DashboardOptions"];
+            };
+        };
+        VersionComparisonResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                items: components["schemas"]["VersionComparison"][];
+            };
+        };
+        SearchItem: {
+            /** @enum {string} */
+            type: "scenario" | "dataset" | "case" | "badcase";
+            id: components["schemas"]["UUID"];
+            title: string;
+            subtitle: string;
+            snippet: string;
+            url: string;
+        };
+        SearchResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items?: components["schemas"]["SearchItem"][];
+            };
+        };
         FieldError: {
             field: string;
             message: string;
@@ -1856,6 +2093,18 @@ export interface components {
     parameters: {
         Page: number;
         PageSize: number;
+        DashboardTargetID: components["schemas"]["UUID"];
+        DashboardScenarioID: components["schemas"]["UUID"];
+        DashboardDatasetID: components["schemas"]["UUID"];
+        DashboardVersionID: components["schemas"]["UUID"];
+        DashboardEvaluatorID: components["schemas"]["UUID"];
+        DashboardAgentVersion: string;
+        DashboardEnvironment: components["schemas"]["EvaluationEnvironment"];
+        DashboardSourceType: "evaluation" | "business";
+        DashboardBadcaseStatus: components["schemas"]["BadcaseStatus"];
+        DashboardIssueTagID: components["schemas"]["UUID"];
+        DashboardFrom: components["schemas"]["UTCTimestamp"];
+        DashboardTo: components["schemas"]["UTCTimestamp"];
         UserID: components["schemas"]["UUID"];
         TargetID: components["schemas"]["UUID"];
         ScenarioID: components["schemas"]["UUID"];
@@ -3500,6 +3749,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
                 status?: components["schemas"]["BadcaseStatus"];
+                /** @description When set to 1 and status is omitted, returns pending and processing records. */
+                open?: "1";
                 source_type?: "evaluation" | "business";
                 validity?: "valid" | "invalid" | "all";
                 environment?: components["schemas"]["EvaluationEnvironment"];
@@ -4046,6 +4297,213 @@ export interface operations {
             };
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    getHomePage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's personal work summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePageResponse"];
+                };
+            };
+        };
+    };
+    getDashboardPage: {
+        parameters: {
+            query?: {
+                evaluation_target_id?: components["parameters"]["DashboardTargetID"];
+                scenario_id?: components["parameters"]["DashboardScenarioID"];
+                dataset_id?: components["parameters"]["DashboardDatasetID"];
+                dataset_version_id?: components["parameters"]["DashboardVersionID"];
+                evaluator_id?: components["parameters"]["DashboardEvaluatorID"];
+                agent_version?: components["parameters"]["DashboardAgentVersion"];
+                environment?: components["parameters"]["DashboardEnvironment"];
+                source_type?: components["parameters"]["DashboardSourceType"];
+                badcase_status?: components["parameters"]["DashboardBadcaseStatus"];
+                issue_tag_id?: components["parameters"]["DashboardIssueTagID"];
+                from?: components["parameters"]["DashboardFrom"];
+                to?: components["parameters"]["DashboardTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Real-time dashboard aggregates for completed evaluations and valid Badcases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardResponse"];
+                };
+            };
+            422: components["responses"]["Error"];
+        };
+    };
+    getDatasetVersionComparison: {
+        parameters: {
+            query?: {
+                evaluator_id?: components["parameters"]["DashboardEvaluatorID"];
+                agent_version?: components["parameters"]["DashboardAgentVersion"];
+                environment?: components["parameters"]["DashboardEnvironment"];
+                from?: components["parameters"]["DashboardFrom"];
+                to?: components["parameters"]["DashboardTo"];
+            };
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Completed evaluation results compared by dataset version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionComparisonResponse"];
+                };
+            };
+        };
+    };
+    globalSearch: {
+        parameters: {
+            query: {
+                q: string;
+                types?: string;
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated quick-location search results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            422: components["responses"]["Error"];
+        };
+    };
+    exportEvaluationResults: {
+        parameters: {
+            query?: {
+                evaluation_target_id?: components["parameters"]["DashboardTargetID"];
+                scenario_id?: components["parameters"]["DashboardScenarioID"];
+                dataset_id?: components["parameters"]["DashboardDatasetID"];
+                dataset_version_id?: components["parameters"]["DashboardVersionID"];
+                evaluator_id?: components["parameters"]["DashboardEvaluatorID"];
+                agent_version?: components["parameters"]["DashboardAgentVersion"];
+                environment?: components["parameters"]["DashboardEnvironment"];
+                from?: components["parameters"]["DashboardFrom"];
+                to?: components["parameters"]["DashboardTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description UTF-8 BOM CSV containing completed evaluation result details. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            422: components["responses"]["Error"];
+        };
+    };
+    exportBadcases: {
+        parameters: {
+            query?: {
+                evaluation_target_id?: components["parameters"]["DashboardTargetID"];
+                scenario_id?: components["parameters"]["DashboardScenarioID"];
+                dataset_id?: components["parameters"]["DashboardDatasetID"];
+                dataset_version_id?: components["parameters"]["DashboardVersionID"];
+                evaluator_id?: components["parameters"]["DashboardEvaluatorID"];
+                agent_version?: components["parameters"]["DashboardAgentVersion"];
+                environment?: components["parameters"]["DashboardEnvironment"];
+                source_type?: components["parameters"]["DashboardSourceType"];
+                badcase_status?: components["parameters"]["DashboardBadcaseStatus"];
+                issue_tag_id?: components["parameters"]["DashboardIssueTagID"];
+                from?: components["parameters"]["DashboardFrom"];
+                to?: components["parameters"]["DashboardTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description UTF-8 BOM CSV containing valid Badcases and authenticated evidence URLs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            422: components["responses"]["Error"];
+        };
+    };
+    exportBadcaseDistribution: {
+        parameters: {
+            query?: {
+                evaluation_target_id?: components["parameters"]["DashboardTargetID"];
+                scenario_id?: components["parameters"]["DashboardScenarioID"];
+                dataset_id?: components["parameters"]["DashboardDatasetID"];
+                dataset_version_id?: components["parameters"]["DashboardVersionID"];
+                evaluator_id?: components["parameters"]["DashboardEvaluatorID"];
+                agent_version?: components["parameters"]["DashboardAgentVersion"];
+                environment?: components["parameters"]["DashboardEnvironment"];
+                source_type?: components["parameters"]["DashboardSourceType"];
+                badcase_status?: components["parameters"]["DashboardBadcaseStatus"];
+                issue_tag_id?: components["parameters"]["DashboardIssueTagID"];
+                from?: components["parameters"]["DashboardFrom"];
+                to?: components["parameters"]["DashboardTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description UTF-8 BOM CSV containing tag, status, and source distributions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            422: components["responses"]["Error"];
         };
     };
 }

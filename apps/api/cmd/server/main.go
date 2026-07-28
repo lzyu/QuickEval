@@ -23,6 +23,7 @@ import (
 	"github.com/lzyu/QuickEval/apps/api/internal/platform/cache"
 	"github.com/lzyu/QuickEval/apps/api/internal/platform/database"
 	"github.com/lzyu/QuickEval/apps/api/internal/platform/logging"
+	"github.com/lzyu/QuickEval/apps/api/internal/reporting"
 	"github.com/lzyu/QuickEval/apps/api/internal/runtimepath"
 	"github.com/lzyu/QuickEval/apps/api/internal/user"
 )
@@ -162,7 +163,8 @@ func run() error {
 			auditRecorder,
 			logger,
 		),
-		Audit: audit.NewHandler(auditRecorder),
+		Reporting: reporting.NewHandler(reporting.NewRepository(mysqlDB)),
+		Audit:     audit.NewHandler(auditRecorder),
 	})
 
 	server := &http.Server{

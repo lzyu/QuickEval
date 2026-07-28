@@ -2,13 +2,14 @@
 import { Plus, Search, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { Badcase, PageData, ResponseEnvelope, Scenario, Tag } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
 const creating = ref(false)
@@ -23,12 +24,14 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const query = reactive({
   page: 1,
   page_size: 20,
-  keyword: '',
-  source_type: '',
-  status: '',
+  keyword: String(route.query.keyword || ''),
+  source_type: String(route.query.source_type || ''),
+  status: String(route.query.status || ''),
   validity: '',
-  scenario_id: '',
-  assignee_id: '',
+  scenario_id: String(route.query.scenario_id || ''),
+  assignee_id: String(route.query.assignee_id || ''),
+  issue_tag_id: String(route.query.issue_tag_id || ''),
+  open: route.query.open === '1' ? '1' : '',
   environment: '',
 })
 const createForm = reactive({
@@ -78,7 +81,13 @@ async function load() {
   try {
     const response = await apiClient.get<ResponseEnvelope<PageData<Badcase>>>(
       '/api/v1/badcases',
-      { params: query },
+      {
+        params: {
+          ...query,
+          assignee_id:
+            query.assignee_id || (route.query.assigned_to_me === '1' ? auth.user?.id : ''),
+        },
+      },
     )
     items.value = response.data.data.items
     total.value = response.data.data.total

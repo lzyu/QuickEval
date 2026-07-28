@@ -15,6 +15,9 @@ tags:
   - name: Evaluations
   - name: Attachments
   - name: Badcases
+  - name: Reporting
+  - name: Search
+  - name: Exports
   - name: Audit
 paths:
   /health/live:
@@ -1195,6 +1198,10 @@ paths:
         - name: status
           in: query
           schema: { $ref: "#/components/schemas/BadcaseStatus" }
+        - name: open
+          in: query
+          description: When set to 1 and status is omitted, returns pending and processing records.
+          schema: { type: string, enum: ["1"] }
         - name: source_type
           in: query
           schema: { type: string, enum: [evaluation, business] }
@@ -1628,6 +1635,150 @@ paths:
             image/webp: { schema: { type: string, format: binary } }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/pages/home:
+    get:
+      tags: [Reporting]
+      operationId: getHomePage
+      responses:
+        "200":
+          description: Current user's personal work summary.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HomePageResponse" }
+  /api/v1/pages/dashboard:
+    get:
+      tags: [Reporting]
+      operationId: getDashboardPage
+      parameters:
+        - $ref: "#/components/parameters/DashboardTargetID"
+        - $ref: "#/components/parameters/DashboardScenarioID"
+        - $ref: "#/components/parameters/DashboardDatasetID"
+        - $ref: "#/components/parameters/DashboardVersionID"
+        - $ref: "#/components/parameters/DashboardEvaluatorID"
+        - $ref: "#/components/parameters/DashboardAgentVersion"
+        - $ref: "#/components/parameters/DashboardEnvironment"
+        - $ref: "#/components/parameters/DashboardSourceType"
+        - $ref: "#/components/parameters/DashboardBadcaseStatus"
+        - $ref: "#/components/parameters/DashboardIssueTagID"
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+      responses:
+        "200":
+          description: Real-time dashboard aggregates for completed evaluations and valid Badcases.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardResponse" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/pages/datasets/{dataset_id}/version-comparison:
+    parameters:
+      - $ref: "#/components/parameters/DatasetID"
+    get:
+      tags: [Reporting]
+      operationId: getDatasetVersionComparison
+      parameters:
+        - $ref: "#/components/parameters/DashboardEvaluatorID"
+        - $ref: "#/components/parameters/DashboardAgentVersion"
+        - $ref: "#/components/parameters/DashboardEnvironment"
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+      responses:
+        "200":
+          description: Completed evaluation results compared by dataset version.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersionComparisonResponse" }
+  /api/v1/search:
+    get:
+      tags: [Search]
+      operationId: globalSearch
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: types
+          in: query
+          schema:
+            type: string
+            description: Comma-separated subset of scenario,dataset,case,badcase.
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paginated quick-location search results.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResponse" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/exports/evaluation-results.csv:
+    get:
+      tags: [Exports]
+      operationId: exportEvaluationResults
+      parameters:
+        - $ref: "#/components/parameters/DashboardTargetID"
+        - $ref: "#/components/parameters/DashboardScenarioID"
+        - $ref: "#/components/parameters/DashboardDatasetID"
+        - $ref: "#/components/parameters/DashboardVersionID"
+        - $ref: "#/components/parameters/DashboardEvaluatorID"
+        - $ref: "#/components/parameters/DashboardAgentVersion"
+        - $ref: "#/components/parameters/DashboardEnvironment"
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+      responses:
+        "200":
+          description: UTF-8 BOM CSV containing completed evaluation result details.
+          content:
+            text/csv:
+              schema: { type: string }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/exports/badcases.csv:
+    get:
+      tags: [Exports]
+      operationId: exportBadcases
+      parameters:
+        - $ref: "#/components/parameters/DashboardTargetID"
+        - $ref: "#/components/parameters/DashboardScenarioID"
+        - $ref: "#/components/parameters/DashboardDatasetID"
+        - $ref: "#/components/parameters/DashboardVersionID"
+        - $ref: "#/components/parameters/DashboardEvaluatorID"
+        - $ref: "#/components/parameters/DashboardAgentVersion"
+        - $ref: "#/components/parameters/DashboardEnvironment"
+        - $ref: "#/components/parameters/DashboardSourceType"
+        - $ref: "#/components/parameters/DashboardBadcaseStatus"
+        - $ref: "#/components/parameters/DashboardIssueTagID"
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+      responses:
+        "200":
+          description: UTF-8 BOM CSV containing valid Badcases and authenticated evidence URLs.
+          content:
+            text/csv:
+              schema: { type: string }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/exports/badcase-distribution.csv:
+    get:
+      tags: [Exports]
+      operationId: exportBadcaseDistribution
+      parameters:
+        - $ref: "#/components/parameters/DashboardTargetID"
+        - $ref: "#/components/parameters/DashboardScenarioID"
+        - $ref: "#/components/parameters/DashboardDatasetID"
+        - $ref: "#/components/parameters/DashboardVersionID"
+        - $ref: "#/components/parameters/DashboardEvaluatorID"
+        - $ref: "#/components/parameters/DashboardAgentVersion"
+        - $ref: "#/components/parameters/DashboardEnvironment"
+        - $ref: "#/components/parameters/DashboardSourceType"
+        - $ref: "#/components/parameters/DashboardBadcaseStatus"
+        - $ref: "#/components/parameters/DashboardIssueTagID"
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+      responses:
+        "200":
+          description: UTF-8 BOM CSV containing tag, status, and source distributions.
+          content:
+            text/csv:
+              schema: { type: string }
+        "422": { $ref: "#/components/responses/Error" }
 components:
   responses:
     Error:
@@ -1645,6 +1796,54 @@ components:
       name: page_size
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    DashboardTargetID:
+      name: evaluation_target_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+    DashboardScenarioID:
+      name: scenario_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+    DashboardDatasetID:
+      name: dataset_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+    DashboardVersionID:
+      name: dataset_version_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+    DashboardEvaluatorID:
+      name: evaluator_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+    DashboardAgentVersion:
+      name: agent_version
+      in: query
+      schema: { type: string }
+    DashboardEnvironment:
+      name: environment
+      in: query
+      schema: { $ref: "#/components/schemas/EvaluationEnvironment" }
+    DashboardSourceType:
+      name: source_type
+      in: query
+      schema: { type: string, enum: [evaluation, business] }
+    DashboardBadcaseStatus:
+      name: badcase_status
+      in: query
+      schema: { $ref: "#/components/schemas/BadcaseStatus" }
+    DashboardIssueTagID:
+      name: issue_tag_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+    DashboardFrom:
+      name: from
+      in: query
+      schema: { $ref: "#/components/schemas/UTCTimestamp" }
+    DashboardTo:
+      name: to
+      in: query
+      schema: { $ref: "#/components/schemas/UTCTimestamp" }
     UserID:
       name: user_id
       in: path
@@ -2929,6 +3128,226 @@ components:
           $ref: "#/components/schemas/Readiness"
         meta:
           $ref: "#/components/schemas/ResponseMeta"
+    HomeMetric:
+      type: object
+      required: [key, label, value, url]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        value: { type: integer, minimum: 0 }
+        url: { type: string }
+    HomeEvaluation:
+      type: object
+      required:
+        [id, dataset_name, version_no, scenario_name, agent_version, environment,
+         completed_count, total_count, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        dataset_name: { type: string }
+        version_no: { type: integer, minimum: 1 }
+        scenario_name: { type: string }
+        agent_version: { type: string }
+        environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        completed_count: { type: integer, minimum: 0 }
+        total_count: { type: integer, minimum: 0 }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    HomeBadcase:
+      type: object
+      required: [id, title, scenario_name, status, source_type, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        title: { type: string }
+        scenario_name: { type: string }
+        status: { $ref: "#/components/schemas/BadcaseStatus" }
+        source_type: { type: string, enum: [evaluation, business] }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    HomeDataset:
+      type: object
+      required:
+        [dataset_id, version_id, dataset_name, scenario_name, evaluation_target_name,
+         version_no, case_count, published_at]
+      properties:
+        dataset_id: { $ref: "#/components/schemas/UUID" }
+        version_id: { $ref: "#/components/schemas/UUID" }
+        dataset_name: { type: string }
+        scenario_name: { type: string }
+        evaluation_target_name: { type: string }
+        version_no: { type: integer, minimum: 1 }
+        case_count: { type: integer, minimum: 0 }
+        published_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    HomeActivity:
+      type: object
+      required: [id, badcase_id, badcase_title, activity_type, actor_name, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        badcase_id: { $ref: "#/components/schemas/UUID" }
+        badcase_title: { type: string }
+        activity_type: { type: string }
+        note: { type: [string, "null"] }
+        actor_name: { type: string }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    HomePageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                [metrics, continue_evaluations, assigned_badcases, recent_datasets, recent_activities]
+              properties:
+                metrics:
+                  type: array
+                  items: { $ref: "#/components/schemas/HomeMetric" }
+                continue_evaluations:
+                  type: array
+                  items: { $ref: "#/components/schemas/HomeEvaluation" }
+                assigned_badcases:
+                  type: array
+                  items: { $ref: "#/components/schemas/HomeBadcase" }
+                recent_datasets:
+                  type: array
+                  items: { $ref: "#/components/schemas/HomeDataset" }
+                recent_activities:
+                  type: array
+                  items: { $ref: "#/components/schemas/HomeActivity" }
+    DashboardMetrics:
+      type: object
+      required:
+        [completed_run_count, evaluated_case_count, scored_case_count,
+         evaluation_badcase_count, valid_badcase_count, skipped_case_count]
+      properties:
+        completed_run_count: { type: integer, minimum: 0 }
+        evaluated_case_count: { type: integer, minimum: 0 }
+        scored_case_count: { type: integer, minimum: 0 }
+        average_score: { type: [number, "null"], minimum: 1, maximum: 5 }
+        evaluation_badcase_count: { type: integer, minimum: 0 }
+        evaluation_badcase_rate: { type: [number, "null"], minimum: 0, maximum: 1 }
+        valid_badcase_count: { type: integer, minimum: 0 }
+        skipped_case_count: { type: integer, minimum: 0 }
+    DistributionItem:
+      type: object
+      required: [key, label, count]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        count: { type: integer, minimum: 0 }
+    VersionComparison:
+      type: object
+      required:
+        [version_id, version_no, completed_run_count, evaluated_case_count,
+         evaluation_badcase_count]
+      properties:
+        version_id: { $ref: "#/components/schemas/UUID" }
+        version_no: { type: integer, minimum: 1 }
+        completed_run_count: { type: integer, minimum: 0 }
+        evaluated_case_count: { type: integer, minimum: 0 }
+        average_score: { type: [number, "null"], minimum: 1, maximum: 5 }
+        evaluation_badcase_count: { type: integer, minimum: 0 }
+        evaluation_badcase_rate: { type: [number, "null"], minimum: 0, maximum: 1 }
+    DashboardOption:
+      type: object
+      required: [id, name]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        name: { type: string }
+        parent_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+    DashboardOptions:
+      type: object
+      required:
+        [evaluation_targets, scenarios, datasets, dataset_versions, evaluators,
+         agent_versions, issue_tags]
+      properties:
+        evaluation_targets:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardOption" }
+        scenarios:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardOption" }
+        datasets:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardOption" }
+        dataset_versions:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardOption" }
+        evaluators:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardOption" }
+        agent_versions:
+          type: array
+          items: { type: string }
+        issue_tags:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardOption" }
+    DashboardResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                [metrics, score_distribution, issue_tag_distribution, status_distribution,
+                 source_distribution, skip_reason_distribution, version_comparison, options]
+              properties:
+                metrics: { $ref: "#/components/schemas/DashboardMetrics" }
+                score_distribution:
+                  type: array
+                  items: { $ref: "#/components/schemas/DistributionItem" }
+                issue_tag_distribution:
+                  type: array
+                  items: { $ref: "#/components/schemas/DistributionItem" }
+                status_distribution:
+                  type: array
+                  items: { $ref: "#/components/schemas/DistributionItem" }
+                source_distribution:
+                  type: array
+                  items: { $ref: "#/components/schemas/DistributionItem" }
+                skip_reason_distribution:
+                  type: array
+                  items: { $ref: "#/components/schemas/DistributionItem" }
+                version_comparison:
+                  type: array
+                  items: { $ref: "#/components/schemas/VersionComparison" }
+                options: { $ref: "#/components/schemas/DashboardOptions" }
+    VersionComparisonResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/VersionComparison" }
+    SearchItem:
+      type: object
+      required: [type, id, title, subtitle, snippet, url]
+      properties:
+        type: { type: string, enum: [scenario, dataset, case, badcase] }
+        id: { $ref: "#/components/schemas/UUID" }
+        title: { type: string }
+        subtitle: { type: string }
+        snippet: { type: string }
+        url: { type: string }
+    SearchResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/SearchItem" }
     FieldError:
       type: object
       required:

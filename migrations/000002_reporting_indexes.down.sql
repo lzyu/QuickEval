@@ -1,0 +1,2 @@
+DROP INDEX idx_evaluation_runs_evaluator_status_updated ON evaluation_runs;
+DROP INDEX idx_badcases_valid_status_time ON badcases;

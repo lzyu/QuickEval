@@ -71,7 +71,7 @@ npm --prefix apps/web run test:e2e
 
 前端 API 类型由 [`openapi/quickeval-v1.yaml`](./openapi/quickeval-v1.yaml) 生成，不要手工修改生成文件。
 
-API 启动后可以运行 M1～M5 的本机真实链路验收：
+API 启动后可以运行 M1～M6 的本机真实链路验收：
 
 ```bash
 QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m1_smoke.sh
@@ -79,6 +79,7 @@ QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m2_smoke.sh
 QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m3_smoke.sh
 QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m4_smoke.sh
 QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m5_smoke.sh
+QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m6_smoke.sh
 ```
 
 M4 验收会使用 `page_refer` 中的 PNG，验证图片真实类型、私有鉴权读取、
@@ -88,5 +89,9 @@ M4 验收会使用 `page_refer` 中的 PNG，验证图片真实类型、私有�
 M5 验收会验证业务 Badcase 的幂等登记、多截图落盘、组合详情聚合、负责人和
 问题标签维护、状态迁移、处理备注幂等、无效化/重新激活、创建人权限以及不可变
 活动时间线。业务截图按 `uploads/badcases/{badcase_id}/attachments` 隔离存放。
+
+M6 验收会创建隔离的 V1/V2 评测样本，核对个人首页、只统计已完成评测的看板口径、
+评分与 Badcase 率分母、有效 Badcase 分布、版本对比、空样本、全局搜索，以及带
+UTF-8 BOM 和鉴权截图地址的三个 CSV 导出。
 
 停止本地开发依赖时执行 `make infra-down`。该命令保留 MySQL 和 Redis 数据卷；如需删除开发数据，应先明确检查目标卷。

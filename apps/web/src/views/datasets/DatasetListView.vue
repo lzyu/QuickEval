@@ -2,7 +2,7 @@
 import { Collection, Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type {
@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const datasets = ref<Dataset[]>([])
 const targets = ref<CatalogItem[]>([])
@@ -23,7 +24,7 @@ const scenarios = ref<Scenario[]>([])
 const createDialog = ref(false)
 const filters = reactive({
   evaluation_target_id: '',
-  scenario_id: '',
+  scenario_id: String(route.query.scenario_id || ''),
   status: '',
   keyword: '',
 })

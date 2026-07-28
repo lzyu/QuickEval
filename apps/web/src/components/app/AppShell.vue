@@ -1,30 +1,39 @@
 <script setup lang="ts">
 import {
   Collection,
+  DataAnalysis,
   HomeFilled,
   List,
   Operation,
   Setting,
+  Search as SearchIcon,
   Tickets,
   User,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
+import type { ResponseEnvelope, SearchItem } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const passwordDialog = ref(false)
+const searchKeyword = ref('')
+const searchLoading = ref(false)
+const searchOpen = ref(false)
+const searchItems = ref<SearchItem[]>([])
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 const passwordForm = reactive({ current_password: '', new_password: '' })
 const navigation = computed(() => [
   { label: '首页', icon: HomeFilled, to: '/', enabled: true },
   { label: '评测集', icon: Collection, to: '/datasets', enabled: true },
   { label: '我的评测', icon: List, to: '/evaluations', enabled: true },
   { label: 'Badcase 中心', icon: Tickets, to: '/badcases', enabled: true },
+  { label: '数据看板', icon: DataAnalysis, to: '/dashboard', enabled: true },
   ...(auth.isAdmin
     ? [
         { label: '基础目录', icon: Operation, to: '/admin/catalog', enabled: true },
@@ -51,6 +60,47 @@ async function changePassword() {
     ElMessage.error(apiErrorMessage(error))
   }
 }
+
+async function search() {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) {
+    searchItems.value = []
+    searchOpen.value = false
+    return
+  }
+  searchLoading.value = true
+  try {
+    const response = await apiClient.get<
+      ResponseEnvelope<{ items: SearchItem[]; total: number }>
+    >('/api/v1/search', {
+      params: { q: keyword, page: 1, page_size: 12 },
+    })
+    searchItems.value = response.data.data.items
+    searchOpen.value = true
+  } catch (error) {
+    ElMessage.error(apiErrorMessage(error))
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function openSearchItem(item: SearchItem) {
+  searchOpen.value = false
+  searchKeyword.value = ''
+  router.push(item.url)
+}
+
+function searchTypeLabel(type: SearchItem['type']) {
+  return { scenario: '场景', dataset: '评测集', case: '用例', badcase: 'Badcase' }[type]
+}
+
+watch(searchKeyword, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(search, 350)
+})
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 </script>
 
 <template>
@@ -79,6 +129,45 @@ async function changePassword() {
     <div class="app-main">
       <header class="app-header">
         <span class="header-title">{{ String(route.meta.title || 'QuickEval') }}</span>
+        <el-popover
+          v-model:visible="searchOpen"
+          placement="bottom-start"
+          :width="520"
+          trigger="click"
+          popper-class="global-search-popover"
+        >
+          <template #reference>
+            <el-input
+              v-model="searchKeyword"
+              class="global-search-input"
+              :prefix-icon="SearchIcon"
+              placeholder="搜索场景、评测集、用例或 Badcase"
+              clearable
+              @keyup.enter="search"
+            />
+          </template>
+          <div v-loading="searchLoading" class="global-search-results">
+            <el-empty
+              v-if="!searchLoading && searchItems.length === 0"
+              :description="searchKeyword.trim() ? '没有匹配结果' : '输入关键词快速定位'"
+              :image-size="60"
+            />
+            <button
+              v-for="item in searchItems"
+              :key="`${item.type}-${item.id}`"
+              class="search-result-row"
+              type="button"
+              @click="openSearchItem(item)"
+            >
+              <el-tag size="small" effect="plain">{{ searchTypeLabel(item.type) }}</el-tag>
+              <div>
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.subtitle }}</span>
+                <p v-if="item.snippet">{{ item.snippet }}</p>
+              </div>
+            </button>
+          </div>
+        </el-popover>
         <el-dropdown>
           <button class="user-menu" type="button">
             <span class="avatar">{{ auth.user?.display_name.slice(0, 1) }}</span>

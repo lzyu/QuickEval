@@ -183,6 +183,7 @@ func (repository Repository) CreateActivity(ctx context.Context, item *Activity)
 
 type Filters struct {
 	Status       string
+	Open         bool
 	SourceType   string
 	Validity     string
 	Environment  string
@@ -215,6 +216,8 @@ func (repository Repository) List(
 	}
 	if filters.Status != "" {
 		query = query.Where("badcases.status = ?", filters.Status)
+	} else if filters.Open {
+		query = query.Where("badcases.status IN ('pending', 'processing')")
 	}
 	if filters.Environment != "" {
 		query = query.Where("badcases.environment = ?", filters.Environment)

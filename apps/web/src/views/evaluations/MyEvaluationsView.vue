@@ -2,7 +2,7 @@
 import { CircleCheck, Clock, CloseBold, Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type {
@@ -14,9 +14,14 @@ import type {
 } from '@/api/types'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const runs = ref<EvaluationRun[]>([])
-const filters = reactive({ keyword: '', status: '', environment: '' })
+const filters = reactive({
+  keyword: String(route.query.keyword || ''),
+  status: String(route.query.status || ''),
+  environment: String(route.query.environment || ''),
+})
 
 const counts = computed(() => ({
   in_progress: runs.value.filter((item) => item.status === 'in_progress').length,

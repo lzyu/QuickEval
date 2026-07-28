@@ -66,6 +66,11 @@ const router = createRouter({
           component: () => import('@/views/badcases/BadcaseDetailView.vue'),
         },
         {
+          path: 'dashboard',
+          name: 'dashboard',
+          component: () => import('@/views/DashboardView.vue'),
+        },
+        {
           path: 'evaluation-runs/:runId/workbench',
           name: 'evaluation-workbench',
           component: () => import('@/views/evaluations/EvaluationWorkbenchView.vue'),

@@ -307,3 +307,102 @@ export interface BadcasePage extends Badcase {
   candidate_issue_tags: Array<{ id: string; name: string }>
   allowed_actions: string[]
 }
+
+export interface HomePageData {
+  metrics: Array<{ key: string; label: string; value: number; url: string }>
+  continue_evaluations: Array<{
+    id: string
+    dataset_name: string
+    version_no: number
+    scenario_name: string
+    agent_version: string
+    environment: string
+    completed_count: number
+    total_count: number
+    updated_at: string
+  }>
+  assigned_badcases: Array<{
+    id: string
+    title: string
+    scenario_name: string
+    status: Badcase['status']
+    source_type: Badcase['source_type']
+    updated_at: string
+  }>
+  recent_datasets: Array<{
+    dataset_id: string
+    version_id: string
+    dataset_name: string
+    scenario_name: string
+    evaluation_target_name: string
+    version_no: number
+    case_count: number
+    published_at: string
+  }>
+  recent_activities: Array<{
+    id: string
+    badcase_id: string
+    badcase_title: string
+    activity_type: string
+    note: string | null
+    actor_name: string
+    created_at: string
+  }>
+}
+
+export interface DistributionItem {
+  key: string
+  label: string
+  count: number
+}
+
+export interface DashboardOption {
+  id: string
+  name: string
+  parent_id?: string
+}
+
+export interface DashboardData {
+  metrics: {
+    completed_run_count: number
+    evaluated_case_count: number
+    scored_case_count: number
+    average_score: number | null
+    evaluation_badcase_count: number
+    evaluation_badcase_rate: number | null
+    valid_badcase_count: number
+    skipped_case_count: number
+  }
+  score_distribution: DistributionItem[]
+  issue_tag_distribution: DistributionItem[]
+  status_distribution: DistributionItem[]
+  source_distribution: DistributionItem[]
+  skip_reason_distribution: DistributionItem[]
+  version_comparison: Array<{
+    version_id: string
+    version_no: number
+    completed_run_count: number
+    evaluated_case_count: number
+    average_score: number | null
+    evaluation_badcase_count: number
+    evaluation_badcase_rate: number | null
+  }>
+  options: {
+    evaluation_targets: DashboardOption[]
+    scenarios: DashboardOption[]
+    datasets: DashboardOption[]
+    dataset_versions: DashboardOption[]
+    evaluators: DashboardOption[]
+    agent_versions: string[]
+    issue_tags: DashboardOption[]
+  }
+}
+
+export interface SearchItem {
+  type: 'scenario' | 'dataset' | 'case' | 'badcase'
+  id: string
+  title: string
+  subtitle: string
+  snippet: string
+  url: string
+}

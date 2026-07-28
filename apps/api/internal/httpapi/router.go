@@ -15,6 +15,7 @@ import (
 	"github.com/lzyu/QuickEval/apps/api/internal/httpapi/middleware"
 	"github.com/lzyu/QuickEval/apps/api/internal/httpapi/requestid"
 	"github.com/lzyu/QuickEval/apps/api/internal/httpapi/response"
+	"github.com/lzyu/QuickEval/apps/api/internal/reporting"
 	"github.com/lzyu/QuickEval/apps/api/internal/user"
 )
 
@@ -29,6 +30,7 @@ type Dependencies struct {
 	Evaluations    evaluation.Handler
 	Attachments    attachment.Handler
 	Badcases       badcase.Handler
+	Reporting      reporting.Handler
 	Audit          audit.Handler
 }
 
@@ -105,6 +107,13 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	protected.GET("/badcases/:badcase_id", dependencies.Badcases.Get)
 	protected.GET("/pages/badcases/:badcase_id", dependencies.Badcases.Page)
 	protected.GET("/attachments/:attachment_id/content", dependencies.Attachments.Content)
+	protected.GET("/pages/home", dependencies.Reporting.Home)
+	protected.GET("/pages/dashboard", dependencies.Reporting.Dashboard)
+	protected.GET("/pages/datasets/:dataset_id/version-comparison", dependencies.Reporting.VersionComparison)
+	protected.GET("/search", dependencies.Reporting.Search)
+	protected.GET("/exports/evaluation-results.csv", dependencies.Reporting.ExportEvaluationResults)
+	protected.GET("/exports/badcases.csv", dependencies.Reporting.ExportBadcases)
+	protected.GET("/exports/badcase-distribution.csv", dependencies.Reporting.ExportBadcaseDistribution)
 
 	adminRead := protected.Group("")
 	adminRead.Use(auth.RequireAdmin())
