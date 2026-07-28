@@ -1202,6 +1202,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evaluation-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCompletedEvaluationResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -2048,9 +2064,42 @@ export interface components {
                 items: components["schemas"]["VersionComparison"][];
             };
         };
+        EvaluationResultDetail: {
+            id: components["schemas"]["UUID"];
+            evaluation_run_id: components["schemas"]["UUID"];
+            evaluation_target_name: string;
+            scenario_name: string;
+            dataset_name: string;
+            version_no: number;
+            evaluator_name: string;
+            agent_version: string;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            /** Format: date-time */
+            completed_at?: string | null;
+            case_name?: string | null;
+            user_prompt: string;
+            /** @enum {string} */
+            result_status: "evaluated" | "skipped";
+            answer_text?: string | null;
+            score?: number | null;
+            comment?: string | null;
+            skip_reason?: string | null;
+            has_badcase: boolean;
+            badcase_id?: components["schemas"]["UUID"] | null;
+            badcase_title?: string | null;
+            case_tags: string;
+            evidence_count: number;
+            result_detail_url: string;
+        };
+        EvaluationResultDetailPageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items: components["schemas"]["EvaluationResultDetail"][];
+                completed_run_count: number;
+            };
+        };
         SearchItem: {
             /** @enum {string} */
-            type: "scenario" | "dataset" | "case" | "badcase";
+            type: "target" | "scenario" | "dataset" | "case" | "evaluation_result" | "badcase";
             id: components["schemas"]["UUID"];
             title: string;
             subtitle: string;
@@ -3757,6 +3806,9 @@ export interface operations {
                 agent_version?: string;
                 evaluation_target_id?: components["schemas"]["UUID"];
                 scenario_id?: components["schemas"]["UUID"];
+                dataset_id?: components["schemas"]["UUID"];
+                dataset_version_id?: components["schemas"]["UUID"];
+                evaluator_id?: components["schemas"]["UUID"];
                 assignee_id?: components["schemas"]["UUID"];
                 issue_tag_id?: components["schemas"]["UUID"];
                 occurred_from?: string;
@@ -4379,6 +4431,46 @@ export interface operations {
                     "application/json": components["schemas"]["VersionComparisonResponse"];
                 };
             };
+        };
+    };
+    listCompletedEvaluationResults: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                evaluation_target_id?: components["parameters"]["DashboardTargetID"];
+                scenario_id?: components["parameters"]["DashboardScenarioID"];
+                dataset_id?: components["parameters"]["DashboardDatasetID"];
+                dataset_version_id?: components["parameters"]["DashboardVersionID"];
+                evaluator_id?: components["parameters"]["DashboardEvaluatorID"];
+                agent_version?: components["parameters"]["DashboardAgentVersion"];
+                environment?: components["parameters"]["DashboardEnvironment"];
+                from?: components["parameters"]["DashboardFrom"];
+                to?: components["parameters"]["DashboardTo"];
+                result_id?: components["schemas"]["UUID"];
+                result_status?: "evaluated" | "skipped";
+                score?: number;
+                skip_reason?: string;
+                has_badcase?: "0" | "1";
+                scored?: "0" | "1";
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated details from completed evaluations for dashboard drill-down. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationResultDetailPageResponse"];
+                };
+            };
+            422: components["responses"]["Error"];
         };
     };
     globalSearch: {

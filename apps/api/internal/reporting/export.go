@@ -3,6 +3,8 @@ package reporting
 import (
 	"context"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type EvaluationExportRow struct {
@@ -15,6 +17,12 @@ type EvaluationExportRow struct {
 	AgentVersion  string     `gorm:"column:agent_version"`
 	Environment   string     `gorm:"column:environment"`
 	CompletedAt   *time.Time `gorm:"column:completed_at"`
+	RunTotalCount int64      `gorm:"column:run_total_count"`
+	RunEvaluated  int64      `gorm:"column:run_evaluated_count"`
+	RunScored     int64      `gorm:"column:run_scored_count"`
+	RunSkipped    int64      `gorm:"column:run_skipped_count"`
+	RunAverage    *float64   `gorm:"column:run_average_score"`
+	RunBadcases   int64      `gorm:"column:run_badcase_count"`
 	ResultID      string     `gorm:"column:result_id"`
 	CaseName      *string    `gorm:"column:case_name"`
 	UserPrompt    string     `gorm:"column:user_prompt"`
@@ -53,17 +61,41 @@ type BadcaseExportRow struct {
 	UpdatedAt                time.Time `gorm:"column:updated_at"`
 }
 
-func (repository Repository) EvaluationExportRows(
+func (repository Repository) evaluationExportQuery(
 	ctx context.Context,
 	filters Filters,
-) ([]EvaluationExportRow, error) {
-	query := repository.applyEvaluationFilters(repository.evaluationBase(ctx), filters).
+) *gorm.DB {
+	return repository.applyEvaluationFilters(repository.evaluationBase(ctx), filters).
 		Joins("JOIN case_results cr ON cr.evaluation_run_id = er.id").
 		Joins("JOIN version_cases vc ON vc.id = cr.version_case_id").
-		Joins("LEFT JOIN badcases b ON b.case_result_id = cr.id AND b.invalidated_at IS NULL").
-		Select(`BIN_TO_UUID(er.id) AS run_id, d.name AS dataset_name, dv.version_no,
+		Joins("LEFT JOIN badcases b ON b.case_result_id = cr.id AND b.invalidated_at IS NULL")
+}
+
+func (repository Repository) EvaluationExportCount(
+	ctx context.Context,
+	filters Filters,
+) (int64, error) {
+	var count int64
+	err := repository.evaluationExportQuery(ctx, filters).Distinct("cr.id").Count(&count).Error
+	return count, err
+}
+
+func (repository Repository) StreamEvaluationExportRows(
+	ctx context.Context,
+	filters Filters,
+	emit func(EvaluationExportRow) error,
+) error {
+	query := repository.evaluationExportQuery(ctx, filters).Select(
+		`BIN_TO_UUID(er.id) AS run_id, d.name AS dataset_name, dv.version_no,
 			t.name AS target_name, s.name AS scenario_name, evaluator.display_name AS evaluator_name,
 			er.agent_version, er.environment, er.completed_at,
+			COUNT(*) OVER (PARTITION BY er.id) AS run_total_count,
+			SUM(cr.status = 'evaluated') OVER (PARTITION BY er.id) AS run_evaluated_count,
+			SUM(cr.status = 'evaluated' AND cr.score IS NOT NULL) OVER (PARTITION BY er.id) AS run_scored_count,
+			SUM(cr.status = 'skipped') OVER (PARTITION BY er.id) AS run_skipped_count,
+			AVG(CASE WHEN cr.status = 'evaluated' AND cr.score IS NOT NULL THEN cr.score END)
+				OVER (PARTITION BY er.id) AS run_average_score,
+			SUM(b.id IS NOT NULL) OVER (PARTITION BY er.id) AS run_badcase_count,
 			BIN_TO_UUID(cr.id) AS result_id, vc.name AS case_name, vc.user_prompt,
 			cr.status AS result_status, cr.answer_text, cr.score, cr.comment, cr.skip_reason,
 			b.id IS NOT NULL AS has_badcase, BIN_TO_UUID(b.id) AS badcase_id, b.title AS badcase_title,
@@ -71,23 +103,50 @@ func (repository Repository) EvaluationExportRows(
 				FROM version_case_tags vct WHERE vct.version_case_id = vc.id), '') AS case_tags,
 			COALESCE((SELECT GROUP_CONCAT(CONCAT('/api/v1/attachments/', BIN_TO_UUID(a.id), '/content')
 				ORDER BY a.sort_order SEPARATOR '；') FROM attachments a
-				WHERE a.case_result_id = cr.id), '') AS evidence_urls`).
-		Order("er.completed_at DESC, er.id, cr.id").Limit(ExportLimit + 1)
-	var rows []EvaluationExportRow
-	if err := query.Scan(&rows).Error; err != nil {
-		return nil, err
+				WHERE a.case_result_id = cr.id), '') AS evidence_urls`,
+	).Order("er.completed_at DESC, er.id, cr.id").Limit(ExportLimit)
+	rows, err := query.Rows()
+	if err != nil {
+		return err
 	}
-	return rows, nil
+	defer rows.Close()
+	for rows.Next() {
+		var item EvaluationExportRow
+		if err := repository.db.ScanRows(rows, &item); err != nil {
+			return err
+		}
+		if err := emit(item); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
-func (repository Repository) BadcaseExportRows(
+func (repository Repository) badcaseExportQuery(
 	ctx context.Context,
 	filters Filters,
-) ([]BadcaseExportRow, error) {
-	query := repository.applyBadcaseFilters(repository.badcaseBase(ctx), filters).
+) *gorm.DB {
+	return repository.applyBadcaseFilters(repository.badcaseBase(ctx), filters).
 		Joins("JOIN users creator ON creator.id = b.created_by").
-		Joins("LEFT JOIN users assignee ON assignee.id = b.assignee_id").
-		Select(`BIN_TO_UUID(b.id) AS id, b.source_type, t.name AS target_name,
+		Joins("LEFT JOIN users assignee ON assignee.id = b.assignee_id")
+}
+
+func (repository Repository) BadcaseExportCount(
+	ctx context.Context,
+	filters Filters,
+) (int64, error) {
+	var count int64
+	err := repository.badcaseExportQuery(ctx, filters).Distinct("b.id").Count(&count).Error
+	return count, err
+}
+
+func (repository Repository) StreamBadcaseExportRows(
+	ctx context.Context,
+	filters Filters,
+	emit func(BadcaseExportRow) error,
+) error {
+	query := repository.badcaseExportQuery(ctx, filters).Select(
+		`BIN_TO_UUID(b.id) AS id, b.source_type, t.name AS target_name,
 			s.name AS scenario_name, b.title, b.description, b.agent_response_text,
 			b.agent_version, b.environment, b.occurred_at, b.status,
 			assignee.display_name AS assignee_name, creator.display_name AS creator_name,
@@ -101,12 +160,22 @@ func (repository Repository) BadcaseExportRows(
 			COALESCE((SELECT GROUP_CONCAT(CONCAT('/api/v1/attachments/', BIN_TO_UUID(a.id), '/content')
 				ORDER BY a.sort_order SEPARATOR '；') FROM attachments a
 				WHERE a.badcase_id = b.id), '') AS supplemental_evidence_urls`).
-		Order("b.occurred_at DESC, b.id").Limit(ExportLimit + 1)
-	var rows []BadcaseExportRow
-	if err := query.Scan(&rows).Error; err != nil {
-		return nil, err
+		Order("b.occurred_at DESC, b.id").Limit(ExportLimit)
+	rows, err := query.Rows()
+	if err != nil {
+		return err
 	}
-	return rows, nil
+	defer rows.Close()
+	for rows.Next() {
+		var item BadcaseExportRow
+		if err := repository.db.ScanRows(rows, &item); err != nil {
+			return err
+		}
+		if err := emit(item); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
 func (repository Repository) DistributionExportRows(

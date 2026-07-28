@@ -124,7 +124,7 @@ onMounted(load)
         <template #header>
           <div class="card-header-actions">
             <strong>分配给我的 Badcase</strong>
-            <el-button text type="primary" @click="router.push('/badcases?assigned_to_me=1')">查看全部</el-button>
+            <el-button text type="primary" @click="router.push('/badcases?assigned_to_me=1&open=1')">查看全部</el-button>
           </div>
         </template>
         <el-empty

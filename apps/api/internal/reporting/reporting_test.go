@@ -1,8 +1,11 @@
 package reporting
 
 import (
+	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestRatioEmptySampleIsNull(t *testing.T) {
@@ -28,11 +31,26 @@ func TestCSVSafeRowPreventsSpreadsheetFormulaExecution(t *testing.T) {
 
 func TestSearchTypesDefaultsAndRejectsUnknown(t *testing.T) {
 	defaults, ok := searchTypes("")
-	if !ok || !reflect.DeepEqual(defaults, []string{"scenario", "dataset", "case", "badcase"}) {
+	expected := []string{
+		"target", "scenario", "dataset", "case", "evaluation_result", "badcase",
+	}
+	if !ok || !reflect.DeepEqual(defaults, expected) {
 		t.Fatalf("unexpected defaults: %#v", defaults)
 	}
 	if _, ok := searchTypes("scenario,unknown"); ok {
 		t.Fatal("unknown search type must be rejected")
+	}
+}
+
+func TestExportRejectsRowsAboveSynchronousLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	if exportSizeValid(ctx, ExportLimit+1) {
+		t.Fatal("oversized export must be rejected")
+	}
+	if recorder.Code != 422 {
+		t.Fatalf("expected 422, got %d", recorder.Code)
 	}
 }
 

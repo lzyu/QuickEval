@@ -955,6 +955,7 @@ test('renders personal home, dashboard metrics, charts, and global search', asyn
   await mockAdminSession(page)
   await mockHome(page)
   const searchBadcaseId = '019fa2a2-ed09-7660-988d-38cb279d5501'
+  const evaluationResultId = '019fa2a2-ed09-7660-988d-38cb279d5502'
   const dashboardData = {
     metrics: {
       completed_run_count: 2,
@@ -994,6 +995,50 @@ test('renders personal home, dashboard metrics, charts, and global search', asyn
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: dashboardData, meta }),
+    })
+  })
+  await page.route('**/api/v1/evaluation-results*', async (route) => {
+    const params = new URL(route.request().url()).searchParams
+    expect(
+      params.get('score') === '4' || params.get('result_status') === 'evaluated',
+    ).toBe(true)
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          items: [{
+            id: evaluationResultId,
+            evaluation_run_id: runId,
+            evaluation_target_name: target.name,
+            scenario_name: scenario.name,
+            dataset_name: dataset.name,
+            version_no: 1,
+            evaluator_name: '系统管理员',
+            agent_version: '2026.07.28',
+            environment: 'production',
+            completed_at: '2026-07-28T02:00:00Z',
+            case_name: '预算约束',
+            user_prompt: '预算 10 万元，推荐采购方案',
+            result_status: 'evaluated',
+            answer_text: '建议采购总价 12 万元的商品',
+            score: 3,
+            comment: '超出预算',
+            skip_reason: null,
+            has_badcase: false,
+            badcase_id: null,
+            badcase_title: null,
+            case_tags: '',
+            evidence_count: 0,
+            result_detail_url: `/evaluation-runs/${runId}/result?result_id=${evaluationResultId}`,
+          }],
+          page: 1,
+          page_size: 20,
+          total: 1,
+          completed_run_count: 1,
+        },
+        meta,
+      }),
     })
   })
   await page.route('**/api/v1/search?*', async (route) => {
@@ -1037,7 +1082,12 @@ test('renders personal home, dashboard metrics, charts, and global search', asyn
   await expect(page.getByText('3.67')).toBeVisible()
   await expect(page.locator('canvas')).toHaveCount(4)
 
-  await page.getByPlaceholder('搜索场景、评测集、用例或 Badcase').fill('预算错误')
+  await page.getByRole('button', { name: /已评用例/ }).click()
+  await expect(page).toHaveURL(/\/evaluation-results\?.*result_status=evaluated/)
+  await expect(page.getByRole('heading', { name: '评测结果明细' })).toBeVisible()
+  await expect(page.getByText('预算 10 万元，推荐采购方案')).toBeVisible()
+
+  await page.getByPlaceholder('搜索对象、场景、用例、回答或 Badcase').fill('预算错误')
   await expect(page.getByText('采购助手忽略预算')).toBeVisible()
   await page.getByText('采购助手忽略预算').click()
   await expect(page).toHaveURL(`/badcases/${searchBadcaseId}`)

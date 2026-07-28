@@ -108,7 +108,8 @@ async function load() {
     }
     results.value = all
     const existing = all.find((item) => item.id === selectedId.value)
-    const initial = existing || all.find((item) => item.status === 'pending') || all[0]
+    const requested = all.find((item) => item.id === String(route.query.result_id || ''))
+    const initial = requested || existing || all.find((item) => item.status === 'pending') || all[0]
     if (initial) applySelected(initial)
     if (route.name === 'evaluation-workbench' && run.value.status === 'completed') {
       await router.replace(`/evaluation-runs/${runId}/result`)

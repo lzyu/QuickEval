@@ -152,7 +152,7 @@ position=0
 for result_id in $(jq -er '.data.results.items[].id' "${smoke_dir}/workbench-v2.json"); do
   score=2
   [[ "${position}" = "1" ]] && score=5
-  jq -n --arg answer "M6 V2 回答 ${position}" --argjson score "${score}" \
+  jq -n --arg answer "M6 V2 回答 ${position} ${timestamp}" --argjson score "${score}" \
     '{status:"evaluated",answer_text:$answer,score:$score,comment:"M6 V2",
       skip_reason:null,expected_lock_version:0}' > "${smoke_dir}/evaluate-v2-${position}.json"
   test "$(request PATCH "/api/v1/case-results/${result_id}" "${member_cookie}" "${member_csrf}" \
@@ -226,6 +226,24 @@ jq -e '.data.version_comparison | length == 2 and
   any(.version_no == 2 and .average_score == 3.5 and .evaluation_badcase_rate == 0)' \
   "${smoke_dir}/comparison.json" >/dev/null
 
+test "$(request GET "/api/v1/evaluation-results?scenario_id=${scenario_id}&score=4&page_size=100" \
+  "${member_cookie}" "" "" "${smoke_dir}/score-details.json")" = "200"
+jq -e --arg run "${run_v1}" --arg result "${v1_result_1}" \
+  '.data.total == 1 and .data.items[0].evaluation_run_id == $run and
+   .data.items[0].id == $result and .data.items[0].score == 4 and
+   (.data.items[0].result_detail_url | contains($result))' \
+  "${smoke_dir}/score-details.json" >/dev/null
+
+test "$(request GET "/api/v1/evaluation-results?scenario_id=${scenario_id}&result_status=skipped&page_size=100" \
+  "${member_cookie}" "" "" "${smoke_dir}/skip-details.json")" = "200"
+jq -e '.data.total == 1 and .data.items[0].result_status == "skipped" and
+  .data.items[0].skip_reason == "当前账号无权限"' "${smoke_dir}/skip-details.json" >/dev/null
+
+test "$(request GET "/api/v1/badcases?dataset_id=${dataset_id}&dataset_version_id=${v1_id}&evaluator_id=${member_id}&issue_tag_id=${tag_id}&page_size=100" \
+  "${member_cookie}" "" "" "${smoke_dir}/drill-badcases.json")" = "200"
+jq -e '.data.total == 1 and .data.items[0].source_type == "evaluation"' \
+  "${smoke_dir}/drill-badcases.json" >/dev/null
+
 test "$(request GET "/api/v1/pages/dashboard?scenario_id=${scenario_id}&from=2099-01-01T00:00:00Z" \
   "${member_cookie}" "" "" "${smoke_dir}/empty-dashboard.json")" = "200"
 jq -e '.data.metrics.completed_run_count == 0 and
@@ -234,11 +252,17 @@ jq -e '.data.metrics.completed_run_count == 0 and
   .data.metrics.evaluation_badcase_rate == null and
   .data.metrics.valid_badcase_count == 0' "${smoke_dir}/empty-dashboard.json" >/dev/null
 
-test "$(request GET "/api/v1/search?q=${timestamp}&types=scenario,dataset,case,badcase&page_size=100" \
+test "$(request GET "/api/v1/search?q=${timestamp}&types=target,scenario,dataset,case,evaluation_result,badcase&page_size=100" \
   "${member_cookie}" "" "" "${smoke_dir}/search.json")" = "200"
 jq -e '[.data.items[].type] |
-  (index("scenario") != null) and (index("dataset") != null) and
-  (index("case") != null) and (index("badcase") != null)' "${smoke_dir}/search.json" >/dev/null
+  (index("target") != null) and (index("scenario") != null) and
+  (index("dataset") != null) and (index("case") != null) and
+  (index("evaluation_result") != null) and (index("badcase") != null)' \
+  "${smoke_dir}/search.json" >/dev/null
+jq -e '.data.items |
+  any(.type == "case" and (.url | startswith("/version-cases/"))) and
+  any(.type == "evaluation_result" and (.url | contains("result_id=")))' \
+  "${smoke_dir}/search.json" >/dev/null
 
 for export in evaluation-results badcases badcase-distribution; do
   test "$(curl -sS -o "${smoke_dir}/${export}.csv" -w "%{http_code}" -b "${member_cookie}" \
@@ -247,9 +271,10 @@ for export in evaluation-results badcases badcase-distribution; do
 done
 test "$(wc -l < "${smoke_dir}/evaluation-results.csv" | tr -d ' ')" = "5"
 test "$(wc -l < "${smoke_dir}/badcases.csv" | tr -d ' ')" = "3"
+head -n 1 "${smoke_dir}/evaluation-results.csv" | grep -q "评测平均分"
 test "$(curl -sS -o "${smoke_dir}/anonymous-export.json" -w "%{http_code}" \
   "${api_base}/api/v1/exports/badcases.csv")" = "401"
 test "$(request GET "/api/v1/pages/dashboard?environment=invalid" \
   "${member_cookie}" "" "" "${smoke_dir}/invalid-filter.json")" = "422"
 
-echo "M6 smoke passed: personal home, completed-only metrics, scoring denominator, valid Badcases, distributions, version comparison, search and private BOM CSV exports"
+echo "M6 smoke passed: personal home, completed-only metrics, exact drill-down, version comparison, answer search and private streamed BOM CSV exports"

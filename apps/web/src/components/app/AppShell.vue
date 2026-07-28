@@ -91,7 +91,14 @@ function openSearchItem(item: SearchItem) {
 }
 
 function searchTypeLabel(type: SearchItem['type']) {
-  return { scenario: '场景', dataset: '评测集', case: '用例', badcase: 'Badcase' }[type]
+  return {
+    target: '评测对象',
+    scenario: '场景',
+    dataset: '评测集',
+    case: '用例',
+    evaluation_result: '评测回答',
+    badcase: 'Badcase',
+  }[type]
 }
 
 watch(searchKeyword, () => {
@@ -141,7 +148,7 @@ onBeforeUnmount(() => {
               v-model="searchKeyword"
               class="global-search-input"
               :prefix-icon="SearchIcon"
-              placeholder="搜索场景、评测集、用例或 Badcase"
+              placeholder="搜索对象、场景、用例、回答或 Badcase"
               clearable
               @keyup.enter="search"
             />

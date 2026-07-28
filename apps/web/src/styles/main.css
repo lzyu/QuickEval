@@ -229,11 +229,25 @@ textarea {
 }
 
 .metric-card,
-.dashboard-metric-grid article {
+.dashboard-metric-grid article,
+.dashboard-metric-grid button {
   padding: 20px;
   border: 1px solid var(--qe-border);
   border-radius: 10px;
   background: #fff;
+}
+
+.dashboard-metric-grid button {
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dashboard-metric-grid button:hover {
+  border-color: #94bdf5;
+  box-shadow: 0 6px 22px rgb(23 105 224 / 8%);
 }
 
 .metric-card-button {
@@ -360,7 +374,8 @@ textarea {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
-.dashboard-metric-grid article {
+.dashboard-metric-grid article,
+.dashboard-metric-grid button {
   min-width: 0;
 }
 
@@ -388,6 +403,72 @@ textarea {
 
 .dashboard-chart.tall {
   height: 350px;
+}
+
+.evaluation-result-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) repeat(3, 170px) auto;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.detail-filter-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f8fc;
+  color: var(--qe-muted);
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.evaluation-result-summary {
+  margin: 0 0 12px;
+  color: var(--qe-muted);
+  font-size: 13px;
+}
+
+.evaluation-result-summary strong {
+  color: #162b4d;
+}
+
+.table-secondary-text {
+  max-width: 560px;
+  margin: 5px 0;
+  overflow: hidden;
+  color: var(--qe-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-inline-note {
+  margin-left: 8px;
+  color: var(--qe-muted);
+}
+
+.case-detail-sections {
+  display: grid;
+  gap: 0;
+  margin-top: 20px;
+}
+
+.case-detail-sections article {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--qe-border);
+}
+
+.case-detail-sections h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.case-detail-sections p {
+  margin: 0;
+  line-height: 1.75;
+  white-space: pre-wrap;
 }
 
 .page-heading {
@@ -1577,6 +1658,10 @@ h1 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .evaluation-result-toolbar {
+    grid-template-columns: minmax(250px, 1fr) repeat(2, 160px);
+  }
+
   .workbench-grid {
     grid-template-columns: 240px minmax(320px, 1fr);
   }
@@ -1594,7 +1679,8 @@ h1 {
 @media (max-width: 860px) {
   .home-work-grid,
   .dashboard-chart-grid,
-  .dashboard-filter-grid {
+  .dashboard-filter-grid,
+  .evaluation-result-toolbar {
     grid-template-columns: 1fr;
   }
 

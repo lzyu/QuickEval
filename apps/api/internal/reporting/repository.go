@@ -98,7 +98,7 @@ func (repository Repository) Home(ctx context.Context, actorID id.UUID) (Home, e
 		Metrics: []HomeMetric{
 			{Key: "in_progress", Label: "我的进行中评测", Value: inProgress, URL: "/evaluations?status=in_progress"},
 			{Key: "completed", Label: "我的已完成评测", Value: completed, URL: "/evaluations?status=completed"},
-			{Key: "assigned_badcases", Label: "分配给我的未关闭 Badcase", Value: assigned, URL: "/badcases?assigned_to_me=1&status=open"},
+			{Key: "assigned_badcases", Label: "分配给我的未关闭 Badcase", Value: assigned, URL: "/badcases?assigned_to_me=1&open=1"},
 		},
 		ContinueRuns:     make([]HomeRunPublic, 0, len(runs)),
 		AssignedBadcases: make([]HomeBadcasePublic, 0, len(badcases)),
@@ -156,6 +156,84 @@ func (repository Repository) Dashboard(ctx context.Context, filters Filters) (Da
 		return Dashboard{}, err
 	}
 	return result, nil
+}
+
+func (repository Repository) EvaluationResults(
+	ctx context.Context,
+	page, pageSize int,
+	filters EvaluationResultFilters,
+) ([]EvaluationResultDetail, int64, int64, error) {
+	buildQuery := func() *gorm.DB {
+		query := repository.applyEvaluationFilters(repository.evaluationBase(ctx), filters.Filters).
+			Joins("JOIN case_results cr ON cr.evaluation_run_id = er.id").
+			Joins("JOIN version_cases vc ON vc.id = cr.version_case_id").
+			Joins("LEFT JOIN badcases b_detail ON b_detail.case_result_id = cr.id AND b_detail.invalidated_at IS NULL")
+		if filters.ResultID != nil {
+			query = query.Where("cr.id = ?", *filters.ResultID)
+		}
+		if filters.ResultStatus != "" {
+			query = query.Where("cr.status = ?", filters.ResultStatus)
+		}
+		if filters.Score != nil {
+			query = query.Where("cr.status = 'evaluated' AND cr.score = ?", *filters.Score)
+		}
+		if filters.SkipReason != "" {
+			query = query.Where("cr.status = 'skipped' AND cr.skip_reason = ?", filters.SkipReason)
+		}
+		if filters.HasBadcase != nil {
+			if *filters.HasBadcase {
+				query = query.Where("b_detail.id IS NOT NULL")
+			} else {
+				query = query.Where("b_detail.id IS NULL")
+			}
+		}
+		if filters.Scored != nil {
+			if *filters.Scored {
+				query = query.Where("cr.status = 'evaluated' AND cr.score IS NOT NULL")
+			} else {
+				query = query.Where("cr.status = 'evaluated' AND cr.score IS NULL")
+			}
+		}
+		if filters.Keyword != "" {
+			value := "%" + escapeLike(filters.Keyword) + "%"
+			query = query.Where(`(vc.name LIKE ? OR vc.user_prompt LIKE ? OR cr.answer_text LIKE ?
+				OR cr.comment LIKE ? OR evaluator.display_name LIKE ?)`, value, value, value, value, value)
+		}
+		return query
+	}
+
+	var total int64
+	if err := buildQuery().Distinct("cr.id").Count(&total).Error; err != nil {
+		return nil, 0, 0, err
+	}
+	var runCount int64
+	if err := buildQuery().Distinct("er.id").Count(&runCount).Error; err != nil {
+		return nil, 0, 0, err
+	}
+	var items []EvaluationResultDetail
+	err := buildQuery().Select(`BIN_TO_UUID(er.id) AS evaluation_run_id, BIN_TO_UUID(cr.id) AS id,
+			t.name AS evaluation_target_name, s.name AS scenario_name, d.name AS dataset_name,
+			dv.version_no, evaluator.display_name AS evaluator_name, er.agent_version,
+			er.environment, er.completed_at, vc.name AS case_name, vc.user_prompt,
+			cr.status AS result_status, cr.answer_text, cr.score, cr.comment, cr.skip_reason,
+			b_detail.id IS NOT NULL AS has_badcase, BIN_TO_UUID(b_detail.id) AS badcase_id,
+			b_detail.title AS badcase_title,
+			COALESCE((SELECT GROUP_CONCAT(vct.tag_name_snapshot ORDER BY vct.tag_name_snapshot SEPARATOR '；')
+				FROM version_case_tags vct WHERE vct.version_case_id = vc.id), '') AS case_tags,
+			(SELECT COUNT(*) FROM attachments a WHERE a.case_result_id = cr.id) AS evidence_count`).
+		Order("er.completed_at DESC, er.id, cr.id").
+		Offset((page - 1) * pageSize).Limit(pageSize).Scan(&items).Error
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if items == nil {
+		items = []EvaluationResultDetail{}
+	}
+	for index := range items {
+		items[index].ResultDetailURL = "/evaluation-runs/" + items[index].RunID +
+			"/result?result_id=" + items[index].ResultID
+	}
+	return items, total, runCount, nil
 }
 
 func (repository Repository) metrics(ctx context.Context, filters Filters) (Metrics, error) {
@@ -517,6 +595,13 @@ func (repository Repository) Search(
 	for _, value := range types {
 		enabled[value] = true
 	}
+	if enabled["target"] {
+		parts = append(parts, `SELECT 'target' AS item_type, t.id AS item_id, NULL AS parent_id,
+			t.name AS title, '评测对象' AS subtitle, COALESCE(t.description, '') AS snippet
+			FROM evaluation_targets t
+			WHERE t.name LIKE ? OR t.description LIKE ?`)
+		args = append(args, like, like)
+	}
 	if enabled["scenario"] {
 		parts = append(parts, `SELECT 'scenario' AS item_type, s.id AS item_id, NULL AS parent_id,
 			s.name AS title, t.name AS subtitle, COALESCE(s.description, '') AS snippet
@@ -556,6 +641,21 @@ func (repository Repository) Search(
 					WHERE ba.badcase_id = b.id AND ba.note LIKE ?)`)
 		args = append(args, like, like, like, like, like, like)
 	}
+	if enabled["evaluation_result"] {
+		parts = append(parts, `SELECT 'evaluation_result' AS item_type, cr.id AS item_id,
+			er.id AS parent_id, COALESCE(vc.name, LEFT(vc.user_prompt, 80)) AS title,
+			CONCAT(d.name, ' V', dv.version_no, ' / ', evaluator.display_name) AS subtitle,
+			cr.answer_text AS snippet
+			FROM case_results cr
+			JOIN evaluation_runs er ON er.id = cr.evaluation_run_id
+			JOIN users evaluator ON evaluator.id = er.evaluator_id
+			JOIN version_cases vc ON vc.id = cr.version_case_id
+			JOIN dataset_versions dv ON dv.id = er.dataset_version_id
+			JOIN datasets d ON d.id = dv.dataset_id
+			WHERE cr.status = 'evaluated' AND cr.answer_text IS NOT NULL
+				AND cr.answer_text LIKE ?`)
+		args = append(args, like)
+	}
 	if len(parts) == 0 {
 		return SearchResult{Items: []SearchItem{}, Page: page, PageSize: pageSize}, nil
 	}
@@ -578,16 +678,21 @@ func (repository Repository) Search(
 	for _, row := range rows {
 		url := ""
 		switch row.Type {
+		case "target":
+			url = "/dashboard?evaluation_target_id=" + row.ID.String()
 		case "scenario":
 			url = "/datasets?scenario_id=" + row.ID.String()
 		case "dataset":
 			url = "/datasets/" + row.ID.String()
 		case "case":
-			if row.ParentID != nil {
-				url = "/datasets/" + row.ParentID.String() + "?case_id=" + row.ID.String()
-			}
+			url = "/version-cases/" + row.ID.String()
 		case "badcase":
 			url = "/badcases/" + row.ID.String()
+		case "evaluation_result":
+			if row.ParentID != nil {
+				url = "/evaluation-runs/" + row.ParentID.String() +
+					"/result?result_id=" + row.ID.String()
+			}
 		}
 		items = append(items, SearchItem{
 			Type: row.Type, ID: row.ID.String(), Title: row.Title,

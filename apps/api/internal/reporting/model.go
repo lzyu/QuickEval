@@ -23,6 +23,17 @@ type Filters struct {
 	To               *time.Time
 }
 
+type EvaluationResultFilters struct {
+	Filters
+	ResultID     *id.UUID
+	ResultStatus string
+	Score        *uint8
+	SkipReason   string
+	HasBadcase   *bool
+	Scored       *bool
+	Keyword      string
+}
+
 type HomeMetric struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
@@ -208,6 +219,32 @@ type Dashboard struct {
 	SkipReasonDistribution []DistributionItem  `json:"skip_reason_distribution"`
 	VersionComparison      []VersionComparison `json:"version_comparison"`
 	Options                DashboardOptions    `json:"options"`
+}
+
+type EvaluationResultDetail struct {
+	RunID           string     `json:"evaluation_run_id" gorm:"column:evaluation_run_id"`
+	ResultID        string     `json:"id" gorm:"column:id"`
+	TargetName      string     `json:"evaluation_target_name" gorm:"column:evaluation_target_name"`
+	ScenarioName    string     `json:"scenario_name" gorm:"column:scenario_name"`
+	DatasetName     string     `json:"dataset_name" gorm:"column:dataset_name"`
+	VersionNo       uint32     `json:"version_no" gorm:"column:version_no"`
+	EvaluatorName   string     `json:"evaluator_name" gorm:"column:evaluator_name"`
+	AgentVersion    string     `json:"agent_version" gorm:"column:agent_version"`
+	Environment     string     `json:"environment" gorm:"column:environment"`
+	CompletedAt     *time.Time `json:"completed_at" gorm:"column:completed_at"`
+	CaseName        *string    `json:"case_name" gorm:"column:case_name"`
+	UserPrompt      string     `json:"user_prompt" gorm:"column:user_prompt"`
+	ResultStatus    string     `json:"result_status" gorm:"column:result_status"`
+	AnswerText      *string    `json:"answer_text" gorm:"column:answer_text"`
+	Score           *uint8     `json:"score" gorm:"column:score"`
+	Comment         *string    `json:"comment" gorm:"column:comment"`
+	SkipReason      *string    `json:"skip_reason" gorm:"column:skip_reason"`
+	HasBadcase      bool       `json:"has_badcase" gorm:"column:has_badcase"`
+	BadcaseID       *string    `json:"badcase_id" gorm:"column:badcase_id"`
+	BadcaseTitle    *string    `json:"badcase_title" gorm:"column:badcase_title"`
+	CaseTags        string     `json:"case_tags" gorm:"column:case_tags"`
+	EvidenceCount   int64      `json:"evidence_count" gorm:"column:evidence_count"`
+	ResultDetailURL string     `json:"result_detail_url" gorm:"-"`
 }
 
 type SearchItem struct {

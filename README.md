@@ -91,7 +91,8 @@ M5 验收会验证业务 Badcase 的幂等登记、多截图落盘、组合详�
 活动时间线。业务截图按 `uploads/badcases/{badcase_id}/attachments` 隔离存放。
 
 M6 验收会创建隔离的 V1/V2 评测样本，核对个人首页、只统计已完成评测的看板口径、
-评分与 Badcase 率分母、有效 Badcase 分布、版本对比、空样本、全局搜索，以及带
-UTF-8 BOM 和鉴权截图地址的三个 CSV 导出。
+评分与 Badcase 率分母、有效 Badcase 分布、版本对比、空样本、评分/跳过/Badcase
+钻取、普通评测回答搜索，以及带 UTF-8 BOM、评测汇总字段和鉴权截图地址的三个
+CSV 导出。
 
 停止本地开发依赖时执行 `make infra-down`。该命令保留 MySQL 和 Redis 数据卷；如需删除开发数据，应先明确检查目标卷。

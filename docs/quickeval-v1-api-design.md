@@ -587,6 +587,7 @@ POST /api/v1/badcases/{badcase_id}/attachments/reorder
 GET /api/v1/pages/home
 GET /api/v1/pages/dashboard
 GET /api/v1/pages/datasets/{dataset_id}/version-comparison
+GET /api/v1/evaluation-results
 ```
 
 首页返回当前用户进行中的评测、分配给自己的 Badcase、最近发布的评测集和近期活动。
@@ -616,13 +617,20 @@ to
 - 无效 Badcase 不进入正式统计。
 - 跳过结果不进入平均分和 Badcase 率分母。
 
+`/evaluation-results` 只返回已完成评测的用例结果，沿用上述评测维度，并额外支持
+`result_status`、`score`、`skip_reason`、`has_badcase`、`scored` 和 `keyword`。
+响应同时返回命中的结果数和去重后的已完成评测次数，用于从指标卡、评分分布、
+跳过原因及版本对比精确核对明细。
+
 ### 11.2 搜索
 
 ```http
-GET /api/v1/search?q={keyword}&types=scenario,dataset,case,badcase&page=1&page_size=20
+GET /api/v1/search?q={keyword}&types=target,scenario,dataset,case,evaluation_result,badcase&page=1&page_size=20
 ```
 
-全局搜索用于顶部快速定位。复杂 Badcase 查询使用 `/badcases` 组合筛选。
+全局搜索用于顶部快速定位评测对象、场景、评测集、用例、普通评测回答和 Badcase。
+用例结果精确跳转到只读快照或对应评测结果；复杂 Badcase 查询使用 `/badcases`
+组合筛选。
 
 ### 11.3 CSV 导出
 

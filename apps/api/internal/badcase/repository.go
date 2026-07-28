@@ -190,6 +190,9 @@ type Filters struct {
 	AgentVersion string
 	TargetID     *id.UUID
 	ScenarioID   *id.UUID
+	DatasetID    *id.UUID
+	VersionID    *id.UUID
+	EvaluatorID  *id.UUID
 	AssigneeID   *id.UUID
 	IssueTagID   *id.UUID
 	OccurredFrom *time.Time
@@ -230,6 +233,15 @@ func (repository Repository) List(
 	}
 	if filters.ScenarioID != nil {
 		query = query.Where("badcases.scenario_id = ?", *filters.ScenarioID)
+	}
+	if filters.DatasetID != nil {
+		query = query.Where("datasets.id = ?", *filters.DatasetID)
+	}
+	if filters.VersionID != nil {
+		query = query.Where("dataset_versions.id = ?", *filters.VersionID)
+	}
+	if filters.EvaluatorID != nil {
+		query = query.Where("evaluation_runs.evaluator_id = ?", *filters.EvaluatorID)
 	}
 	if filters.AssigneeID != nil {
 		query = query.Where("badcases.assignee_id = ?", *filters.AssigneeID)

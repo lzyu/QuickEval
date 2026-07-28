@@ -64,6 +64,18 @@ func (handler Handler) List(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	datasetID, ok := optionalID(ctx, "dataset_id")
+	if !ok {
+		return
+	}
+	versionID, ok := optionalID(ctx, "dataset_version_id")
+	if !ok {
+		return
+	}
+	evaluatorID, ok := optionalID(ctx, "evaluator_id")
+	if !ok {
+		return
+	}
 	assigneeID, ok := optionalID(ctx, "assignee_id")
 	if !ok {
 		return
@@ -83,7 +95,8 @@ func (handler Handler) List(ctx *gin.Context) {
 			Open:     ctx.Query("open") == "1",
 			Validity: ctx.Query("validity"), Environment: ctx.Query("environment"),
 			AgentVersion: ctx.Query("agent_version"), TargetID: targetID,
-			ScenarioID: scenarioID, AssigneeID: assigneeID,
+			ScenarioID: scenarioID, DatasetID: datasetID, VersionID: versionID,
+			EvaluatorID: evaluatorID, AssigneeID: assigneeID,
 			IssueTagID: issueTagID, OccurredFrom: occurredFrom,
 			OccurredTo: occurredTo, Keyword: ctx.Query("keyword"),
 		},

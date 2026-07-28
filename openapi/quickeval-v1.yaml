@@ -1220,6 +1220,15 @@ paths:
         - name: scenario_id
           in: query
           schema: { $ref: "#/components/schemas/UUID" }
+        - name: dataset_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: dataset_version_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: evaluator_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
         - name: assignee_id
           in: query
           schema: { $ref: "#/components/schemas/UUID" }
@@ -1687,6 +1696,50 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VersionComparisonResponse" }
+  /api/v1/evaluation-results:
+    get:
+      tags: [Reporting]
+      operationId: listCompletedEvaluationResults
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/DashboardTargetID"
+        - $ref: "#/components/parameters/DashboardScenarioID"
+        - $ref: "#/components/parameters/DashboardDatasetID"
+        - $ref: "#/components/parameters/DashboardVersionID"
+        - $ref: "#/components/parameters/DashboardEvaluatorID"
+        - $ref: "#/components/parameters/DashboardAgentVersion"
+        - $ref: "#/components/parameters/DashboardEnvironment"
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - name: result_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: result_status
+          in: query
+          schema: { type: string, enum: [evaluated, skipped] }
+        - name: score
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5 }
+        - name: skip_reason
+          in: query
+          schema: { type: string, maxLength: 500 }
+        - name: has_badcase
+          in: query
+          schema: { type: string, enum: ["0", "1"] }
+        - name: scored
+          in: query
+          schema: { type: string, enum: ["0", "1"] }
+        - name: keyword
+          in: query
+          schema: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: Paginated details from completed evaluations for dashboard drill-down.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationResultDetailPageResponse" }
+        "422": { $ref: "#/components/responses/Error" }
   /api/v1/search:
     get:
       tags: [Search]
@@ -1700,7 +1753,7 @@ paths:
           in: query
           schema:
             type: string
-            description: Comma-separated subset of scenario,dataset,case,badcase.
+            description: Comma-separated subset of target,scenario,dataset,case,evaluation_result,badcase.
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PageSize"
       responses:
@@ -3325,11 +3378,61 @@ components:
                 items:
                   type: array
                   items: { $ref: "#/components/schemas/VersionComparison" }
+    EvaluationResultDetail:
+      type: object
+      required:
+        [id, evaluation_run_id, evaluation_target_name, scenario_name, dataset_name,
+         version_no, evaluator_name, agent_version, environment, user_prompt,
+         result_status, has_badcase, case_tags, evidence_count, result_detail_url]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        evaluation_run_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_target_name: { type: string }
+        scenario_name: { type: string }
+        dataset_name: { type: string }
+        version_no: { type: integer, minimum: 1 }
+        evaluator_name: { type: string }
+        agent_version: { type: string }
+        environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        completed_at: { type: [string, "null"], format: date-time }
+        case_name: { type: [string, "null"] }
+        user_prompt: { type: string }
+        result_status: { type: string, enum: [evaluated, skipped] }
+        answer_text: { type: [string, "null"] }
+        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        comment: { type: [string, "null"] }
+        skip_reason: { type: [string, "null"] }
+        has_badcase: { type: boolean }
+        badcase_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        badcase_title: { type: [string, "null"] }
+        case_tags: { type: string }
+        evidence_count: { type: integer, minimum: 0 }
+        result_detail_url: { type: string }
+    EvaluationResultDetailPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  required: [items, completed_run_count]
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/EvaluationResultDetail" }
+                    completed_run_count: { type: integer, minimum: 0 }
     SearchItem:
       type: object
       required: [type, id, title, subtitle, snippet, url]
       properties:
-        type: { type: string, enum: [scenario, dataset, case, badcase] }
+        type:
+          type: string
+          enum: [target, scenario, dataset, case, evaluation_result, badcase]
         id: { $ref: "#/components/schemas/UUID" }
         title: { type: string }
         subtitle: { type: string }

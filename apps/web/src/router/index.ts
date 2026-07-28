@@ -45,6 +45,11 @@ const router = createRouter({
           component: () => import('@/views/datasets/DatasetDetailView.vue'),
         },
         {
+          path: 'version-cases/:caseId',
+          name: 'case-detail',
+          component: () => import('@/views/datasets/CaseDetailView.vue'),
+        },
+        {
           path: 'dataset-versions/:versionId/edit',
           name: 'draft-editor',
           component: () => import('@/views/datasets/DraftEditorView.vue'),
@@ -69,6 +74,11 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
+        },
+        {
+          path: 'evaluation-results',
+          name: 'evaluation-results',
+          component: () => import('@/views/evaluations/EvaluationResultsView.vue'),
         },
         {
           path: 'evaluation-runs/:runId/workbench',

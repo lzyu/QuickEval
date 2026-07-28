@@ -398,8 +398,34 @@ export interface DashboardData {
   }
 }
 
+export interface EvaluationResultDetail {
+  id: string
+  evaluation_run_id: string
+  evaluation_target_name: string
+  scenario_name: string
+  dataset_name: string
+  version_no: number
+  evaluator_name: string
+  agent_version: string
+  environment: string
+  completed_at: string | null
+  case_name: string | null
+  user_prompt: string
+  result_status: 'evaluated' | 'skipped'
+  answer_text: string | null
+  score: number | null
+  comment: string | null
+  skip_reason: string | null
+  has_badcase: boolean
+  badcase_id: string | null
+  badcase_title: string | null
+  case_tags: string
+  evidence_count: number
+  result_detail_url: string
+}
+
 export interface SearchItem {
-  type: 'scenario' | 'dataset' | 'case' | 'badcase'
+  type: 'target' | 'scenario' | 'dataset' | 'case' | 'evaluation_result' | 'badcase'
   id: string
   title: string
   subtitle: string

@@ -110,6 +110,7 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	protected.GET("/pages/home", dependencies.Reporting.Home)
 	protected.GET("/pages/dashboard", dependencies.Reporting.Dashboard)
 	protected.GET("/pages/datasets/:dataset_id/version-comparison", dependencies.Reporting.VersionComparison)
+	protected.GET("/evaluation-results", dependencies.Reporting.EvaluationResults)
 	protected.GET("/search", dependencies.Reporting.Search)
 	protected.GET("/exports/evaluation-results.csv", dependencies.Reporting.ExportEvaluationResults)
 	protected.GET("/exports/badcases.csv", dependencies.Reporting.ExportBadcases)

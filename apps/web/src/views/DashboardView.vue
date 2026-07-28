@@ -51,18 +51,17 @@ const versions = computed(() =>
   ),
 )
 
-function requestParams() {
-  return {
-    ...Object.fromEntries(
-      Object.entries(filters).filter(([key, value]) => key !== 'dateRange' && value),
-    ),
-    ...(filters.dateRange.length === 2
-      ? {
-          from: new Date(`${filters.dateRange[0]}T00:00:00`).toISOString(),
-          to: new Date(`${filters.dateRange[1]}T23:59:59.999`).toISOString(),
-        }
-      : {}),
+function requestParams(): Record<string, string> {
+  const params = Object.fromEntries(
+    Object.entries(filters)
+      .filter(([key, value]) => key !== 'dateRange' && value)
+      .map(([key, value]) => [key, String(value)]),
+  )
+  if (filters.dateRange.length === 2) {
+    params.from = new Date(`${filters.dateRange[0]}T00:00:00`).toISOString()
+    params.to = new Date(`${filters.dateRange[1]}T23:59:59.999`).toISOString()
   }
+  return params
 }
 
 async function load() {
@@ -141,7 +140,11 @@ function renderCharts() {
     if (click) chart.on('click', (event) => click(event.dataIndex))
     charts.push(chart)
   }
-  connect(scoreChart.value, barOption(data.value.score_distribution, '#2563eb'))
+  connect(
+    scoreChart.value,
+    barOption(data.value.score_distribution, '#2563eb'),
+    (index) => drillEvaluation({ score: data.value?.score_distribution[index]?.key }),
+  )
   connect(
     tagChart.value,
     barOption(data.value.issue_tag_distribution.slice(0, 10), '#ef4444', true),
@@ -161,12 +164,19 @@ function renderCharts() {
     },
     (index) => drillBadcase({ status: data.value?.status_distribution[index]?.key }),
   )
-  connect(skipChart.value, barOption(data.value.skip_reason_distribution.slice(0, 8), '#f59e0b', true))
+  connect(
+    skipChart.value,
+    barOption(data.value.skip_reason_distribution.slice(0, 8), '#f59e0b', true),
+    (index) => drillEvaluation({
+      result_status: 'skipped',
+      skip_reason: data.value?.skip_reason_distribution[index]?.key,
+    }),
+  )
   connect(
     versionChart.value,
     {
       tooltip: { trigger: 'axis' },
-      legend: { data: ['平均分', 'Badcase 率'] },
+      legend: { data: ['平均分', 'Badcase 率（%）'] },
       grid: { left: 44, right: 50, top: 42, bottom: 38 },
       xAxis: {
         type: 'category',
@@ -174,7 +184,7 @@ function renderCharts() {
       },
       yAxis: [
         { type: 'value', name: '平均分', min: 0, max: 5 },
-        { type: 'value', name: '比例', min: 0, max: 1, axisLabel: { formatter: '{value}' } },
+        { type: 'value', name: '比例', min: 0, max: 100, axisLabel: { formatter: '{value}%' } },
       ],
       series: [
         {
@@ -184,24 +194,63 @@ function renderCharts() {
           data: data.value.version_comparison.map((item) => item.average_score),
         },
         {
-          name: 'Badcase 率',
+          name: 'Badcase 率（%）',
           type: 'line',
           yAxisIndex: 1,
           connectNulls: false,
-          data: data.value.version_comparison.map((item) => item.evaluation_badcase_rate),
+          data: data.value.version_comparison.map((item) =>
+            item.evaluation_badcase_rate == null ? null : item.evaluation_badcase_rate * 100,
+          ),
         },
       ],
     },
+    (index) => drillEvaluation({
+      dataset_version_id: data.value?.version_comparison[index]?.version_id,
+    }),
   )
 }
 
 function drillBadcase(extra: Record<string, string | undefined>) {
-  const query = {
-    scenario_id: filters.scenario_id || undefined,
-    source_type: filters.source_type || undefined,
+  const dashboard = requestParams()
+  const query: Record<string, string | undefined> = {
+    evaluation_target_id: dashboard.evaluation_target_id,
+    scenario_id: dashboard.scenario_id,
+    dataset_id: dashboard.dataset_id,
+    dataset_version_id: dashboard.dataset_version_id,
+    evaluator_id: dashboard.evaluator_id,
+    agent_version: dashboard.agent_version,
+    environment: dashboard.environment,
+    source_type: dashboard.source_type,
+    status: dashboard.badcase_status,
+    issue_tag_id: dashboard.issue_tag_id,
+    occurred_from: dashboard.from,
+    occurred_to: dashboard.to,
     ...extra,
   }
   router.push({ path: '/badcases', query })
+}
+
+function drillEvaluation(extra: Record<string, string | undefined> = {}) {
+  router.push({
+    path: '/evaluation-results',
+    query: { ...requestParams(), ...extra },
+  })
+}
+
+function drillMetric(metric: 'runs' | 'evaluated' | 'scored' | 'evaluation_badcase' | 'badcase' | 'skipped') {
+  if (metric === 'evaluation_badcase') {
+    drillBadcase({ source_type: 'evaluation' })
+  } else if (metric === 'badcase') {
+    drillBadcase({})
+  } else if (metric === 'evaluated') {
+    drillEvaluation({ result_status: 'evaluated' })
+  } else if (metric === 'scored') {
+    drillEvaluation({ result_status: 'evaluated', scored: '1' })
+  } else if (metric === 'skipped') {
+    drillEvaluation({ result_status: 'skipped' })
+  } else {
+    drillEvaluation()
+  }
 }
 
 function download(path: string) {
@@ -334,12 +383,12 @@ onBeforeUnmount(() => {
 
     <template v-if="data">
       <div class="dashboard-metric-grid">
-        <article><span>已完成评测</span><strong>{{ data.metrics.completed_run_count }}</strong><small>次</small></article>
-        <article><span>已评用例</span><strong>{{ data.metrics.evaluated_case_count }}</strong><small>条</small></article>
-        <article><span>平均分</span><strong>{{ formatAverage(data.metrics.average_score) }}</strong><small>{{ data.metrics.scored_case_count }} 条已评分</small></article>
-        <article><span>评测 Badcase 率</span><strong>{{ formatRate(data.metrics.evaluation_badcase_rate) }}</strong><small>{{ data.metrics.evaluation_badcase_count }} 个</small></article>
-        <article><span>有效 Badcase</span><strong>{{ data.metrics.valid_badcase_count }}</strong><small>评测与业务来源</small></article>
-        <article><span>跳过用例</span><strong>{{ data.metrics.skipped_case_count }}</strong><small>不进入评分分母</small></article>
+        <button type="button" @click="drillMetric('runs')"><span>已完成评测</span><strong>{{ data.metrics.completed_run_count }}</strong><small>次 · 查看明细</small></button>
+        <button type="button" @click="drillMetric('evaluated')"><span>已评用例</span><strong>{{ data.metrics.evaluated_case_count }}</strong><small>条 · 查看明细</small></button>
+        <button type="button" @click="drillMetric('scored')"><span>平均分</span><strong>{{ formatAverage(data.metrics.average_score) }}</strong><small>{{ data.metrics.scored_case_count }} 条已评分</small></button>
+        <button type="button" @click="drillMetric('evaluation_badcase')"><span>评测 Badcase 率</span><strong>{{ formatRate(data.metrics.evaluation_badcase_rate) }}</strong><small>{{ data.metrics.evaluation_badcase_count }} 个 · 查看明细</small></button>
+        <button type="button" @click="drillMetric('badcase')"><span>有效 Badcase</span><strong>{{ data.metrics.valid_badcase_count }}</strong><small>评测与业务来源</small></button>
+        <button type="button" @click="drillMetric('skipped')"><span>跳过用例</span><strong>{{ data.metrics.skipped_case_count }}</strong><small>不进入评分分母</small></button>
       </div>
 
       <div class="dashboard-chart-grid">
