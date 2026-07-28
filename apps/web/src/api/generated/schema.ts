@@ -841,6 +841,22 @@ export interface paths {
         };
         get: operations["listBadcases"];
         put?: never;
+        post: operations["createBusinessBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcase-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBadcaseOptions"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -863,7 +879,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["updateBusinessBadcase"];
         trace?: never;
     };
     "/api/v1/pages/badcases/{badcase_id}": {
@@ -878,6 +894,186 @@ export interface paths {
         get: operations["getBadcasePage"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/issue-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateBadcaseIssueTags"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["assignBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unassignBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/start-processing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startProcessingBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolveBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/defer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deferBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reopenBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/add-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addBadcaseNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/invalidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["invalidateBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reactivateBadcase"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1291,6 +1487,47 @@ export interface components {
                 issue_tag_ids: components["schemas"]["UUID"][];
             };
         };
+        /** @enum {string} */
+        BadcaseStatus: "pending" | "processing" | "resolved" | "deferred";
+        CreateBusinessBadcaseRequest: {
+            scenario_id: components["schemas"]["UUID"];
+            title: string;
+            description?: string | null;
+            agent_response_text?: string | null;
+            agent_version?: string | null;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            occurred_at: components["schemas"]["UTCTimestamp"];
+            business_reference?: string | null;
+            session_id?: string | null;
+            issue_tag_ids: components["schemas"]["UUID"][];
+        };
+        UpdateBusinessBadcaseRequest: {
+            title: string;
+            description?: string | null;
+            agent_response_text?: string | null;
+            agent_version?: string | null;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            occurred_at: components["schemas"]["UTCTimestamp"];
+            business_reference?: string | null;
+            session_id?: string | null;
+            expected_lock_version: number;
+        };
+        UpdateBadcaseIssueTagsRequest: {
+            issue_tag_ids: components["schemas"]["UUID"][];
+            expected_lock_version: number;
+        };
+        BadcaseLockRequest: {
+            expected_lock_version: number;
+        };
+        AssignBadcaseRequest: components["schemas"]["BadcaseLockRequest"] & {
+            assignee_id: components["schemas"]["UUID"];
+        };
+        BadcaseReasonRequest: components["schemas"]["BadcaseLockRequest"] & {
+            reason: string;
+        };
+        AddBadcaseNoteRequest: components["schemas"]["BadcaseLockRequest"] & {
+            note: string;
+        };
         ReorderAttachmentsRequest: {
             expected_owner_lock_version: number;
             items: {
@@ -1390,10 +1627,16 @@ export interface components {
         BadcaseActivity: {
             id: components["schemas"]["UUID"];
             /** @enum {string} */
-            activity_type: "created" | "reactivated";
+            activity_type: "created" | "status_changed" | "assignee_changed" | "note_added" | "invalidated" | "reactivated";
             note?: string | null;
             actor_id: components["schemas"]["UUID"];
             actor_name: string;
+            from_status?: components["schemas"]["BadcaseStatus"] | null;
+            to_status?: components["schemas"]["BadcaseStatus"] | null;
+            from_assignee_id?: components["schemas"]["UUID"] | null;
+            from_assignee_name?: string | null;
+            to_assignee_id?: components["schemas"]["UUID"] | null;
+            to_assignee_name?: string | null;
             created_at: components["schemas"]["UTCTimestamp"];
         };
         BadcaseEvaluationContext: {
@@ -1425,7 +1668,18 @@ export interface components {
             agent_version?: string | null;
             environment: components["schemas"]["EvaluationEnvironment"];
             occurred_at: components["schemas"]["UTCTimestamp"];
-            status: string;
+            status: components["schemas"]["BadcaseStatus"];
+            assignee_id?: components["schemas"]["UUID"] | null;
+            assignee_name?: string | null;
+            /** Format: date-time */
+            resolved_at?: string | null;
+            business_reference?: string | null;
+            session_id?: string | null;
+            /** Format: date-time */
+            invalidated_at?: string | null;
+            invalidated_by?: components["schemas"]["UUID"] | null;
+            invalidator_name?: string | null;
+            invalid_reason?: string | null;
             lock_version: number;
             created_by: components["schemas"]["UUID"];
             creator_name: string;
@@ -1433,11 +1687,31 @@ export interface components {
             updated_at: components["schemas"]["UTCTimestamp"];
             issue_tags: components["schemas"]["CaseTagSnapshot"][];
             evaluation?: components["schemas"]["BadcaseEvaluationContext"] | null;
+            /** @description Immutable evidence inherited from an evaluation case result. */
+            original_attachments: components["schemas"]["Attachment"][];
+            /** @description Supplemental evidence uploaded directly to the Badcase. */
             attachments: components["schemas"]["Attachment"][];
             activities: components["schemas"]["BadcaseActivity"][];
         };
         BadcaseResponse: components["schemas"]["ResponseEnvelope"] & {
             data?: components["schemas"]["Badcase"];
+        };
+        BadcaseUserOption: {
+            id: components["schemas"]["UUID"];
+            display_name: string;
+        };
+        BadcaseOptionsResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                assignees: components["schemas"]["BadcaseUserOption"][];
+                issue_tags: components["schemas"]["CaseTagSnapshot"][];
+            };
+        };
+        BadcaseDetailPageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["Badcase"] & {
+                candidate_assignees: components["schemas"]["BadcaseUserOption"][];
+                candidate_issue_tags: components["schemas"]["CaseTagSnapshot"][];
+                allowed_actions: ("edit" | "invalidate" | "reactivate" | "assign" | "unassign" | "update_tags" | "add_note" | "add_attachment" | "start_processing" | "resolve" | "defer" | "reopen")[];
+            };
         };
         BadcasePageResponse: components["schemas"]["ResponseEnvelope"] & {
             data?: components["schemas"]["PageBase"] & {
@@ -3225,9 +3499,17 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
-                status?: string;
+                status?: components["schemas"]["BadcaseStatus"];
+                source_type?: "evaluation" | "business";
+                validity?: "valid" | "invalid" | "all";
+                environment?: components["schemas"]["EvaluationEnvironment"];
+                agent_version?: string;
+                evaluation_target_id?: components["schemas"]["UUID"];
                 scenario_id?: components["schemas"]["UUID"];
+                assignee_id?: components["schemas"]["UUID"];
                 issue_tag_id?: components["schemas"]["UUID"];
+                occurred_from?: string;
+                occurred_to?: string;
                 keyword?: string;
             };
             header?: never;
@@ -3236,13 +3518,61 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Active evaluation Badcases. */
+            /** @description Filtered evaluation and business Badcases. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["BadcasePageResponse"];
+                };
+            };
+        };
+    };
+    createBusinessBadcase: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBusinessBadcaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Business Badcase created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getBadcaseOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active assignees and issue tags available to Badcase forms. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseOptionsResponse"];
                 };
             };
         };
@@ -3270,6 +3600,35 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    updateBusinessBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBusinessBadcaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Original business Badcase fields updated by its creator or an admin. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
     getBadcasePage: {
         parameters: {
             query?: never;
@@ -3287,10 +3646,293 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BadcaseResponse"];
+                    "application/json": components["schemas"]["BadcaseDetailPageResponse"];
                 };
             };
             404: components["responses"]["Error"];
+        };
+    };
+    updateBadcaseIssueTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBadcaseIssueTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Issue tags replaced. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    assignBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignBadcaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Assignee changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    unassignBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseLockRequest"];
+            };
+        };
+        responses: {
+            /** @description Assignee removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    startProcessingBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Badcase moved to processing. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    resolveBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Badcase resolved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    deferBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Badcase deferred. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    reopenBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Resolved or deferred Badcase reopened as pending. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    addBadcaseNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddBadcaseNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Processing note appended idempotently. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    invalidateBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Badcase invalidated by its creator or an admin. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    reactivateBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadcaseReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Invalid Badcase reactivated by its creator or an admin. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     uploadBadcaseAttachments: {

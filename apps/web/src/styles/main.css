@@ -1102,7 +1102,7 @@ h1 {
 
 .badcase-filter-bar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 170px 170px 140px auto;
+  grid-template-columns: minmax(250px, 1.4fr) repeat(5, minmax(120px, 0.7fr)) auto;
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -1157,6 +1157,103 @@ h1 {
 .badcase-detail-grid main {
   display: grid;
   gap: 18px;
+}
+
+.drawer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.business-upload-box {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 20px;
+  border: 1px dashed var(--qe-border);
+  border-radius: 8px;
+  color: var(--qe-muted);
+  background: #fafcff;
+  cursor: pointer;
+}
+
+.business-upload-box:hover {
+  border-color: var(--qe-primary);
+  color: var(--qe-primary);
+}
+
+.business-upload-box small {
+  font-size: 12px;
+}
+
+.pending-file-list {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.pending-file-list .el-tag {
+  margin: 0 7px 7px 0;
+}
+
+.card-header-actions,
+.inline-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.inline-control .el-select {
+  flex: 1;
+}
+
+.badcase-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.workflow-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workflow-buttons .el-button {
+  width: 100%;
+  margin: 0;
+}
+
+.full-control-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.note-composer {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--qe-border);
+}
+
+.detail-evidence-card {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--qe-border);
+  border-radius: 8px;
+}
+
+.detail-evidence-card > span {
+  display: block;
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--qe-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .badcase-detail-grid h3 {

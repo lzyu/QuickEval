@@ -3,6 +3,7 @@ package badcase
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/lzyu/QuickEval/apps/api/internal/attachment"
 	"github.com/lzyu/QuickEval/apps/api/internal/dataset"
@@ -181,10 +182,18 @@ func (repository Repository) CreateActivity(ctx context.Context, item *Activity)
 }
 
 type Filters struct {
-	Status     string
-	ScenarioID *id.UUID
-	IssueTagID *id.UUID
-	Keyword    string
+	Status       string
+	SourceType   string
+	Validity     string
+	Environment  string
+	AgentVersion string
+	TargetID     *id.UUID
+	ScenarioID   *id.UUID
+	AssigneeID   *id.UUID
+	IssueTagID   *id.UUID
+	OccurredFrom *time.Time
+	OccurredTo   *time.Time
+	Keyword      string
 }
 
 func (repository Repository) List(
@@ -193,12 +202,34 @@ func (repository Repository) List(
 	filters Filters,
 ) ([]Badcase, int64, error) {
 	query := repository.baseQuery(repository.db.WithContext(ctx)).
-		Where("badcases.source_type = 'evaluation' AND badcases.invalidated_at IS NULL")
+		Where("1 = 1")
+	switch filters.Validity {
+	case "invalid":
+		query = query.Where("badcases.invalidated_at IS NOT NULL")
+	case "all":
+	default:
+		query = query.Where("badcases.invalidated_at IS NULL")
+	}
+	if filters.SourceType != "" {
+		query = query.Where("badcases.source_type = ?", filters.SourceType)
+	}
 	if filters.Status != "" {
 		query = query.Where("badcases.status = ?", filters.Status)
 	}
+	if filters.Environment != "" {
+		query = query.Where("badcases.environment = ?", filters.Environment)
+	}
+	if filters.AgentVersion != "" {
+		query = query.Where("badcases.agent_version = ?", filters.AgentVersion)
+	}
+	if filters.TargetID != nil {
+		query = query.Where("evaluation_targets.id = ?", *filters.TargetID)
+	}
 	if filters.ScenarioID != nil {
 		query = query.Where("badcases.scenario_id = ?", *filters.ScenarioID)
+	}
+	if filters.AssigneeID != nil {
+		query = query.Where("badcases.assignee_id = ?", *filters.AssigneeID)
 	}
 	if filters.IssueTagID != nil {
 		query = query.Where(`EXISTS (
@@ -206,6 +237,12 @@ func (repository Repository) List(
 			WHERE badcase_issue_tags.badcase_id = badcases.id
 			AND badcase_issue_tags.issue_tag_id = ?
 		)`, *filters.IssueTagID)
+	}
+	if filters.OccurredFrom != nil {
+		query = query.Where("badcases.occurred_at >= ?", *filters.OccurredFrom)
+	}
+	if filters.OccurredTo != nil {
+		query = query.Where("badcases.occurred_at <= ?", *filters.OccurredTo)
 	}
 	if filters.Keyword != "" {
 		value := "%" + filters.Keyword + "%"
@@ -250,6 +287,8 @@ func (repository Repository) baseQuery(db *gorm.DB) *gorm.DB {
 		Joins("JOIN scenarios ON scenarios.id = badcases.scenario_id").
 		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
 		Joins("JOIN users creator ON creator.id = badcases.created_by").
+		Joins("LEFT JOIN users assignee ON assignee.id = badcases.assignee_id").
+		Joins("LEFT JOIN users invalidator ON invalidator.id = badcases.invalidated_by").
 		Joins("LEFT JOIN case_results ON case_results.id = badcases.case_result_id").
 		Joins("LEFT JOIN evaluation_runs ON evaluation_runs.id = case_results.evaluation_run_id").
 		Joins("LEFT JOIN users evaluator ON evaluator.id = evaluation_runs.evaluator_id").
@@ -263,6 +302,8 @@ func (repository Repository) selectFields() string {
 		evaluation_targets.id AS evaluation_target_id,
 		evaluation_targets.name AS evaluation_target_name,
 		creator.display_name AS creator_name,
+		assignee.display_name AS assignee_name,
+		invalidator.display_name AS invalidator_name,
 		evaluation_runs.id AS evaluation_run_id,
 		evaluation_runs.evaluator_id, evaluator.display_name AS evaluator_name,
 		datasets.id AS dataset_id, datasets.name AS dataset_name,
@@ -286,6 +327,7 @@ func (repository Repository) loadDetails(
 		ids = append(ids, items[position].ID)
 		badcaseIndex[items[position].ID] = position
 		items[position].IssueTags = []dataset.CaseTag{}
+		items[position].OriginalAttachments = []attachment.Public{}
 		items[position].Attachments = []attachment.Public{}
 		items[position].Activities = []ActivityPublic{}
 		if items[position].CaseResultID != nil {
@@ -322,31 +364,213 @@ func (repository Repository) loadDetails(
 		}
 		for _, item := range attachments {
 			position := resultIndex[*item.CaseResultID]
-			items[position].Attachments = append(items[position].Attachments, item.Public())
+			items[position].OriginalAttachments = append(
+				items[position].OriginalAttachments, item.Public(),
+			)
 		}
+	}
+	var badcaseAttachments []attachment.Attachment
+	if err := repository.db.WithContext(ctx).Where("badcase_id IN ?", ids).
+		Order("sort_order ASC, created_at ASC, id ASC").Find(&badcaseAttachments).Error; err != nil {
+		return err
+	}
+	for _, item := range badcaseAttachments {
+		position := badcaseIndex[*item.BadcaseID]
+		items[position].Attachments = append(items[position].Attachments, item.Public())
 	}
 	if !includeActivities {
 		return nil
 	}
 	var activities []struct {
 		Activity
-		ActorName string
+		ActorName        string
+		FromAssigneeName *string
+		ToAssigneeName   *string
 	}
 	if err := repository.db.WithContext(ctx).Table("badcase_activities").
-		Select("badcase_activities.*, users.display_name AS actor_name").
-		Joins("JOIN users ON users.id = badcase_activities.actor_id").
+		Select(`badcase_activities.*, actor.display_name AS actor_name,
+			from_assignee.display_name AS from_assignee_name,
+			to_assignee.display_name AS to_assignee_name`).
+		Joins("JOIN users actor ON actor.id = badcase_activities.actor_id").
+		Joins("LEFT JOIN users from_assignee ON from_assignee.id = badcase_activities.from_assignee_id").
+		Joins("LEFT JOIN users to_assignee ON to_assignee.id = badcase_activities.to_assignee_id").
 		Where("badcase_id IN ?", ids).
 		Order("created_at ASC, id ASC").Scan(&activities).Error; err != nil {
 		return err
 	}
 	for _, item := range activities {
 		position := badcaseIndex[item.BadcaseID]
+		var fromID, toID *string
+		if item.FromAssigneeID != nil {
+			value := item.FromAssigneeID.String()
+			fromID = &value
+		}
+		if item.ToAssigneeID != nil {
+			value := item.ToAssigneeID.String()
+			toID = &value
+		}
 		items[position].Activities = append(items[position].Activities, ActivityPublic{
 			ID: item.ID.String(), Type: item.Type, Note: item.Note,
 			ActorID: item.ActorID.String(), ActorName: item.ActorName, CreatedAt: item.CreatedAt,
+			FromStatus: item.FromStatus, ToStatus: item.ToStatus,
+			FromAssigneeID: fromID, FromAssigneeName: item.FromAssigneeName,
+			ToAssigneeID: toID, ToAssigneeName: item.ToAssigneeName,
 		})
 	}
 	return nil
+}
+
+func (repository Repository) LockBadcase(ctx context.Context, badcaseID id.UUID) (Badcase, error) {
+	var item Badcase
+	err := repository.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", badcaseID).Take(&item).Error
+	return item, err
+}
+
+func (repository Repository) ScenarioActive(ctx context.Context, scenarioID id.UUID) (bool, error) {
+	var count int64
+	err := repository.db.WithContext(ctx).Table("scenarios").
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
+		Where("scenarios.id = ? AND scenarios.status = 'active' AND evaluation_targets.status = 'active'",
+			scenarioID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (repository Repository) UserActive(ctx context.Context, userID id.UUID) (bool, error) {
+	var count int64
+	err := repository.db.WithContext(ctx).Table("users").
+		Where("id = ? AND status = 'active'", userID).Count(&count).Error
+	return count > 0, err
+}
+
+func (repository Repository) ActiveUsers(ctx context.Context) ([]UserOption, error) {
+	var rows []struct {
+		ID          id.UUID
+		DisplayName string
+	}
+	err := repository.db.WithContext(ctx).Table("users").
+		Select("id, display_name").Where("status = 'active'").
+		Order("display_name ASC, id ASC").Scan(&rows).Error
+	items := make([]UserOption, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, UserOption{ID: row.ID.String(), DisplayName: row.DisplayName})
+	}
+	return items, err
+}
+
+func (repository Repository) ActiveIssueTagOptions(ctx context.Context) ([]dataset.CaseTag, error) {
+	var rows []struct {
+		ID   id.UUID
+		Name string
+	}
+	err := repository.db.WithContext(ctx).Table("issue_tags").
+		Select("id, name").Where("status = 'active'").
+		Order("sort_order ASC, name ASC").Scan(&rows).Error
+	items := make([]dataset.CaseTag, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dataset.CaseTag{ID: row.ID.String(), Name: row.Name})
+	}
+	return items, err
+}
+
+func (repository Repository) UpdateBusiness(
+	ctx context.Context,
+	item Badcase,
+	actorID id.UUID,
+	input BusinessInput,
+) error {
+	result := repository.db.WithContext(ctx).Table("badcases").
+		Where("id = ? AND lock_version = ?", item.ID, input.ExpectedLockVersion).
+		Updates(map[string]any{
+			"title": input.Title, "description": input.Description,
+			"agent_response_text": input.AgentResponseText,
+			"agent_version":       input.AgentVersion, "environment": input.Environment,
+			"occurred_at": input.OccurredAt, "business_reference": input.BusinessReference,
+			"session_id": input.SessionID, "updated_by": actorID,
+			"lock_version": gorm.Expr("lock_version + 1"),
+		})
+	return affected(result)
+}
+
+func (repository Repository) BumpBadcase(
+	ctx context.Context,
+	badcaseID, actorID id.UUID,
+	expectedVersion uint32,
+) error {
+	result := repository.db.WithContext(ctx).Table("badcases").
+		Where("id = ? AND lock_version = ?", badcaseID, expectedVersion).
+		Updates(map[string]any{
+			"updated_by": actorID, "lock_version": gorm.Expr("lock_version + 1"),
+		})
+	return affected(result)
+}
+
+func (repository Repository) UpdateAssignee(
+	ctx context.Context,
+	item Badcase,
+	actorID id.UUID,
+	assigneeID *id.UUID,
+	expectedVersion uint32,
+) error {
+	result := repository.db.WithContext(ctx).Table("badcases").
+		Where("id = ? AND lock_version = ?", item.ID, expectedVersion).
+		Updates(map[string]any{
+			"assignee_id": assigneeID, "updated_by": actorID,
+			"lock_version": gorm.Expr("lock_version + 1"),
+		})
+	return affected(result)
+}
+
+func (repository Repository) UpdateStatus(
+	ctx context.Context,
+	item Badcase,
+	actorID id.UUID,
+	status string,
+	expectedVersion uint32,
+) error {
+	values := map[string]any{
+		"status": status, "updated_by": actorID,
+		"resolved_at": nil, "lock_version": gorm.Expr("lock_version + 1"),
+	}
+	if status == "resolved" {
+		values["resolved_at"] = gorm.Expr("UTC_TIMESTAMP(3)")
+	}
+	result := repository.db.WithContext(ctx).Table("badcases").
+		Where("id = ? AND lock_version = ?", item.ID, expectedVersion).Updates(values)
+	return affected(result)
+}
+
+func (repository Repository) Invalidate(
+	ctx context.Context,
+	item Badcase,
+	actorID id.UUID,
+	reason string,
+	expectedVersion uint32,
+) error {
+	result := repository.db.WithContext(ctx).Table("badcases").
+		Where("id = ? AND lock_version = ?", item.ID, expectedVersion).
+		Updates(map[string]any{
+			"invalidated_at": gorm.Expr("UTC_TIMESTAMP(3)"), "invalidated_by": actorID,
+			"invalid_reason": reason, "updated_by": actorID,
+			"lock_version": gorm.Expr("lock_version + 1"),
+		})
+	return affected(result)
+}
+
+func (repository Repository) Reactivate(
+	ctx context.Context,
+	item Badcase,
+	actorID id.UUID,
+	expectedVersion uint32,
+) error {
+	result := repository.db.WithContext(ctx).Table("badcases").
+		Where("id = ? AND lock_version = ?", item.ID, expectedVersion).
+		Updates(map[string]any{
+			"invalidated_at": nil, "invalidated_by": nil, "invalid_reason": nil,
+			"updated_by": actorID, "lock_version": gorm.Expr("lock_version + 1"),
+		})
+	return affected(result)
 }
 
 func affected(result *gorm.DB) error {

@@ -150,8 +150,15 @@ func (service Service) Delete(
 			if err := authorizeWrite(owner, actorID, admin); err != nil {
 				return err
 			}
-		} else if !admin && actorID != item.CreatedBy && actorID != owner.CreatedBy {
-			return apperror.Forbidden()
+		} else {
+			if owner.Invalidated {
+				return apperror.Conflict(
+					"BADCASE_INVALIDATED", "无效 Badcase 不能修改截图",
+				)
+			}
+			if !admin && actorID != item.CreatedBy && actorID != owner.CreatedBy {
+				return apperror.Forbidden()
+			}
 		}
 		if owner.LockVersion != expectedVersion {
 			return mapWriteError(ErrLockConflict)

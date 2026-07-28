@@ -253,7 +253,16 @@ export interface Badcase {
   agent_version: string | null
   environment: EvaluationEnvironment
   occurred_at: string
-  status: string
+  business_reference: string | null
+  session_id: string | null
+  status: 'pending' | 'processing' | 'resolved' | 'deferred'
+  assignee_id: string | null
+  assignee_name: string | null
+  resolved_at: string | null
+  invalidated_at: string | null
+  invalidated_by: string | null
+  invalidator_name: string | null
+  invalid_reason: string | null
   lock_version: number
   created_by: string
   creator_name: string
@@ -275,6 +284,7 @@ export interface Badcase {
     score: number | null
     comment: string | null
   } | null
+  original_attachments: Attachment[]
   attachments: Attachment[]
   activities: Array<{
     id: string
@@ -282,6 +292,18 @@ export interface Badcase {
     note: string | null
     actor_id: string
     actor_name: string
+    from_status: string | null
+    to_status: string | null
+    from_assignee_id: string | null
+    from_assignee_name: string | null
+    to_assignee_id: string | null
+    to_assignee_name: string | null
     created_at: string
   }>
+}
+
+export interface BadcasePage extends Badcase {
+  candidate_assignees: Array<{ id: string; display_name: string }>
+  candidate_issue_tags: Array<{ id: string; name: string }>
+  allowed_actions: string[]
 }

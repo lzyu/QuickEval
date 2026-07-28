@@ -3,6 +3,7 @@ package attachment
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/lzyu/QuickEval/apps/api/internal/id"
 	"gorm.io/gorm"
@@ -56,7 +57,7 @@ func (repository Repository) LockBadcaseOwner(ctx context.Context, badcaseID id.
 		LockVersion   uint32
 		Status        string
 		CreatedBy     id.UUID
-		InvalidatedAt any
+		InvalidatedAt *time.Time
 	}
 	err := repository.db.WithContext(ctx).Table("badcases").
 		Select("id, lock_version, status, created_by, invalidated_at").

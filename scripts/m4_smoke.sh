@@ -184,7 +184,9 @@ jq -e --arg id "${badcase_id}" '.data.items | any(.id == $id)' "${smoke_dir}/bad
 test "$(request GET "/api/v1/pages/badcases/${badcase_id}" "${member_a_cookie}" "" "" \
   "${smoke_dir}/badcase-detail.json")" = "200"
 jq -e --arg result "${result_id}" \
-  '.data.evaluation.case_result_id == $result and (.data.attachments | length) == 1 and
+  '.data.evaluation.case_result_id == $result and
+   (.data.original_attachments | length) == 1 and
+   (.data.attachments | length) == 0 and
    (.data.activities | length) == 1' "${smoke_dir}/badcase-detail.json" >/dev/null
 
 test "$(request GET "/api/v1/attachments/${attachment_id}/content" \

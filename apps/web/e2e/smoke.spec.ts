@@ -719,3 +719,212 @@ test('uploads screenshot evidence and marks the same result as a Badcase', async
   await expect(page.getByText('已标记 Badcase')).toBeVisible()
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible()
 })
+
+test('registers a business Badcase and advances its processing timeline', async ({ page }) => {
+  await mockAdminSession(page)
+  const badcaseId = '019fa2a2-ed09-7660-988d-38cb279d5401'
+  const assigneeId = adminSession.data.user.id
+  let lockVersion = 0
+  let status = 'pending'
+  let assignee: string | null = null
+  const activities: Array<Record<string, unknown>> = [
+    {
+      id: '019fa2a2-ed09-7660-988d-38cb279d5402',
+      activity_type: 'created',
+      note: null,
+      actor_id: assigneeId,
+      actor_name: '系统管理员',
+      from_status: null,
+      to_status: null,
+      from_assignee_id: null,
+      from_assignee_name: null,
+      to_assignee_id: null,
+      to_assignee_name: null,
+      created_at: '2026-07-28T02:00:00Z',
+    },
+  ]
+  const currentBadcase = () => ({
+    id: badcaseId,
+    source_type: 'business',
+    scenario_id: scenarioId,
+    scenario_name: scenario.name,
+    evaluation_target_id: targetId,
+    evaluation_target_name: target.name,
+    title: '采购助手忽略预算上限',
+    description: '预算为 10 万元时仍推荐超预算商品',
+    agent_response_text: '建议采购高配服务器',
+    agent_version: '2026.07.28',
+    environment: 'production',
+    occurred_at: '2026-07-28T02:00:00Z',
+    status,
+    assignee_id: assignee,
+    assignee_name: assignee ? '系统管理员' : null,
+    resolved_at: null,
+    business_reference: 'ORDER-E2E-001',
+    session_id: 'SESSION-E2E-001',
+    invalidated_at: null,
+    invalidated_by: null,
+    invalidator_name: null,
+    invalid_reason: null,
+    lock_version: lockVersion,
+    created_by: assigneeId,
+    creator_name: '系统管理员',
+    created_at: '2026-07-28T02:00:00Z',
+    updated_at: '2026-07-28T02:00:00Z',
+    issue_tags: [{ id: tagId, name: '事实准确性' }],
+    evaluation: null,
+    original_attachments: [],
+    attachments: [],
+    activities,
+  })
+
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/badcase-options', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          assignees: [{ id: assigneeId, display_name: '系统管理员' }],
+          issue_tags: [{ id: tagId, name: '事实准确性' }],
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route(/\/api\/v1\/badcases(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === 'POST') {
+      expect(route.request().headers()['idempotency-key']).toBeTruthy()
+      expect(route.request().postDataJSON()).toMatchObject({
+        scenario_id: scenarioId,
+        title: '采购助手忽略预算上限',
+        issue_tag_ids: [tagId],
+      })
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentBadcase(), meta }),
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 20, total: 0 }, meta }),
+    })
+  })
+  await page.route(`**/api/v1/pages/badcases/${badcaseId}`, async (route) => {
+    const allowedActions = status === 'pending'
+      ? ['edit', 'invalidate', 'assign', 'unassign', 'update_tags', 'add_note', 'add_attachment', 'start_processing', 'resolve', 'defer']
+      : ['edit', 'invalidate', 'assign', 'unassign', 'update_tags', 'add_note', 'add_attachment', 'resolve', 'defer']
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          ...currentBadcase(),
+          candidate_assignees: [{ id: assigneeId, display_name: '系统管理员' }],
+          candidate_issue_tags: [{ id: tagId, name: '事实准确性' }],
+          allowed_actions: allowedActions,
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/badcases/${badcaseId}/assign`, async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      assignee_id: assigneeId,
+      expected_lock_version: 0,
+    })
+    assignee = assigneeId
+    lockVersion += 1
+    activities.push({
+      id: '019fa2a2-ed09-7660-988d-38cb279d5403',
+      activity_type: 'assignee_changed',
+      actor_id: assigneeId,
+      actor_name: '系统管理员',
+      to_assignee_id: assigneeId,
+      to_assignee_name: '系统管理员',
+      created_at: '2026-07-28T02:01:00Z',
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: currentBadcase(), meta }),
+    })
+  })
+  await page.route(`**/api/v1/badcases/${badcaseId}/add-note`, async (route) => {
+    expect(route.request().headers()['idempotency-key']).toBeTruthy()
+    expect(route.request().postDataJSON()).toMatchObject({
+      note: '已确认预算过滤条件未生效',
+      expected_lock_version: 1,
+    })
+    lockVersion += 1
+    activities.push({
+      id: '019fa2a2-ed09-7660-988d-38cb279d5404',
+      activity_type: 'note_added',
+      note: '已确认预算过滤条件未生效',
+      actor_id: assigneeId,
+      actor_name: '系统管理员',
+      created_at: '2026-07-28T02:02:00Z',
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: currentBadcase(), meta }),
+    })
+  })
+  await page.route(`**/api/v1/badcases/${badcaseId}/start-processing`, async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      reason: '开始定位预算过滤逻辑',
+      expected_lock_version: 2,
+    })
+    status = 'processing'
+    lockVersion += 1
+    activities.push({
+      id: '019fa2a2-ed09-7660-988d-38cb279d5405',
+      activity_type: 'status_changed',
+      note: '开始定位预算过滤逻辑',
+      actor_id: assigneeId,
+      actor_name: '系统管理员',
+      from_status: 'pending',
+      to_status: 'processing',
+      created_at: '2026-07-28T02:03:00Z',
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: currentBadcase(), meta }),
+    })
+  })
+
+  await page.goto('/badcases')
+  await page.getByRole('button', { name: '登记业务 Badcase' }).click()
+  await page.getByLabel('所属场景').click()
+  await page.getByRole('option', { name: '智能采购 Agent / 采购询价', exact: true }).click()
+  await page.getByLabel('问题标题').fill('采购助手忽略预算上限')
+  await page.getByLabel('问题描述').fill('预算为 10 万元时仍推荐超预算商品')
+  await page.getByText('至少选择一个', { exact: true }).click()
+  await page.getByRole('option', { name: '事实准确性', exact: true }).last().click()
+  await page.getByRole('button', { name: '登记 Badcase' }).click()
+
+  await expect(page).toHaveURL(`/badcases/${badcaseId}`)
+  await expect(page.getByRole('heading', { name: '采购助手忽略预算上限' })).toBeVisible()
+  await page.getByText('未分配', { exact: true }).last().click()
+  await page.locator('.el-select-dropdown__item').filter({ hasText: '系统管理员' }).click()
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await page.getByPlaceholder('补充定位结论、处理进展或后续计划').fill('已确认预算过滤条件未生效')
+  await page.getByRole('button', { name: '添加备注' }).click()
+  await page.getByRole('button', { name: '开始处理' }).click()
+  await page.locator('.el-message-box textarea').fill('开始定位预算过滤逻辑')
+  await page.getByRole('button', { name: 'OK', exact: true }).click()
+
+  await expect(page.getByText('处理中', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('已确认预算过滤条件未生效')).toBeVisible()
+})
