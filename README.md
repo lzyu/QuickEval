@@ -71,10 +71,17 @@ npm --prefix apps/web run test:e2e
 
 前端 API 类型由 [`openapi/quickeval-v1.yaml`](./openapi/quickeval-v1.yaml) 生成，不要手工修改生成文件。
 
-API 启动后可以运行 M1 的本机真实链路验收：
+API 启动后可以运行 M1～M4 的本机真实链路验收：
 
 ```bash
 QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m1_smoke.sh
+QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m2_smoke.sh
+QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m3_smoke.sh
+QUICKEVAL_SMOKE_PASSWORD='your-admin-password' scripts/m4_smoke.sh
 ```
+
+M4 验收会使用 `page_refer` 中的 PNG，验证图片真实类型、私有鉴权读取、
+`uploads/evaluations/{run}/{result}` 落盘、截图-only 证据、附件与 Badcase 幂等、
+删除保护及跨用户权限。
 
 停止本地开发依赖时执行 `make infra-down`。该命令保留 MySQL 和 Redis 数据卷；如需删除开发数据，应先明确检查目标卷。

@@ -11,6 +11,10 @@ tags:
   - name: Authentication
   - name: Users
   - name: Catalog
+  - name: Datasets
+  - name: Evaluations
+  - name: Attachments
+  - name: Badcases
   - name: Audit
 paths:
   /health/live:
@@ -562,6 +566,770 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuditPageResponse"
+  /api/v1/datasets:
+    get:
+      tags: [Datasets]
+      operationId: listDatasets
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: evaluation_target_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: scenario_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, archived] }
+        - name: keyword
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dataset page.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetPageResponse" }
+    post:
+      tags: [Datasets]
+      operationId: createDataset
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DatasetRequest" }
+      responses:
+        "201":
+          description: Dataset and its initial draft were created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreateDatasetResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/datasets/{dataset_id}:
+    parameters:
+      - $ref: "#/components/parameters/DatasetID"
+    get:
+      tags: [Datasets]
+      operationId: getDataset
+      responses:
+        "200":
+          description: Dataset and version history.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetDetailResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Datasets]
+      operationId: updateDataset
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DatasetRequest" }
+      responses:
+        "200":
+          description: Dataset updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/datasets/{dataset_id}/{dataset_action}:
+    parameters:
+      - $ref: "#/components/parameters/DatasetID"
+      - name: dataset_action
+        in: path
+        required: true
+        schema: { type: string, enum: [archive, restore] }
+    post:
+      tags: [Datasets]
+      operationId: setDatasetState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody: { $ref: "#/components/requestBodies/State" }
+      responses:
+        "200":
+          description: Dataset state changed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/datasets/{dataset_id}/versions:
+    parameters:
+      - $ref: "#/components/parameters/DatasetID"
+    get:
+      tags: [Datasets]
+      operationId: listDatasetVersions
+      responses:
+        "200":
+          description: Dataset version history.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetVersionListResponse" }
+  /api/v1/datasets/{dataset_id}/drafts:
+    parameters:
+      - $ref: "#/components/parameters/DatasetID"
+    post:
+      tags: [Datasets]
+      operationId: createDatasetDraft
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDraftRequest" }
+      responses:
+        "201":
+          description: Draft created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetVersionResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/dataset-versions/{version_id}:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+    get:
+      tags: [Datasets]
+      operationId: getDatasetVersion
+      responses:
+        "200":
+          description: Dataset version.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetVersionResponse" }
+    delete:
+      tags: [Datasets]
+      operationId: deleteDatasetDraft
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: expected_lock_version
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "204": { description: Draft deleted. }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/dataset-versions/{version_id}/{version_action}:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+      - name: version_action
+        in: path
+        required: true
+        schema: { type: string, enum: [publish, archive] }
+    post:
+      tags: [Datasets]
+      operationId: setDatasetVersionState
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PublishVersionRequest" }
+      responses:
+        "200":
+          description: Version state changed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetVersionResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/dataset-versions/{version_id}/cases:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+    get:
+      tags: [Datasets]
+      operationId: listVersionCases
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Version case page.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersionCasePageResponse" }
+    post:
+      tags: [Datasets]
+      operationId: createVersionCase
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersionCaseRequest" }
+      responses:
+        "201":
+          description: Case created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersionCaseResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/version-cases/{case_id}:
+    parameters:
+      - $ref: "#/components/parameters/CaseID"
+    get:
+      tags: [Datasets]
+      operationId: getVersionCase
+      responses:
+        "200":
+          description: Version case.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersionCaseResponse" }
+    patch:
+      tags: [Datasets]
+      operationId: updateVersionCase
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersionCaseRequest" }
+      responses:
+        "200":
+          description: Case updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersionCaseResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Datasets]
+      operationId: deleteVersionCase
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: expected_lock_version
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "204": { description: Case deleted. }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/dataset-versions/{version_id}/cases/reorder:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+    post:
+      tags: [Datasets]
+      operationId: reorderVersionCases
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderCasesRequest" }
+      responses:
+        "204": { description: Cases reordered. }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/case-import-template.csv:
+    get:
+      tags: [Datasets]
+      operationId: downloadCaseImportTemplate
+      responses:
+        "200":
+          description: UTF-8 BOM CSV template.
+          content:
+            text/csv:
+              schema: { type: string }
+  /api/v1/dataset-versions/{version_id}/case-imports/preview:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+    post:
+      tags: [Datasets]
+      operationId: previewCaseImport
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Parsed rows and validation result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportPreviewResponse" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/dataset-versions/{version_id}/case-imports/commit:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+    post:
+      tags: [Datasets]
+      operationId: commitCaseImport
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommitImportRequest" }
+      responses:
+        "201":
+          description: All previewed rows appended in one transaction.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommitImportResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/dataset-versions/{version_id}/cases.csv:
+    parameters:
+      - $ref: "#/components/parameters/VersionID"
+    get:
+      tags: [Datasets]
+      operationId: exportVersionCases
+      responses:
+        "200":
+          description: UTF-8 BOM CSV export.
+          content:
+            text/csv:
+              schema: { type: string }
+  /api/v1/evaluation-runs:
+    get:
+      tags: [Evaluations]
+      operationId: listEvaluationRuns
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: evaluator_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: status
+          in: query
+          schema: { type: string, enum: [in_progress, completed, voided] }
+        - name: environment
+          in: query
+          schema: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        - name: dataset_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: scenario_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: keyword
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current evaluator's runs, or the selected evaluator for an administrator.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRunPageResponse" }
+    post:
+      tags: [Evaluations]
+      operationId: createEvaluationRun
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema: { type: string, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateEvaluationRunRequest" }
+      responses:
+        "201":
+          description: Independent run and all pending case results created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRunResponse" }
+        "200":
+          description: Existing run returned for an idempotent replay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRunResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/evaluation-runs/{run_id}:
+    parameters:
+      - $ref: "#/components/parameters/RunID"
+    get:
+      tags: [Evaluations]
+      operationId: getEvaluationRun
+      responses:
+        "200":
+          description: Evaluation run with current progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRunResponse" }
+        "403": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Evaluations]
+      operationId: updateEvaluationRun
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateEvaluationRunRequest" }
+      responses:
+        "200":
+          description: Run metadata updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRunResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Evaluations]
+      operationId: deleteEvaluationRun
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: expected_lock_version
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "204": { description: Never-completed run deleted. }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/evaluation-runs/{run_id}/{run_action}:
+    parameters:
+      - $ref: "#/components/parameters/RunID"
+      - name: run_action
+        in: path
+        required: true
+        schema: { type: string, enum: [complete, reopen, void] }
+    post:
+      tags: [Evaluations]
+      operationId: transitionEvaluationRun
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvaluationRunCommandRequest" }
+      responses:
+        "200":
+          description: Run lifecycle state changed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRunResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/evaluation-runs/{run_id}/case-results:
+    parameters:
+      - $ref: "#/components/parameters/RunID"
+    get:
+      tags: [Evaluations]
+      operationId: listCaseResults
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, evaluated, skipped] }
+      responses:
+        "200":
+          description: Case result page in version case order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaseResultPageResponse" }
+  /api/v1/pages/evaluation-runs/{run_id}/workbench:
+    parameters:
+      - $ref: "#/components/parameters/RunID"
+    get:
+      tags: [Evaluations]
+      operationId: getEvaluationWorkbench
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, evaluated, skipped] }
+      responses:
+        "200":
+          description: Run context, progress, and paged case snapshots.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationWorkbenchResponse" }
+  /api/v1/case-results/{result_id}:
+    parameters:
+      - $ref: "#/components/parameters/ResultID"
+    get:
+      tags: [Evaluations]
+      operationId: getCaseResult
+      responses:
+        "200":
+          description: Case result and version case snapshot.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaseResultResponse" }
+    patch:
+      tags: [Evaluations]
+      operationId: updateCaseResult
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCaseResultRequest" }
+      responses:
+        "200":
+          description: Saved result and latest run progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdateCaseResultResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/case-results/{result_id}/attachments:
+    parameters:
+      - $ref: "#/components/parameters/ResultID"
+    post:
+      tags: [Attachments]
+      operationId: uploadCaseResultAttachments
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files, expected_owner_lock_version]
+              properties:
+                files:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+                expected_owner_lock_version: { type: integer, minimum: 0 }
+      responses:
+        "201":
+          description: Screenshots stored and metadata committed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadAttachmentResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/case-results/{result_id}/attachments/reorder:
+    parameters:
+      - $ref: "#/components/parameters/ResultID"
+    post:
+      tags: [Attachments]
+      operationId: reorderCaseResultAttachments
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderAttachmentsRequest" }
+      responses:
+        "200":
+          description: Screenshot order updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerLockResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/case-results/{result_id}/mark-badcase:
+    parameters:
+      - $ref: "#/components/parameters/ResultID"
+    post:
+      tags: [Badcases]
+      operationId: markEvaluationBadcase
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MarkBadcaseRequest" }
+      responses:
+        "201":
+          description: Result update and Badcase creation committed atomically.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MarkBadcaseResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/badcases:
+    get:
+      tags: [Badcases]
+      operationId: listBadcases
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: scenario_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: issue_tag_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+        - name: keyword
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Active evaluation Badcases.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BadcasePageResponse" }
+  /api/v1/badcases/{badcase_id}:
+    parameters:
+      - $ref: "#/components/parameters/BadcaseID"
+    get:
+      tags: [Badcases]
+      operationId: getBadcase
+      responses:
+        "200":
+          description: Badcase with evaluation trace, evidence, and activity timeline.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BadcaseResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/pages/badcases/{badcase_id}:
+    parameters:
+      - $ref: "#/components/parameters/BadcaseID"
+    get:
+      tags: [Badcases]
+      operationId: getBadcasePage
+      responses:
+        "200":
+          description: Badcase page aggregate for the SPA.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BadcaseResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/badcases/{badcase_id}/attachments:
+    parameters:
+      - $ref: "#/components/parameters/BadcaseID"
+    post:
+      tags: [Attachments]
+      operationId: uploadBadcaseAttachments
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files, expected_owner_lock_version]
+              properties:
+                files:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items: { type: string, format: binary }
+                expected_owner_lock_version: { type: integer, minimum: 0 }
+      responses:
+        "201":
+          description: Badcase screenshots uploaded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadAttachmentResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/badcases/{badcase_id}/attachments/reorder:
+    parameters:
+      - $ref: "#/components/parameters/BadcaseID"
+    post:
+      tags: [Attachments]
+      operationId: reorderBadcaseAttachments
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderAttachmentsRequest" }
+      responses:
+        "200":
+          description: Screenshot order updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerLockResponse" }
+  /api/v1/attachments/{attachment_id}:
+    parameters:
+      - $ref: "#/components/parameters/AttachmentID"
+    delete:
+      tags: [Attachments]
+      operationId: deleteAttachment
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: expected_owner_lock_version
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Attachment metadata deleted and private file removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerLockResponse" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/attachments/{attachment_id}/content:
+    parameters:
+      - $ref: "#/components/parameters/AttachmentID"
+    get:
+      tags: [Attachments]
+      operationId: getAttachmentContent
+      responses:
+        "200":
+          description: Authorized private image content.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
 components:
   responses:
     Error:
@@ -599,6 +1367,45 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/UUID" }
+    DatasetID:
+      name: dataset_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    VersionID:
+      name: version_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    CaseID:
+      name: case_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    RunID:
+      name: run_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    ResultID:
+      name: result_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    BadcaseID:
+      name: badcase_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    AttachmentID:
+      name: attachment_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      schema: { type: string, maxLength: 200 }
     StateAction:
       name: state_action
       in: path
@@ -786,6 +1593,674 @@ components:
         ip_address: { type: string }
         user_agent: { type: string }
         created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    DatasetRequest:
+      type: object
+      required: [scenario_id, name]
+      properties:
+        scenario_id: { $ref: "#/components/schemas/UUID" }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, "null"] }
+        expected_lock_version: { type: integer, minimum: 0, default: 0 }
+    CreateDraftRequest:
+      type: object
+      required: [expected_dataset_lock_version]
+      properties:
+        base_version_id: { type: [string, "null"], format: uuid }
+        expected_dataset_lock_version: { type: integer, minimum: 0 }
+    PublishVersionRequest:
+      type: object
+      required: [expected_lock_version]
+      properties:
+        release_note: { type: [string, "null"] }
+        expected_lock_version: { type: integer, minimum: 0 }
+    VersionCaseRequest:
+      type: object
+      required: [user_prompt]
+      properties:
+        name: { type: [string, "null"], maxLength: 200 }
+        user_prompt: { type: string, minLength: 1 }
+        precondition: { type: [string, "null"] }
+        expected_result: { type: [string, "null"] }
+        judging_guide: { type: [string, "null"] }
+        is_enabled: { type: boolean, default: true }
+        tag_ids:
+          type: array
+          items: { $ref: "#/components/schemas/UUID" }
+        expected_lock_version: { type: integer, minimum: 0, default: 0 }
+    ReorderCaseItem:
+      type: object
+      required: [id, sort_order, expected_lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        sort_order: { type: integer, minimum: 0 }
+        expected_lock_version: { type: integer, minimum: 0 }
+    ReorderCasesRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ReorderCaseItem" }
+    CommitImportRequest:
+      type: object
+      required: [import_token]
+      properties:
+        import_token: { type: string, minLength: 1 }
+    Dataset:
+      type: object
+      required:
+        - id
+        - scenario_id
+        - scenario_name
+        - evaluation_target_id
+        - evaluation_target_name
+        - name
+        - status
+        - lock_version
+        - created_at
+        - updated_at
+        - published_version_count
+        - draft_case_count
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        scenario_id: { $ref: "#/components/schemas/UUID" }
+        scenario_name: { type: string }
+        evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_target_name: { type: string }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        status: { type: string, enum: [active, archived] }
+        lock_version: { type: integer, minimum: 0 }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        latest_version_no: { type: [integer, "null"], minimum: 1 }
+        published_version_count: { type: integer, minimum: 0 }
+        draft_version_id: { type: [string, "null"], format: uuid }
+        draft_case_count: { type: integer, minimum: 0 }
+    DatasetVersion:
+      type: object
+      required:
+        - id
+        - dataset_id
+        - status
+        - lock_version
+        - created_at
+        - updated_at
+        - case_count
+        - enabled_count
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        dataset_id: { $ref: "#/components/schemas/UUID" }
+        base_version_id: { type: [string, "null"], format: uuid }
+        version_no: { type: [integer, "null"], minimum: 1 }
+        status: { type: string, enum: [draft, published, archived] }
+        release_note: { type: [string, "null"] }
+        lock_version: { type: integer, minimum: 0 }
+        published_at: { type: [string, "null"], format: date-time }
+        archived_at: { type: [string, "null"], format: date-time }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        case_count: { type: integer, minimum: 0 }
+        enabled_count: { type: integer, minimum: 0 }
+    CaseTagSnapshot:
+      type: object
+      required: [id, name]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        name: { type: string }
+    VersionCase:
+      type: object
+      required:
+        - id
+        - dataset_version_id
+        - case_key
+        - user_prompt
+        - sort_order
+        - is_enabled
+        - lock_version
+        - tags
+        - created_at
+        - updated_at
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        dataset_version_id: { $ref: "#/components/schemas/UUID" }
+        case_key: { $ref: "#/components/schemas/UUID" }
+        name: { type: [string, "null"] }
+        user_prompt: { type: string }
+        precondition: { type: [string, "null"] }
+        expected_result: { type: [string, "null"] }
+        judging_guide: { type: [string, "null"] }
+        sort_order: { type: integer, minimum: 0 }
+        is_enabled: { type: boolean }
+        lock_version: { type: integer, minimum: 0 }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/CaseTagSnapshot" }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    ImportPreviewRow:
+      type: object
+      required:
+        - row_number
+        - name
+        - user_prompt
+        - precondition
+        - expected_result
+        - judging_guide
+        - tag_names
+        - is_enabled
+        - errors
+      properties:
+        row_number: { type: integer, minimum: 2 }
+        name: { type: string }
+        user_prompt: { type: string }
+        precondition: { type: string }
+        expected_result: { type: string }
+        judging_guide: { type: string }
+        tag_names:
+          type: array
+          items: { type: string }
+        is_enabled: { type: boolean }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/FieldError" }
+    ImportPreview:
+      type: object
+      required:
+        - import_token
+        - version_lock_version
+        - rows
+        - has_errors
+        - valid_row_count
+        - error_row_count
+      properties:
+        import_token: { type: string }
+        version_lock_version: { type: integer, minimum: 0 }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ImportPreviewRow" }
+        has_errors: { type: boolean }
+        valid_row_count: { type: integer, minimum: 0 }
+        error_row_count: { type: integer, minimum: 0 }
+    DatasetResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Dataset" }
+    CreateDatasetResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [dataset, draft]
+              properties:
+                dataset: { $ref: "#/components/schemas/Dataset" }
+                draft: { $ref: "#/components/schemas/DatasetVersion" }
+    DatasetDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [dataset, versions]
+              properties:
+                dataset: { $ref: "#/components/schemas/Dataset" }
+                versions:
+                  type: array
+                  items: { $ref: "#/components/schemas/DatasetVersion" }
+    DatasetVersionResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/DatasetVersion" }
+    DatasetVersionListResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/DatasetVersion" }
+    VersionCaseResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/VersionCase" }
+    ImportPreviewResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/ImportPreview" }
+    CommitImportResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [created_count]
+              properties:
+                created_count: { type: integer, minimum: 0 }
+    EvaluationEnvironment:
+      type: string
+      enum: [test, staging, production, other]
+    CreateEvaluationRunRequest:
+      type: object
+      required: [dataset_version_id, agent_version, environment]
+      properties:
+        dataset_version_id: { $ref: "#/components/schemas/UUID" }
+        agent_version: { type: string, minLength: 1, maxLength: 100 }
+        environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        purpose_note: { type: [string, "null"] }
+        config_note: { type: [string, "null"] }
+    UpdateEvaluationRunRequest:
+      type: object
+      required: [agent_version, environment, expected_lock_version]
+      properties:
+        agent_version: { type: string, minLength: 1, maxLength: 100 }
+        environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        purpose_note: { type: [string, "null"] }
+        config_note: { type: [string, "null"] }
+        expected_lock_version: { type: integer, minimum: 0 }
+    EvaluationRunCommandRequest:
+      type: object
+      required: [expected_lock_version]
+      properties:
+        reason:
+          type: string
+          description: Required for reopen and void.
+        expected_lock_version: { type: integer, minimum: 0 }
+    UpdateCaseResultRequest:
+      type: object
+      required: [status, expected_lock_version]
+      properties:
+        status: { type: string, enum: [pending, evaluated, skipped] }
+        answer_text: { type: [string, "null"] }
+        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        comment: { type: [string, "null"] }
+        skip_reason: { type: [string, "null"] }
+        expected_lock_version: { type: integer, minimum: 0 }
+    Attachment:
+      type: object
+      required:
+        - id
+        - original_name
+        - media_type
+        - file_size
+        - sort_order
+        - content_url
+        - created_by
+        - created_at
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        original_name: { type: string }
+        media_type: { type: string, enum: [image/png, image/jpeg, image/webp] }
+        file_size: { type: integer, minimum: 1, maximum: 10485760 }
+        width: { type: [integer, "null"], minimum: 1 }
+        height: { type: [integer, "null"], minimum: 1 }
+        sort_order: { type: integer, minimum: 0 }
+        content_url: { type: string }
+        created_by: { $ref: "#/components/schemas/UUID" }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    BadcaseSummary:
+      type: object
+      required: [id, title, status, issue_tags]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        title: { type: string }
+        description: { type: [string, "null"] }
+        status: { type: string }
+        issue_tags:
+          type: array
+          items: { $ref: "#/components/schemas/CaseTagSnapshot" }
+    ResultPatch:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [evaluated] }
+        answer_text: { type: [string, "null"] }
+        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        comment: { type: [string, "null"] }
+    MarkBadcaseRequest:
+      type: object
+      required: [expected_result_lock_version, badcase]
+      properties:
+        expected_result_lock_version: { type: integer, minimum: 0 }
+        result_patch: { $ref: "#/components/schemas/ResultPatch" }
+        badcase:
+          type: object
+          required: [title, description, issue_tag_ids]
+          properties:
+            title: { type: string, minLength: 1, maxLength: 200 }
+            description: { type: string, minLength: 1 }
+            issue_tag_ids:
+              type: array
+              minItems: 1
+              items: { $ref: "#/components/schemas/UUID" }
+    ReorderAttachmentsRequest:
+      type: object
+      required: [expected_owner_lock_version, items]
+      properties:
+        expected_owner_lock_version: { type: integer, minimum: 0 }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [id, sort_order]
+            properties:
+              id: { $ref: "#/components/schemas/UUID" }
+              sort_order: { type: integer, minimum: 0 }
+    EvaluationProgress:
+      type: object
+      required:
+        - total_count
+        - pending_count
+        - evaluated_count
+        - skipped_count
+        - scored_count
+        - badcase_count
+        - completion_rate
+      properties:
+        total_count: { type: integer, minimum: 0 }
+        pending_count: { type: integer, minimum: 0 }
+        evaluated_count: { type: integer, minimum: 0 }
+        skipped_count: { type: integer, minimum: 0 }
+        scored_count: { type: integer, minimum: 0 }
+        badcase_count: { type: integer, minimum: 0 }
+        average_score: { type: [number, "null"], minimum: 1, maximum: 5 }
+        completion_rate: { type: number, minimum: 0, maximum: 1 }
+    EvaluationRun:
+      type: object
+      required:
+        - id
+        - dataset_version_id
+        - dataset_id
+        - dataset_name
+        - version_no
+        - scenario_id
+        - scenario_name
+        - evaluation_target_id
+        - evaluation_target_name
+        - evaluator_id
+        - evaluator_name
+        - agent_version
+        - environment
+        - status
+        - lock_version
+        - created_at
+        - updated_at
+        - progress
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        dataset_version_id: { $ref: "#/components/schemas/UUID" }
+        dataset_id: { $ref: "#/components/schemas/UUID" }
+        dataset_name: { type: string }
+        version_no: { type: integer, minimum: 1 }
+        scenario_id: { $ref: "#/components/schemas/UUID" }
+        scenario_name: { type: string }
+        evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_target_name: { type: string }
+        evaluator_id: { $ref: "#/components/schemas/UUID" }
+        evaluator_name: { type: string }
+        agent_version: { type: string }
+        environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        purpose_note: { type: [string, "null"] }
+        config_note: { type: [string, "null"] }
+        status: { type: string, enum: [in_progress, completed, voided] }
+        lock_version: { type: integer, minimum: 0 }
+        first_completed_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        voided_at: { type: [string, "null"], format: date-time }
+        void_reason: { type: [string, "null"] }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        progress: { $ref: "#/components/schemas/EvaluationProgress" }
+    CaseResult:
+      type: object
+      required:
+        - id
+        - evaluation_run_id
+        - version_case_id
+        - case_key
+        - user_prompt
+        - sort_order
+        - tags
+        - status
+        - has_badcase
+        - attachments
+        - badcase
+        - lock_version
+        - created_at
+        - updated_at
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        evaluation_run_id: { $ref: "#/components/schemas/UUID" }
+        version_case_id: { $ref: "#/components/schemas/UUID" }
+        case_key: { $ref: "#/components/schemas/UUID" }
+        name: { type: [string, "null"] }
+        user_prompt: { type: string }
+        precondition: { type: [string, "null"] }
+        expected_result: { type: [string, "null"] }
+        judging_guide: { type: [string, "null"] }
+        sort_order: { type: integer, minimum: 0 }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/CaseTagSnapshot" }
+        status: { type: string, enum: [pending, evaluated, skipped] }
+        answer_text: { type: [string, "null"] }
+        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        comment: { type: [string, "null"] }
+        skip_reason: { type: [string, "null"] }
+        has_badcase: { type: boolean }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/Attachment" }
+        badcase:
+          oneOf:
+            - $ref: "#/components/schemas/BadcaseSummary"
+            - type: "null"
+        lock_version: { type: integer, minimum: 0 }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    EvaluationRunResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/EvaluationRun" }
+    CaseResultResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/CaseResult" }
+    UpdateCaseResultResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [result, progress, run_lock_version]
+              properties:
+                result: { $ref: "#/components/schemas/CaseResult" }
+                progress: { $ref: "#/components/schemas/EvaluationProgress" }
+                run_lock_version: { type: integer, minimum: 0 }
+    UploadAttachmentResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [items, owner_lock_version]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/Attachment" }
+                owner_lock_version: { type: integer, minimum: 0 }
+    OwnerLockResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [owner_lock_version]
+              properties:
+                owner_lock_version: { type: integer, minimum: 0 }
+    BadcaseActivity:
+      type: object
+      required: [id, activity_type, actor_id, actor_name, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        activity_type: { type: string, enum: [created, reactivated] }
+        note: { type: [string, "null"] }
+        actor_id: { $ref: "#/components/schemas/UUID" }
+        actor_name: { type: string }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+    BadcaseEvaluationContext:
+      type: object
+      required:
+        - case_result_id
+        - evaluation_run_id
+        - evaluator_id
+        - evaluator_name
+        - dataset_id
+        - dataset_name
+        - dataset_version_id
+        - version_no
+        - version_case_id
+      properties:
+        case_result_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_run_id: { $ref: "#/components/schemas/UUID" }
+        evaluator_id: { $ref: "#/components/schemas/UUID" }
+        evaluator_name: { type: string }
+        dataset_id: { $ref: "#/components/schemas/UUID" }
+        dataset_name: { type: string }
+        dataset_version_id: { $ref: "#/components/schemas/UUID" }
+        version_no: { type: integer, minimum: 1 }
+        version_case_id: { $ref: "#/components/schemas/UUID" }
+        case_name: { type: [string, "null"] }
+        user_prompt: { type: [string, "null"] }
+        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        comment: { type: [string, "null"] }
+    Badcase:
+      type: object
+      required:
+        - id
+        - source_type
+        - scenario_id
+        - scenario_name
+        - evaluation_target_id
+        - evaluation_target_name
+        - title
+        - environment
+        - occurred_at
+        - status
+        - lock_version
+        - created_by
+        - creator_name
+        - created_at
+        - updated_at
+        - issue_tags
+        - attachments
+        - activities
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        source_type: { type: string, enum: [evaluation, business] }
+        scenario_id: { $ref: "#/components/schemas/UUID" }
+        scenario_name: { type: string }
+        evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_target_name: { type: string }
+        title: { type: string }
+        description: { type: [string, "null"] }
+        agent_response_text: { type: [string, "null"] }
+        agent_version: { type: [string, "null"] }
+        environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
+        occurred_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        status: { type: string }
+        lock_version: { type: integer, minimum: 0 }
+        created_by: { $ref: "#/components/schemas/UUID" }
+        creator_name: { type: string }
+        created_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
+        issue_tags:
+          type: array
+          items: { $ref: "#/components/schemas/CaseTagSnapshot" }
+        evaluation:
+          oneOf:
+            - $ref: "#/components/schemas/BadcaseEvaluationContext"
+            - type: "null"
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/Attachment" }
+        activities:
+          type: array
+          items: { $ref: "#/components/schemas/BadcaseActivity" }
+    BadcaseResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Badcase" }
+    BadcasePageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/Badcase" }
+    MarkBadcaseResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [badcase, result, progress, run_lock_version]
+              properties:
+                badcase: { $ref: "#/components/schemas/Badcase" }
+                result: { $ref: "#/components/schemas/CaseResult" }
+                progress: { $ref: "#/components/schemas/EvaluationProgress" }
+                run_lock_version: { type: integer, minimum: 0 }
+    EvaluationWorkbenchResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [run, results]
+              properties:
+                run: { $ref: "#/components/schemas/EvaluationRun" }
+                results:
+                  allOf:
+                    - $ref: "#/components/schemas/PageBase"
+                    - type: object
+                      properties:
+                        items:
+                          type: array
+                          items: { $ref: "#/components/schemas/CaseResult" }
     SessionResponse:
       allOf:
         - $ref: "#/components/schemas/ResponseEnvelope"
@@ -864,6 +2339,58 @@ components:
       $ref: "#/components/schemas/PageBase"
     AuditPage:
       $ref: "#/components/schemas/PageBase"
+    DatasetPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/Dataset" }
+    VersionCasePageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/VersionCase" }
+    EvaluationRunPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/EvaluationRun" }
+    CaseResultPageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/PageBase"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: "#/components/schemas/CaseResult" }
     PageBase:
       type: object
       required: [items, page, page_size, total]

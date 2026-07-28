@@ -7,6 +7,11 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as User | null,
     permissions: {} as Record<string, boolean>,
+    uploadPolicy: {
+      allowed_media_types: ['image/png', 'image/jpeg', 'image/webp'],
+      max_file_size: 10 * 1024 * 1024,
+      max_files_per_owner: 10,
+    },
     initialized: false,
   }),
   getters: {
@@ -17,6 +22,7 @@ export const useAuthStore = defineStore('auth', {
     apply(payload: SessionPayload) {
       this.user = payload.user
       this.permissions = payload.permissions
+      this.uploadPolicy = payload.upload_policy
       setCsrfToken(payload.csrf_token)
     },
     clear() {

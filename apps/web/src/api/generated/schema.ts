@@ -421,6 +421,541 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDatasets"];
+        put?: never;
+        post: operations["createDataset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/datasets/{dataset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getDataset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateDataset"];
+        trace?: never;
+    };
+    "/api/v1/datasets/{dataset_id}/{dataset_action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+                dataset_action: "archive" | "restore";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setDatasetState"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/datasets/{dataset_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        get: operations["listDatasetVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/datasets/{dataset_id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createDatasetDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getDatasetVersion"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteDatasetDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}/{version_action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+                version_action: "publish" | "archive";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setDatasetVersionState"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        get: operations["listVersionCases"];
+        put?: never;
+        post: operations["createVersionCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/version-cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: components["parameters"]["CaseID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getVersionCase"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteVersionCase"];
+        options?: never;
+        head?: never;
+        patch: operations["updateVersionCase"];
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}/cases/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reorderVersionCases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/case-import-template.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadCaseImportTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}/case-imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewCaseImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}/case-imports/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["commitCaseImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dataset-versions/{version_id}/cases.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        get: operations["exportVersionCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evaluation-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEvaluationRuns"];
+        put?: never;
+        post: operations["createEvaluationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evaluation-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getEvaluationRun"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteEvaluationRun"];
+        options?: never;
+        head?: never;
+        patch: operations["updateEvaluationRun"];
+        trace?: never;
+    };
+    "/api/v1/evaluation-runs/{run_id}/{run_action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+                run_action: "complete" | "reopen" | "void";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["transitionEvaluationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evaluation-runs/{run_id}/case-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        get: operations["listCaseResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pages/evaluation-runs/{run_id}/workbench": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getEvaluationWorkbench"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/case-results/{result_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getCaseResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateCaseResult"];
+        trace?: never;
+    };
+    "/api/v1/case-results/{result_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadCaseResultAttachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/case-results/{result_id}/attachments/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reorderCaseResultAttachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/case-results/{result_id}/mark-badcase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markEvaluationBadcase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listBadcases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getBadcase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pages/badcases/{badcase_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getBadcasePage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadBadcaseAttachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/badcases/{badcase_id}/attachments/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reorderBadcaseAttachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: components["parameters"]["AttachmentID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{attachment_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: components["parameters"]["AttachmentID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAttachmentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -540,6 +1075,391 @@ export interface components {
             user_agent?: string;
             created_at: components["schemas"]["UTCTimestamp"];
         };
+        DatasetRequest: {
+            scenario_id: components["schemas"]["UUID"];
+            name: string;
+            description?: string | null;
+            /** @default 0 */
+            expected_lock_version: number;
+        };
+        CreateDraftRequest: {
+            /** Format: uuid */
+            base_version_id?: string | null;
+            expected_dataset_lock_version: number;
+        };
+        PublishVersionRequest: {
+            release_note?: string | null;
+            expected_lock_version: number;
+        };
+        VersionCaseRequest: {
+            name?: string | null;
+            user_prompt: string;
+            precondition?: string | null;
+            expected_result?: string | null;
+            judging_guide?: string | null;
+            /** @default true */
+            is_enabled: boolean;
+            tag_ids?: components["schemas"]["UUID"][];
+            /** @default 0 */
+            expected_lock_version: number;
+        };
+        ReorderCaseItem: {
+            id: components["schemas"]["UUID"];
+            sort_order: number;
+            expected_lock_version: number;
+        };
+        ReorderCasesRequest: {
+            items: components["schemas"]["ReorderCaseItem"][];
+        };
+        CommitImportRequest: {
+            import_token: string;
+        };
+        Dataset: {
+            id: components["schemas"]["UUID"];
+            scenario_id: components["schemas"]["UUID"];
+            scenario_name: string;
+            evaluation_target_id: components["schemas"]["UUID"];
+            evaluation_target_name: string;
+            name: string;
+            description?: string | null;
+            /** @enum {string} */
+            status: "active" | "archived";
+            lock_version: number;
+            created_at: components["schemas"]["UTCTimestamp"];
+            updated_at: components["schemas"]["UTCTimestamp"];
+            latest_version_no?: number | null;
+            published_version_count: number;
+            /** Format: uuid */
+            draft_version_id?: string | null;
+            draft_case_count: number;
+        };
+        DatasetVersion: {
+            id: components["schemas"]["UUID"];
+            dataset_id: components["schemas"]["UUID"];
+            /** Format: uuid */
+            base_version_id?: string | null;
+            version_no?: number | null;
+            /** @enum {string} */
+            status: "draft" | "published" | "archived";
+            release_note?: string | null;
+            lock_version: number;
+            /** Format: date-time */
+            published_at?: string | null;
+            /** Format: date-time */
+            archived_at?: string | null;
+            created_at: components["schemas"]["UTCTimestamp"];
+            updated_at: components["schemas"]["UTCTimestamp"];
+            case_count: number;
+            enabled_count: number;
+        };
+        CaseTagSnapshot: {
+            id: components["schemas"]["UUID"];
+            name: string;
+        };
+        VersionCase: {
+            id: components["schemas"]["UUID"];
+            dataset_version_id: components["schemas"]["UUID"];
+            case_key: components["schemas"]["UUID"];
+            name?: string | null;
+            user_prompt: string;
+            precondition?: string | null;
+            expected_result?: string | null;
+            judging_guide?: string | null;
+            sort_order: number;
+            is_enabled: boolean;
+            lock_version: number;
+            tags: components["schemas"]["CaseTagSnapshot"][];
+            created_at: components["schemas"]["UTCTimestamp"];
+            updated_at: components["schemas"]["UTCTimestamp"];
+        };
+        ImportPreviewRow: {
+            row_number: number;
+            name: string;
+            user_prompt: string;
+            precondition: string;
+            expected_result: string;
+            judging_guide: string;
+            tag_names: string[];
+            is_enabled: boolean;
+            errors: components["schemas"]["FieldError"][];
+        };
+        ImportPreview: {
+            import_token: string;
+            version_lock_version: number;
+            rows: components["schemas"]["ImportPreviewRow"][];
+            has_errors: boolean;
+            valid_row_count: number;
+            error_row_count: number;
+        };
+        DatasetResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["Dataset"];
+        };
+        CreateDatasetResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                dataset: components["schemas"]["Dataset"];
+                draft: components["schemas"]["DatasetVersion"];
+            };
+        };
+        DatasetDetailResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                dataset: components["schemas"]["Dataset"];
+                versions: components["schemas"]["DatasetVersion"][];
+            };
+        };
+        DatasetVersionResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["DatasetVersion"];
+        };
+        DatasetVersionListResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                items: components["schemas"]["DatasetVersion"][];
+            };
+        };
+        VersionCaseResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["VersionCase"];
+        };
+        ImportPreviewResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["ImportPreview"];
+        };
+        CommitImportResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                created_count: number;
+            };
+        };
+        /** @enum {string} */
+        EvaluationEnvironment: "test" | "staging" | "production" | "other";
+        CreateEvaluationRunRequest: {
+            dataset_version_id: components["schemas"]["UUID"];
+            agent_version: string;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            purpose_note?: string | null;
+            config_note?: string | null;
+        };
+        UpdateEvaluationRunRequest: {
+            agent_version: string;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            purpose_note?: string | null;
+            config_note?: string | null;
+            expected_lock_version: number;
+        };
+        EvaluationRunCommandRequest: {
+            /** @description Required for reopen and void. */
+            reason?: string;
+            expected_lock_version: number;
+        };
+        UpdateCaseResultRequest: {
+            /** @enum {string} */
+            status: "pending" | "evaluated" | "skipped";
+            answer_text?: string | null;
+            score?: number | null;
+            comment?: string | null;
+            skip_reason?: string | null;
+            expected_lock_version: number;
+        };
+        Attachment: {
+            id: components["schemas"]["UUID"];
+            original_name: string;
+            /** @enum {string} */
+            media_type: "image/png" | "image/jpeg" | "image/webp";
+            file_size: number;
+            width?: number | null;
+            height?: number | null;
+            sort_order: number;
+            content_url: string;
+            created_by: components["schemas"]["UUID"];
+            created_at: components["schemas"]["UTCTimestamp"];
+        };
+        BadcaseSummary: {
+            id: components["schemas"]["UUID"];
+            title: string;
+            description?: string | null;
+            status: string;
+            issue_tags: components["schemas"]["CaseTagSnapshot"][];
+        };
+        ResultPatch: {
+            /** @enum {string} */
+            status: "evaluated";
+            answer_text?: string | null;
+            score?: number | null;
+            comment?: string | null;
+        };
+        MarkBadcaseRequest: {
+            expected_result_lock_version: number;
+            result_patch?: components["schemas"]["ResultPatch"];
+            badcase: {
+                title: string;
+                description: string;
+                issue_tag_ids: components["schemas"]["UUID"][];
+            };
+        };
+        ReorderAttachmentsRequest: {
+            expected_owner_lock_version: number;
+            items: {
+                id: components["schemas"]["UUID"];
+                sort_order: number;
+            }[];
+        };
+        EvaluationProgress: {
+            total_count: number;
+            pending_count: number;
+            evaluated_count: number;
+            skipped_count: number;
+            scored_count: number;
+            badcase_count: number;
+            average_score?: number | null;
+            completion_rate: number;
+        };
+        EvaluationRun: {
+            id: components["schemas"]["UUID"];
+            dataset_version_id: components["schemas"]["UUID"];
+            dataset_id: components["schemas"]["UUID"];
+            dataset_name: string;
+            version_no: number;
+            scenario_id: components["schemas"]["UUID"];
+            scenario_name: string;
+            evaluation_target_id: components["schemas"]["UUID"];
+            evaluation_target_name: string;
+            evaluator_id: components["schemas"]["UUID"];
+            evaluator_name: string;
+            agent_version: string;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            purpose_note?: string | null;
+            config_note?: string | null;
+            /** @enum {string} */
+            status: "in_progress" | "completed" | "voided";
+            lock_version: number;
+            /** Format: date-time */
+            first_completed_at?: string | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            /** Format: date-time */
+            voided_at?: string | null;
+            void_reason?: string | null;
+            created_at: components["schemas"]["UTCTimestamp"];
+            updated_at: components["schemas"]["UTCTimestamp"];
+            progress: components["schemas"]["EvaluationProgress"];
+        };
+        CaseResult: {
+            id: components["schemas"]["UUID"];
+            evaluation_run_id: components["schemas"]["UUID"];
+            version_case_id: components["schemas"]["UUID"];
+            case_key: components["schemas"]["UUID"];
+            name?: string | null;
+            user_prompt: string;
+            precondition?: string | null;
+            expected_result?: string | null;
+            judging_guide?: string | null;
+            sort_order: number;
+            tags: components["schemas"]["CaseTagSnapshot"][];
+            /** @enum {string} */
+            status: "pending" | "evaluated" | "skipped";
+            answer_text?: string | null;
+            score?: number | null;
+            comment?: string | null;
+            skip_reason?: string | null;
+            has_badcase: boolean;
+            attachments: components["schemas"]["Attachment"][];
+            badcase: components["schemas"]["BadcaseSummary"] | null;
+            lock_version: number;
+            created_at: components["schemas"]["UTCTimestamp"];
+            updated_at: components["schemas"]["UTCTimestamp"];
+        };
+        EvaluationRunResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["EvaluationRun"];
+        };
+        CaseResultResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["CaseResult"];
+        };
+        UpdateCaseResultResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                result: components["schemas"]["CaseResult"];
+                progress: components["schemas"]["EvaluationProgress"];
+                run_lock_version: number;
+            };
+        };
+        UploadAttachmentResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                items: components["schemas"]["Attachment"][];
+                owner_lock_version: number;
+            };
+        };
+        OwnerLockResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                owner_lock_version: number;
+            };
+        };
+        BadcaseActivity: {
+            id: components["schemas"]["UUID"];
+            /** @enum {string} */
+            activity_type: "created" | "reactivated";
+            note?: string | null;
+            actor_id: components["schemas"]["UUID"];
+            actor_name: string;
+            created_at: components["schemas"]["UTCTimestamp"];
+        };
+        BadcaseEvaluationContext: {
+            case_result_id: components["schemas"]["UUID"];
+            evaluation_run_id: components["schemas"]["UUID"];
+            evaluator_id: components["schemas"]["UUID"];
+            evaluator_name: string;
+            dataset_id: components["schemas"]["UUID"];
+            dataset_name: string;
+            dataset_version_id: components["schemas"]["UUID"];
+            version_no: number;
+            version_case_id: components["schemas"]["UUID"];
+            case_name?: string | null;
+            user_prompt?: string | null;
+            score?: number | null;
+            comment?: string | null;
+        };
+        Badcase: {
+            id: components["schemas"]["UUID"];
+            /** @enum {string} */
+            source_type: "evaluation" | "business";
+            scenario_id: components["schemas"]["UUID"];
+            scenario_name: string;
+            evaluation_target_id: components["schemas"]["UUID"];
+            evaluation_target_name: string;
+            title: string;
+            description?: string | null;
+            agent_response_text?: string | null;
+            agent_version?: string | null;
+            environment: components["schemas"]["EvaluationEnvironment"];
+            occurred_at: components["schemas"]["UTCTimestamp"];
+            status: string;
+            lock_version: number;
+            created_by: components["schemas"]["UUID"];
+            creator_name: string;
+            created_at: components["schemas"]["UTCTimestamp"];
+            updated_at: components["schemas"]["UTCTimestamp"];
+            issue_tags: components["schemas"]["CaseTagSnapshot"][];
+            evaluation?: components["schemas"]["BadcaseEvaluationContext"] | null;
+            attachments: components["schemas"]["Attachment"][];
+            activities: components["schemas"]["BadcaseActivity"][];
+        };
+        BadcaseResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["Badcase"];
+        };
+        BadcasePageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items?: components["schemas"]["Badcase"][];
+            };
+        };
+        MarkBadcaseResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                badcase: components["schemas"]["Badcase"];
+                result: components["schemas"]["CaseResult"];
+                progress: components["schemas"]["EvaluationProgress"];
+                run_lock_version: number;
+            };
+        };
+        EvaluationWorkbenchResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                run: components["schemas"]["EvaluationRun"];
+                results: components["schemas"]["PageBase"] & {
+                    items?: components["schemas"]["CaseResult"][];
+                };
+            };
+        };
         SessionResponse: components["schemas"]["ResponseEnvelope"] & {
             data?: components["schemas"]["Session"];
         };
@@ -576,6 +1496,26 @@ export interface components {
         CatalogPage: components["schemas"]["PageBase"];
         ScenarioPage: components["schemas"]["PageBase"];
         AuditPage: components["schemas"]["PageBase"];
+        DatasetPageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items?: components["schemas"]["Dataset"][];
+            };
+        };
+        VersionCasePageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items?: components["schemas"]["VersionCase"][];
+            };
+        };
+        EvaluationRunPageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items?: components["schemas"]["EvaluationRun"][];
+            };
+        };
+        CaseResultPageResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: components["schemas"]["PageBase"] & {
+                items?: components["schemas"]["CaseResult"][];
+            };
+        };
         PageBase: {
             items: unknown[];
             page: number;
@@ -646,6 +1586,14 @@ export interface components {
         TargetID: components["schemas"]["UUID"];
         ScenarioID: components["schemas"]["UUID"];
         TagID: components["schemas"]["UUID"];
+        DatasetID: components["schemas"]["UUID"];
+        VersionID: components["schemas"]["UUID"];
+        CaseID: components["schemas"]["UUID"];
+        RunID: components["schemas"]["UUID"];
+        ResultID: components["schemas"]["UUID"];
+        BadcaseID: components["schemas"]["UUID"];
+        AttachmentID: components["schemas"]["UUID"];
+        IdempotencyKey: string;
         StateAction: "enable" | "disable";
     };
     requestBodies: {
@@ -1413,6 +2361,1049 @@ export interface operations {
                     "application/json": components["schemas"]["AuditPageResponse"];
                 };
             };
+        };
+    };
+    listDatasets: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                evaluation_target_id?: components["schemas"]["UUID"];
+                scenario_id?: components["schemas"]["UUID"];
+                status?: "active" | "archived";
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetPageResponse"];
+                };
+            };
+        };
+    };
+    createDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description Dataset and its initial draft were created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateDatasetResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    getDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset and version history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetDetailResponse"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description Dataset updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    setDatasetState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+                dataset_action: "archive" | "restore";
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["State"];
+        responses: {
+            /** @description Dataset state changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    listDatasetVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset version history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetVersionListResponse"];
+                };
+            };
+        };
+    };
+    createDatasetDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: components["parameters"]["DatasetID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Draft created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetVersionResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    getDatasetVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetVersionResponse"];
+                };
+            };
+        };
+    };
+    deleteDatasetDraft: {
+        parameters: {
+            query: {
+                expected_lock_version: number;
+            };
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draft deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    setDatasetVersionState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+                version_action: "publish" | "archive";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Version state changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetVersionResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    listVersionCases: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Version case page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionCasePageResponse"];
+                };
+            };
+        };
+    };
+    createVersionCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Case created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionCaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    getVersionCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: components["parameters"]["CaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Version case. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionCaseResponse"];
+                };
+            };
+        };
+    };
+    deleteVersionCase: {
+        parameters: {
+            query: {
+                expected_lock_version: number;
+            };
+            header?: never;
+            path: {
+                case_id: components["parameters"]["CaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Case deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    updateVersionCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: components["parameters"]["CaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Case updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionCaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    reorderVersionCases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderCasesRequest"];
+            };
+        };
+        responses: {
+            /** @description Cases reordered. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    downloadCaseImportTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description UTF-8 BOM CSV template. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    previewCaseImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Parsed rows and validation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreviewResponse"];
+                };
+            };
+            422: components["responses"]["Error"];
+        };
+    };
+    commitCaseImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitImportRequest"];
+            };
+        };
+        responses: {
+            /** @description All previewed rows appended in one transaction. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitImportResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    exportVersionCases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: components["parameters"]["VersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description UTF-8 BOM CSV export. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    listEvaluationRuns: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                evaluator_id?: components["schemas"]["UUID"];
+                status?: "in_progress" | "completed" | "voided";
+                environment?: components["schemas"]["EvaluationEnvironment"];
+                dataset_id?: components["schemas"]["UUID"];
+                scenario_id?: components["schemas"]["UUID"];
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current evaluator's runs, or the selected evaluator for an administrator. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunPageResponse"];
+                };
+            };
+        };
+    };
+    createEvaluationRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEvaluationRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing run returned for an idempotent replay. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            /** @description Independent run and all pending case results created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    getEvaluationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Evaluation run with current progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    deleteEvaluationRun: {
+        parameters: {
+            query: {
+                expected_lock_version: number;
+            };
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Never-completed run deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    updateEvaluationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEvaluationRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Run metadata updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    transitionEvaluationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+                run_action: "complete" | "reopen" | "void";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationRunCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description Run lifecycle state changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listCaseResults: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                status?: "pending" | "evaluated" | "skipped";
+            };
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Case result page in version case order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseResultPageResponse"];
+                };
+            };
+        };
+    };
+    getEvaluationWorkbench: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                status?: "pending" | "evaluated" | "skipped";
+            };
+            header?: never;
+            path: {
+                run_id: components["parameters"]["RunID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run context, progress, and paged case snapshots. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationWorkbenchResponse"];
+                };
+            };
+        };
+    };
+    getCaseResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Case result and version case snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseResultResponse"];
+                };
+            };
+        };
+    };
+    updateCaseResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCaseResultRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved result and latest run progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateCaseResultResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    uploadCaseResultAttachments: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    files: string[];
+                    expected_owner_lock_version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Screenshots stored and metadata committed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAttachmentResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            413: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    reorderCaseResultAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderAttachmentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Screenshot order updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerLockResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    markEvaluationBadcase: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                result_id: components["parameters"]["ResultID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkBadcaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Result update and Badcase creation committed atomically. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkBadcaseResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listBadcases: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                status?: string;
+                scenario_id?: components["schemas"]["UUID"];
+                issue_tag_id?: components["schemas"]["UUID"];
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active evaluation Badcases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcasePageResponse"];
+                };
+            };
+        };
+    };
+    getBadcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Badcase with evaluation trace, evidence, and activity timeline. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getBadcasePage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Badcase page aggregate for the SPA. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadcaseResponse"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    uploadBadcaseAttachments: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    files: string[];
+                    expected_owner_lock_version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Badcase screenshots uploaded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAttachmentResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+            413: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    reorderBadcaseAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badcase_id: components["parameters"]["BadcaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderAttachmentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Screenshot order updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerLockResponse"];
+                };
+            };
+        };
+    };
+    deleteAttachment: {
+        parameters: {
+            query: {
+                expected_owner_lock_version: number;
+            };
+            header?: never;
+            path: {
+                attachment_id: components["parameters"]["AttachmentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment metadata deleted and private file removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerLockResponse"];
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    getAttachmentContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: components["parameters"]["AttachmentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized private image content. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/webp": string;
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
 }

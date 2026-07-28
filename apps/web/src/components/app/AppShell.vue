@@ -22,8 +22,9 @@ const passwordDialog = ref(false)
 const passwordForm = reactive({ current_password: '', new_password: '' })
 const navigation = computed(() => [
   { label: '首页', icon: HomeFilled, to: '/', enabled: true },
-  { label: '评测集', icon: Collection, enabled: false },
-  { label: '我的评测', icon: List, enabled: false },
+  { label: '评测集', icon: Collection, to: '/datasets', enabled: true },
+  { label: '我的评测', icon: List, to: '/evaluations', enabled: true },
+  { label: 'Badcase 中心', icon: Tickets, to: '/badcases', enabled: true },
   ...(auth.isAdmin
     ? [
         { label: '基础目录', icon: Operation, to: '/admin/catalog', enabled: true },

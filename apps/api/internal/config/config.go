@@ -22,6 +22,7 @@ type Config struct {
 	Redis    RedisConfig    `yaml:"redis"`
 	Paths    PathsConfig    `yaml:"paths"`
 	Upload   UploadConfig   `yaml:"upload"`
+	CSV      CSVConfig      `yaml:"csv"`
 	Security SecurityConfig `yaml:"security"`
 }
 
@@ -71,6 +72,10 @@ type UploadConfig struct {
 	MaxFileSize       int64    `yaml:"max_file_size"`
 	MaxFilesPerOwner  int      `yaml:"max_files_per_owner"`
 	AllowedMediaTypes []string `yaml:"allowed_media_types"`
+}
+
+type CSVConfig struct {
+	ImportPreviewTTL time.Duration `yaml:"import_preview_ttl"`
 }
 
 type SecurityConfig struct {
@@ -193,6 +198,9 @@ func applyDefaults(cfg *Config) {
 	if len(cfg.Upload.AllowedMediaTypes) == 0 {
 		cfg.Upload.AllowedMediaTypes = []string{"image/png", "image/jpeg", "image/webp"}
 	}
+	if cfg.CSV.ImportPreviewTTL == 0 {
+		cfg.CSV.ImportPreviewTTL = 15 * time.Minute
+	}
 	if cfg.Security.SessionCookie == "" {
 		cfg.Security.SessionCookie = "quickeval_session"
 	}
@@ -244,6 +252,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.Upload.MaxFilesPerOwner <= 0 {
 		validationErrors = append(validationErrors, errors.New("upload.max_files_per_owner must be positive"))
+	}
+	if cfg.CSV.ImportPreviewTTL <= 0 {
+		validationErrors = append(validationErrors, errors.New("csv.import_preview_ttl must be positive"))
 	}
 	if !filepath.IsLocal(cfg.Log.File) {
 		validationErrors = append(validationErrors, errors.New("log.file must be a relative local path"))

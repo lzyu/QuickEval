@@ -323,8 +323,8 @@ POST  /api/v1/datasets
 GET   /api/v1/datasets/{dataset_id}
 PATCH /api/v1/datasets/{dataset_id}
 
-POST /api/v1/datasets/{dataset_id}:archive
-POST /api/v1/datasets/{dataset_id}:restore
+POST /api/v1/datasets/{dataset_id}/archive
+POST /api/v1/datasets/{dataset_id}/restore
 ```
 
 创建评测集时在同一事务中自动创建首个草稿，并同时返回两者摘要。列表支持 `scenario_id/status/keyword`。
@@ -336,9 +336,9 @@ GET    /api/v1/datasets/{dataset_id}/versions
 GET    /api/v1/dataset-versions/{version_id}
 DELETE /api/v1/dataset-versions/{version_id}
 
-POST /api/v1/datasets/{dataset_id}:create-draft
-POST /api/v1/dataset-versions/{version_id}:publish
-POST /api/v1/dataset-versions/{version_id}:archive
+POST /api/v1/datasets/{dataset_id}/drafts
+POST /api/v1/dataset-versions/{version_id}/publish
+POST /api/v1/dataset-versions/{version_id}/archive
 ```
 
 创建草稿：
@@ -373,7 +373,7 @@ GET    /api/v1/version-cases/{case_id}
 PATCH  /api/v1/version-cases/{case_id}
 DELETE /api/v1/version-cases/{case_id}
 
-POST /api/v1/dataset-versions/{version_id}/cases:reorder
+POST /api/v1/dataset-versions/{version_id}/cases/reorder
 ```
 
 - 只有草稿版本允许写入。
@@ -386,8 +386,8 @@ POST /api/v1/dataset-versions/{version_id}/cases:reorder
 
 ```http
 GET  /api/v1/case-import-template.csv
-POST /api/v1/dataset-versions/{version_id}/case-imports:preview
-POST /api/v1/dataset-versions/{version_id}/case-imports:commit
+POST /api/v1/dataset-versions/{version_id}/case-imports/preview
+POST /api/v1/dataset-versions/{version_id}/case-imports/commit
 GET  /api/v1/dataset-versions/{version_id}/cases.csv
 ```
 
@@ -406,9 +406,9 @@ GET    /api/v1/evaluation-runs/{run_id}
 PATCH  /api/v1/evaluation-runs/{run_id}
 DELETE /api/v1/evaluation-runs/{run_id}
 
-POST /api/v1/evaluation-runs/{run_id}:complete
-POST /api/v1/evaluation-runs/{run_id}:reopen
-POST /api/v1/evaluation-runs/{run_id}:void
+POST /api/v1/evaluation-runs/{run_id}/complete
+POST /api/v1/evaluation-runs/{run_id}/reopen
+POST /api/v1/evaluation-runs/{run_id}/void
 ```
 
 创建请求：
@@ -475,7 +475,7 @@ PATCH /api/v1/case-results/{result_id}
 ### 8.4 标记评测 Badcase
 
 ```http
-POST /api/v1/case-results/{result_id}:mark-badcase
+POST /api/v1/case-results/{result_id}/mark-badcase
 ```
 
 ```json
@@ -564,8 +564,8 @@ POST   /api/v1/badcases/{badcase_id}/attachments
 GET    /api/v1/attachments/{attachment_id}/content
 DELETE /api/v1/attachments/{attachment_id}
 
-POST /api/v1/case-results/{result_id}/attachments:reorder
-POST /api/v1/badcases/{badcase_id}/attachments:reorder
+POST /api/v1/case-results/{result_id}/attachments/reorder
+POST /api/v1/badcases/{badcase_id}/attachments/reorder
 ```
 
 - 上传使用 multipart 字段 `files` 和 `expected_owner_lock_version`。

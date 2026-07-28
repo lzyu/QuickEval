@@ -10,10 +10,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/lzyu/QuickEval/apps/api/internal/attachment"
 	"github.com/lzyu/QuickEval/apps/api/internal/audit"
 	"github.com/lzyu/QuickEval/apps/api/internal/auth"
+	"github.com/lzyu/QuickEval/apps/api/internal/badcase"
 	"github.com/lzyu/QuickEval/apps/api/internal/catalog"
 	"github.com/lzyu/QuickEval/apps/api/internal/config"
+	"github.com/lzyu/QuickEval/apps/api/internal/dataset"
+	"github.com/lzyu/QuickEval/apps/api/internal/evaluation"
 	"github.com/lzyu/QuickEval/apps/api/internal/httpapi"
 	"github.com/lzyu/QuickEval/apps/api/internal/httpapi/health"
 	"github.com/lzyu/QuickEval/apps/api/internal/platform/cache"
@@ -101,6 +105,18 @@ func run() error {
 		cfg.Security.PasswordMinLength,
 	)
 	catalogRepository := catalog.NewRepository(mysqlDB)
+	datasetRepository := dataset.NewRepository(mysqlDB)
+	evaluationRepository := evaluation.NewRepository(mysqlDB)
+	attachmentStorage, err := attachment.NewStorage(
+		config.ResolvePath(baseDir, cfg.Paths.Uploads),
+		cfg.Upload.MaxFileSize,
+		cfg.Upload.AllowedMediaTypes,
+	)
+	if err != nil {
+		return err
+	}
+	attachmentRepository := attachment.NewRepository(mysqlDB)
+	badcaseRepository := badcase.NewRepository(mysqlDB)
 
 	router := httpapi.NewRouter(httpapi.Dependencies{
 		Logger:         logger,
@@ -111,6 +127,38 @@ func run() error {
 		Catalog: catalog.NewHandler(
 			catalog.NewService(catalogRepository),
 			catalogRepository,
+			auditRecorder,
+			logger,
+		),
+		Datasets: dataset.NewHandler(
+			dataset.NewService(datasetRepository),
+			datasetRepository,
+			dataset.NewImportPreviewStore(redisClient, cfg.CSV.ImportPreviewTTL),
+			auditRecorder,
+			logger,
+		),
+		Evaluations: evaluation.NewHandler(
+			evaluation.NewService(evaluationRepository),
+			evaluationRepository,
+			evaluation.NewIdempotencyStore(redisClient),
+			auditRecorder,
+			logger,
+		),
+		Attachments: attachment.NewHandler(
+			attachment.NewService(
+				attachmentRepository,
+				attachmentStorage,
+				cfg.Upload.MaxFilesPerOwner,
+			),
+			attachment.NewIdempotencyStore(redisClient),
+			logger,
+			cfg.Upload.MaxFileSize,
+			cfg.Upload.MaxFilesPerOwner,
+		),
+		Badcases: badcase.NewHandler(
+			badcase.NewService(badcaseRepository, evaluationRepository),
+			badcaseRepository,
+			badcase.NewIdempotencyStore(redisClient),
 			auditRecorder,
 			logger,
 		),

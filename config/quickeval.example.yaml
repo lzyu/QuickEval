@@ -40,6 +40,9 @@ upload:
     - image/jpeg
     - image/webp
 
+csv:
+  import_preview_ttl: 15m
+
 security:
   session_cookie: quickeval_session
   session_ttl: 12h

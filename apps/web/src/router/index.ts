@@ -35,6 +35,47 @@ const router = createRouter({
           component: HomeView,
         },
         {
+          path: 'datasets',
+          name: 'datasets',
+          component: () => import('@/views/datasets/DatasetListView.vue'),
+        },
+        {
+          path: 'datasets/:datasetId',
+          name: 'dataset-detail',
+          component: () => import('@/views/datasets/DatasetDetailView.vue'),
+        },
+        {
+          path: 'dataset-versions/:versionId/edit',
+          name: 'draft-editor',
+          component: () => import('@/views/datasets/DraftEditorView.vue'),
+          meta: { admin: true },
+        },
+        {
+          path: 'evaluations',
+          name: 'my-evaluations',
+          component: () => import('@/views/evaluations/MyEvaluationsView.vue'),
+        },
+        {
+          path: 'badcases',
+          name: 'badcases',
+          component: () => import('@/views/badcases/BadcaseListView.vue'),
+        },
+        {
+          path: 'badcases/:badcaseId',
+          name: 'badcase-detail',
+          component: () => import('@/views/badcases/BadcaseDetailView.vue'),
+        },
+        {
+          path: 'evaluation-runs/:runId/workbench',
+          name: 'evaluation-workbench',
+          component: () => import('@/views/evaluations/EvaluationWorkbenchView.vue'),
+        },
+        {
+          path: 'evaluation-runs/:runId/result',
+          name: 'evaluation-result',
+          component: () => import('@/views/evaluations/EvaluationWorkbenchView.vue'),
+        },
+        {
           path: 'admin/catalog',
           name: 'admin-catalog',
           component: CatalogView,
