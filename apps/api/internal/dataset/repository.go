@@ -385,7 +385,12 @@ func (repository Repository) FindActiveTags(
 		Name string
 	}
 	err := repository.db.WithContext(ctx).Table("case_tags").
-		Select("id, name").Where("scenario_id = ? AND status = 'active' AND id IN ?", scenarioID, tagIDs).
+		Select("id, name").
+		Where(
+			"(scope = 'global' OR scenario_id = ?) AND status = 'active' AND id IN ?",
+			scenarioID,
+			tagIDs,
+		).
 		Scan(&rows).Error
 	result := make(map[id.UUID]string, len(rows))
 	for _, row := range rows {
@@ -407,7 +412,12 @@ func (repository Repository) FindActiveTagsByNames(
 		Name string
 	}
 	err := repository.db.WithContext(ctx).Table("case_tags").
-		Select("id, name").Where("scenario_id = ? AND status = 'active' AND name IN ?", scenarioID, names).
+		Select("id, name").
+		Where(
+			"(scope = 'global' OR scenario_id = ?) AND status = 'active' AND name IN ?",
+			scenarioID,
+			names,
+		).
 		Scan(&rows).Error
 	result := make(map[string]id.UUID, len(rows))
 	for _, row := range rows {

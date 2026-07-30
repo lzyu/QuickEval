@@ -88,7 +88,6 @@ occurred_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 jq -n --arg scenario "${scenario_id}" --arg tag "${tag_accuracy_id}" \
   --arg occurred "${occurred_at}" \
   '{scenario_id: $scenario, title: "采购助手未识别预算条件",
-    description: "输入预算后仍然推荐超预算商品",
     agent_response_text: "建议采购高配服务器", agent_version: "2026.07.28",
     environment: "production", occurred_at: $occurred,
     business_reference: "ORDER-M5-001", session_id: "chat-m5-001",
@@ -98,7 +97,7 @@ test "$(request POST /api/v1/badcases "${member_a_cookie}" "${member_a_csrf}" \
   "${smoke_dir}/create-input.json" "${smoke_dir}/created.json" "${create_key}")" = "201"
 badcase_id="$(jq -er '.data.id' "${smoke_dir}/created.json")"
 jq -e '.data.source_type == "business" and .data.status == "pending" and
-  .data.lock_version == 0 and (.data.activities | length) == 1' \
+  .data.description == null and .data.lock_version == 0 and (.data.activities | length) == 1' \
   "${smoke_dir}/created.json" >/dev/null
 
 test "$(request POST /api/v1/badcases "${member_a_cookie}" "${member_a_csrf}" \

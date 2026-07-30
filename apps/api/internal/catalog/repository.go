@@ -169,21 +169,80 @@ func (repository Repository) ScenarioHasHistory(ctx context.Context, scenarioID 
 
 func (repository Repository) ListCaseTags(
 	ctx context.Context,
+	scope string,
+	scenarioID *id.UUID,
+	status string,
+) ([]CaseTag, error) {
+	query := repository.caseTagQuery(ctx)
+	if scope != "" {
+		query = query.Where("case_tags.scope = ?", scope)
+	}
+	if scenarioID != nil {
+		query = query.Where("case_tags.scenario_id = ?", *scenarioID)
+	}
+	if status != "" {
+		query = query.Where("case_tags.status = ?", status)
+	}
+	var items []CaseTag
+	err := query.Order("case_tags.scope ASC, case_tags.sort_order ASC, case_tags.created_at ASC, case_tags.id ASC").
+		Scan(&items).Error
+	return items, err
+}
+
+func (repository Repository) ListAvailableCaseTags(
+	ctx context.Context,
 	scenarioID id.UUID,
 	status string,
 ) ([]CaseTag, error) {
-	query := repository.db.WithContext(ctx).Where("scenario_id = ?", scenarioID)
+	query := repository.caseTagQuery(ctx).
+		Where("(case_tags.scope = ? OR case_tags.scenario_id = ?)", CaseTagScopeGlobal, scenarioID)
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("case_tags.status = ?", status)
 	}
 	var items []CaseTag
-	err := query.Order("sort_order ASC, created_at ASC, id ASC").Find(&items).Error
+	err := query.Order(
+		"CASE WHEN case_tags.scope = 'global' THEN 0 ELSE 1 END, " +
+			"case_tags.sort_order ASC, case_tags.created_at ASC, case_tags.id ASC",
+	).Scan(&items).Error
 	return items, err
+}
+
+func (repository Repository) CaseTagNameConflicts(
+	ctx context.Context,
+	scope string,
+	scenarioID *id.UUID,
+	name string,
+	excludeID *id.UUID,
+) (bool, error) {
+	query := repository.db.WithContext(ctx).Table("case_tags").Where("name = ?", name)
+	if scope == CaseTagScopeGlobal {
+		query = query.Where("scope = ? OR scope = ?", CaseTagScopeGlobal, CaseTagScopeScenario)
+	} else {
+		query = query.Where(
+			"scope = ? OR (scope = ? AND scenario_id = ?)",
+			CaseTagScopeGlobal,
+			CaseTagScopeScenario,
+			*scenarioID,
+		)
+	}
+	if excludeID != nil {
+		query = query.Where("id <> ?", *excludeID)
+	}
+	var count int64
+	err := query.Count(&count).Error
+	return count > 0, err
+}
+
+func (repository Repository) caseTagQuery(ctx context.Context) *gorm.DB {
+	return repository.db.WithContext(ctx).
+		Table("case_tags").
+		Select("case_tags.*, scenarios.name AS scenario_name").
+		Joins("LEFT JOIN scenarios ON scenarios.id = case_tags.scenario_id")
 }
 
 func (repository Repository) GetCaseTag(ctx context.Context, tagID id.UUID) (CaseTag, error) {
 	var item CaseTag
-	err := repository.db.WithContext(ctx).Take(&item, "id = ?", tagID).Error
+	err := repository.caseTagQuery(ctx).Where("case_tags.id = ?", tagID).Take(&item).Error
 	return item, err
 }
 

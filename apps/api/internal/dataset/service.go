@@ -511,7 +511,7 @@ func (service Service) caseTagRecords(
 	}
 	if len(names) != len(tagIDs) {
 		return nil, apperror.Validation(
-			apperror.FieldError{Field: "tag_ids", Message: "包含不存在、停用或不属于当前场景的标签"},
+			apperror.FieldError{Field: "tag_ids", Message: "包含不存在、停用或不适用于当前场景的标签"},
 		)
 	}
 	tags := make([]VersionCaseTag, 0, len(tagIDs))

@@ -25,7 +25,7 @@ A single user question or task instruction to be exercised against an Agent. It 
 _Avoid_: Question, test point
 
 **Case Tag（用例标签）**:
-A Scenario-specific classification used to organize and filter Evaluation Cases by business content. It is distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
+A classification used to organize and filter Evaluation Cases by the capability being exercised. A Global Case Tag is available in every Scenario, while a Scenario Case Tag is available only in its owning Scenario. It is distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
 _Avoid_: Issue tag, Badcase category
 
 ## Evaluation Execution

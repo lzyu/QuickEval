@@ -47,10 +47,13 @@ test "$(request POST /api/v1/scenarios "${smoke_dir}/scenario-input.json" \
   "${smoke_dir}/scenario.json")" = "201"
 scenario_id="$(jq -er '.data.id' "${smoke_dir}/scenario.json")"
 
-jq -n '{name: "事实准确性", description: "M2 smoke"}' > "${smoke_dir}/tag-input.json"
-test "$(request POST "/api/v1/scenarios/${scenario_id}/case-tags" \
+jq -n --arg name "事实准确性 ${timestamp}" \
+  '{scope: "global", scenario_id: null, name: $name, description: "M2 smoke"}' \
+  > "${smoke_dir}/tag-input.json"
+test "$(request POST "/api/v1/case-tags" \
   "${smoke_dir}/tag-input.json" "${smoke_dir}/tag.json")" = "201"
 tag_id="$(jq -er '.data.id' "${smoke_dir}/tag.json")"
+tag_name="$(jq -er '.data.name' "${smoke_dir}/tag.json")"
 
 jq -n --arg id "${scenario_id}" --arg name "M2 采购助手评测集 ${timestamp}" \
   '{scenario_id: $id, name: $name, description: "M2 smoke"}' > "${smoke_dir}/dataset-input.json"
@@ -87,8 +90,8 @@ test "$(curl -sS -o "${smoke_dir}/invalid-preview.json" -w "%{http_code}" -b "${
 jq -e '.data.has_errors and .data.error_row_count == 1' \
   "${smoke_dir}/invalid-preview.json" >/dev/null
 
-printf '\357\273\277用例名称,用户问题,前置条件,期望结果,评判要点,用例标签,是否启用\n交付周期,\"预算包含逗号, 交付期多久\",已选择商品,,\"回答需说明\n预计交付周期\",事实准确性,是\n' \
-  > "${smoke_dir}/valid.csv"
+printf '\357\273\277用例名称,用户问题,前置条件,期望结果,评判要点,用例标签,是否启用\n交付周期,\"预算包含逗号, 交付期多久\",已选择商品,,\"回答需说明\n预计交付周期\",%s,是\n' \
+  "${tag_name}" > "${smoke_dir}/valid.csv"
 test "$(curl -sS -o "${smoke_dir}/preview.json" -w "%{http_code}" -b "${cookie}" \
   -H "X-CSRF-Token: ${csrf}" -F "file=@${smoke_dir}/valid.csv;type=text/csv" \
   "${api_base}/api/v1/dataset-versions/${draft_v1_id}/case-imports/preview")" = "200"
@@ -119,6 +122,10 @@ jq -n --arg id "${target_id}" \
 test "$(request POST /api/v1/scenarios "${smoke_dir}/second-scenario-input.json" \
   "${smoke_dir}/second-scenario.json")" = "201"
 second_scenario_id="$(jq -er '.data.id' "${smoke_dir}/second-scenario.json")"
+test "$(request GET "/api/v1/scenarios/${second_scenario_id}/available-case-tags" "" \
+  "${smoke_dir}/second-scenario-tags.json")" = "200"
+jq -e --arg id "${tag_id}" '.data.global | any(.id == $id)' \
+  "${smoke_dir}/second-scenario-tags.json" >/dev/null
 test "$(request GET "/api/v1/datasets/${dataset_id}" "" "${smoke_dir}/detail-before-update.json")" = "200"
 dataset_lock="$(jq -er '.data.dataset.lock_version' "${smoke_dir}/detail-before-update.json")"
 jq -n --arg scenario "${second_scenario_id}" --arg name "禁止切换" --argjson lock "${dataset_lock}" \

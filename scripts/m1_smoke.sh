@@ -69,6 +69,31 @@ scenario_id="$(jq -er '.data.id' "${smoke_dir}/scenario.json")"
 jq -n '{name: "询价准确性", description: "用例分类"}' > "${smoke_dir}/create-case-tag.json"
 test "$(request POST "/api/v1/scenarios/${scenario_id}/case-tags" "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/create-case-tag.json" "${smoke_dir}/case-tag.json")" = "201"
+scenario_tag_id="$(jq -er '.data.id' "${smoke_dir}/case-tag.json")"
+global_tag_name="意图识别 ${timestamp}"
+jq -n --arg name "${global_tag_name}" \
+  '{scope: "global", scenario_id: null, name: $name, description: "跨场景通用能力"}' \
+  > "${smoke_dir}/create-global-case-tag.json"
+test "$(request POST /api/v1/case-tags "${admin_cookie}" "${admin_csrf}" \
+  "${smoke_dir}/create-global-case-tag.json" "${smoke_dir}/global-case-tag.json")" = "201"
+global_tag_id="$(jq -er '.data.id' "${smoke_dir}/global-case-tag.json")"
+test "$(request GET "/api/v1/case-tags?scope=global" "${admin_cookie}" "" "" \
+  "${smoke_dir}/global-case-tags.json")" = "200"
+jq -e --arg id "${global_tag_id}" \
+  '.data.items | any(.id == $id and .scope == "global" and .scenario_id == null)' \
+  "${smoke_dir}/global-case-tags.json" >/dev/null
+test "$(request GET "/api/v1/scenarios/${scenario_id}/available-case-tags" \
+  "${admin_cookie}" "" "" "${smoke_dir}/available-case-tags.json")" = "200"
+jq -e --arg global "${global_tag_id}" --arg scenario "${scenario_tag_id}" \
+  '(.data.global | any(.id == $global)) and (.data.scenario | any(.id == $scenario))' \
+  "${smoke_dir}/available-case-tags.json" >/dev/null
+jq -n --arg name "${global_tag_name}" '{name: $name, description: "应与全局标签冲突"}' \
+  > "${smoke_dir}/conflicting-case-tag.json"
+test "$(request POST "/api/v1/scenarios/${scenario_id}/case-tags" \
+  "${admin_cookie}" "${admin_csrf}" "${smoke_dir}/conflicting-case-tag.json" \
+  "${smoke_dir}/conflicting-case-tag-response.json")" = "409"
+jq -e '.error.code == "NAME_CONFLICT"' \
+  "${smoke_dir}/conflicting-case-tag-response.json" >/dev/null
 jq '{items: [{id: .data.id, sort_order: 10, expected_lock_version: .data.lock_version}]}' \
   "${smoke_dir}/case-tag.json" > "${smoke_dir}/reorder-case-tag.json"
 test "$(request PUT "/api/v1/scenarios/${scenario_id}/case-tags/reorder" \

@@ -57,7 +57,6 @@ const createValid = computed(
   () =>
     createForm.scenario_id &&
     createForm.title.trim() &&
-    createForm.description.trim() &&
     createForm.occurred_at &&
     createForm.issue_tag_ids.length > 0,
 )
@@ -144,7 +143,7 @@ async function createBusinessBadcase() {
       {
         scenario_id: createForm.scenario_id,
         title: createForm.title,
-        description: createForm.description,
+        description: createForm.description.trim() || null,
         agent_response_text: createForm.agent_response_text || null,
         agent_version: createForm.agent_version || null,
         environment: createForm.environment,
@@ -333,7 +332,7 @@ onMounted(() => Promise.all([loadOptions(), load()]))
       <el-form-item label="问题标题" required>
         <el-input v-model="createForm.title" maxlength="200" show-word-limit />
       </el-form-item>
-      <el-form-item label="问题描述" required>
+      <el-form-item label="问题描述（可选）">
         <el-input v-model="createForm.description" type="textarea" :rows="4" maxlength="5000" show-word-limit />
       </el-form-item>
       <el-form-item label="Agent 回答现场">

@@ -50,6 +50,7 @@ export interface Scenario extends CatalogItem {
 }
 
 export interface Tag extends CatalogItem {
+  scope?: 'global' | 'scenario'
   scenario_id?: string
   scenario_name?: string
   color?: string | null

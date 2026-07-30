@@ -336,6 +336,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scenarios/{scenario_id}/available-case-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: components["parameters"]["ScenarioID"];
+            };
+            cookie?: never;
+        };
+        get: operations["listAvailableCaseTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/case-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listManagedCaseTags"];
+        put?: never;
+        post: operations["createManagedCaseTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/issue-tags": {
         parameters: {
             query?: never;
@@ -1333,6 +1367,12 @@ export interface components {
         ScenarioRequest: components["schemas"]["NamedRequest"] & {
             evaluation_target_id: components["schemas"]["UUID"];
         };
+        CaseTagRequest: components["schemas"]["NamedRequest"] & {
+            /** @enum {string} */
+            scope: "global" | "scenario";
+            /** Format: uuid */
+            scenario_id?: string | null;
+        };
         ReorderRequest: {
             items: {
                 id: components["schemas"]["UUID"];
@@ -1384,7 +1424,11 @@ export interface components {
             evaluation_target_name: string;
         };
         Tag: components["schemas"]["CatalogItem"] & {
-            scenario_id?: components["schemas"]["UUID"];
+            /** @enum {string} */
+            scope?: "global" | "scenario";
+            /** Format: uuid */
+            scenario_id?: string | null;
+            scenario_name?: string | null;
             sort_order: number;
         };
         AuditLog: {
@@ -1622,6 +1666,7 @@ export interface components {
         CreateBusinessBadcaseRequest: {
             scenario_id: components["schemas"]["UUID"];
             title: string;
+            /** @description Optional problem description; blank input is stored as null. */
             description?: string | null;
             agent_response_text?: string | null;
             agent_version?: string | null;
@@ -1633,6 +1678,7 @@ export interface components {
         };
         UpdateBusinessBadcaseRequest: {
             title: string;
+            /** @description Optional problem description; blank input is stored as null. */
             description?: string | null;
             agent_response_text?: string | null;
             agent_version?: string | null;
@@ -1894,6 +1940,12 @@ export interface components {
         TagListResponse: components["schemas"]["ResponseEnvelope"] & {
             data?: {
                 items: components["schemas"]["Tag"][];
+            };
+        };
+        AvailableCaseTagsResponse: components["schemas"]["ResponseEnvelope"] & {
+            data?: {
+                global: components["schemas"]["Tag"][];
+                scenario: components["schemas"]["Tag"][];
             };
         };
         UserPage: components["schemas"]["PageBase"];
@@ -2809,6 +2861,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    listAvailableCaseTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: components["parameters"]["ScenarioID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active global and scenario-specific tags available to cases in this scenario. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailableCaseTagsResponse"];
+                };
+            };
+        };
+    };
+    listManagedCaseTags: {
+        parameters: {
+            query: {
+                scope: "global" | "scenario";
+                scenario_id?: string;
+                status?: "active" | "disabled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Case tags in one management scope. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagListResponse"];
+                };
+            };
+        };
+    };
+    createManagedCaseTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Global or scenario-specific case tag created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
             };
         };
     };

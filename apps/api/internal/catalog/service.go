@@ -24,6 +24,14 @@ type NamedInput struct {
 	ExpectedLockVersion uint32
 }
 
+type CaseTagInput struct {
+	Scope               string
+	ScenarioID          *id.UUID
+	Name                string
+	Description         *string
+	ExpectedLockVersion uint32
+}
+
 func (service Service) CreateTarget(
 	ctx context.Context,
 	actorID id.UUID,
@@ -213,27 +221,49 @@ func (service Service) SetScenarioStatus(
 
 func (service Service) CreateCaseTag(
 	ctx context.Context,
-	actorID, scenarioID id.UUID,
-	input NamedInput,
+	actorID id.UUID,
+	input CaseTagInput,
 ) (CaseTag, error) {
-	scenario, err := service.repository.GetScenario(ctx, scenarioID)
-	if err != nil {
-		return CaseTag{}, mapNotFound(err)
+	if err := validateCaseTagScope(input.Scope, input.ScenarioID); err != nil {
+		return CaseTag{}, err
 	}
-	if scenario.Status != StatusActive {
-		return CaseTag{}, apperror.Conflict("RESOURCE_DISABLED", "停用的场景不能新建用例标签")
+	if input.Scope == CaseTagScopeScenario {
+		scenario, err := service.repository.GetScenario(ctx, *input.ScenarioID)
+		if err != nil {
+			return CaseTag{}, mapNotFound(err)
+		}
+		if scenario.Status != StatusActive {
+			return CaseTag{}, apperror.Conflict("RESOURCE_DISABLED", "停用的场景不能新建用例标签")
+		}
 	}
 	name, description, err := validateNamed(input.Name, input.Description, 100)
 	if err != nil {
 		return CaseTag{}, err
 	}
-	items, err := service.repository.ListCaseTags(ctx, scenarioID, "")
+	conflicts, err := service.repository.CaseTagNameConflicts(
+		ctx,
+		input.Scope,
+		input.ScenarioID,
+		name,
+		nil,
+	)
+	if err != nil {
+		return CaseTag{}, err
+	}
+	if conflicts {
+		return CaseTag{}, apperror.Conflict(
+			"NAME_CONFLICT",
+			"全局标签与同一场景内的标签不能重名",
+		)
+	}
+	items, err := service.repository.ListCaseTags(ctx, input.Scope, input.ScenarioID, "")
 	if err != nil {
 		return CaseTag{}, err
 	}
 	item := CaseTag{
 		ID:          id.MustNew(),
-		ScenarioID:  scenarioID,
+		Scope:       input.Scope,
+		ScenarioID:  input.ScenarioID,
 		Name:        name,
 		Description: description,
 		Status:      StatusActive,
@@ -259,6 +289,22 @@ func (service Service) UpdateCaseTag(
 	name, description, err := validateNamed(input.Name, input.Description, 100)
 	if err != nil {
 		return CaseTag{}, CaseTag{}, err
+	}
+	conflicts, err := service.repository.CaseTagNameConflicts(
+		ctx,
+		before.Scope,
+		before.ScenarioID,
+		name,
+		&tagID,
+	)
+	if err != nil {
+		return CaseTag{}, CaseTag{}, err
+	}
+	if conflicts {
+		return CaseTag{}, CaseTag{}, apperror.Conflict(
+			"NAME_CONFLICT",
+			"全局标签与同一场景内的标签不能重名",
+		)
 	}
 	if err := service.repository.UpdateCaseTag(
 		ctx,
@@ -309,6 +355,28 @@ func (service Service) ReorderCaseTags(
 		return err
 	}
 	return mapWriteError(service.repository.ReorderCaseTags(ctx, scenarioID, actorID, items))
+}
+
+func validateCaseTagScope(scope string, scenarioID *id.UUID) error {
+	switch scope {
+	case CaseTagScopeGlobal:
+		if scenarioID != nil {
+			return apperror.Validation(
+				apperror.FieldError{Field: "scenario_id", Message: "全局标签不能绑定场景"},
+			)
+		}
+	case CaseTagScopeScenario:
+		if scenarioID == nil {
+			return apperror.Validation(
+				apperror.FieldError{Field: "scenario_id", Message: "场景标签必须选择所属场景"},
+			)
+		}
+	default:
+		return apperror.Validation(
+			apperror.FieldError{Field: "scope", Message: "标签作用域必须是 global 或 scenario"},
+		)
+	}
+	return nil
 }
 
 func (service Service) CreateIssueTag(

@@ -275,9 +275,16 @@ POST /api/v1/scenarios/{scenario_id}:enable
 
 ### 6.3 用例标签
 
+用例标签分为 `global` 和 `scenario` 两种不可变作用域。全局标签不携带
+`scenario_id`，场景标签必须携带。场景可用标签是启用的全局标签与当前场景启用
+标签的并集。
+
 ```http
+GET   /api/v1/case-tags
+POST  /api/v1/case-tags
 GET   /api/v1/scenarios/{scenario_id}/case-tags
 POST  /api/v1/scenarios/{scenario_id}/case-tags
+GET   /api/v1/scenarios/{scenario_id}/available-case-tags
 PATCH /api/v1/case-tags/{tag_id}
 
 POST /api/v1/case-tags/{tag_id}:disable
@@ -510,6 +517,7 @@ PUT   /api/v1/badcases/{badcase_id}/issue-tags
 ```
 
 `POST /badcases` 只创建业务来源；评测来源必须通过 CaseResult 命令创建。列表支持对象、场景、来源、状态、负责人、标签、环境、Agent 版本、时间和关键词筛选，默认排除无效记录。
+业务 Badcase 的标题必填，问题描述可省略或传 `null`；空白描述会归一化为 `null`。
 
 业务登记请求：
 
@@ -517,7 +525,7 @@ PUT   /api/v1/badcases/{badcase_id}/issue-tags
 {
   "scenario_id": "019c...",
   "title": "采购助手未识别预算条件",
-  "description": "输入预算后仍然推荐超预算商品",
+  "description": null,
   "agent_response_text": "...",
   "agent_version": "2026.07.3",
   "environment": "production",

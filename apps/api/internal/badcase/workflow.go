@@ -380,11 +380,6 @@ func validateBusinessInput(input BusinessInput, creating bool) (BusinessInput, e
 			Field: "title", Message: "标题不能为空且最多 200 个字符",
 		})
 	}
-	if input.Description == nil {
-		fields = append(fields, apperror.FieldError{
-			Field: "description", Message: "问题描述不能为空",
-		})
-	}
 	if input.AgentVersion != nil && len([]rune(*input.AgentVersion)) > 100 {
 		fields = append(fields, apperror.FieldError{
 			Field: "agent_version", Message: "Agent 版本最多 100 个字符",

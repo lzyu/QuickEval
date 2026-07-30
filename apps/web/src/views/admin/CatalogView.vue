@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type {
@@ -12,15 +12,23 @@ import type {
 } from '@/api/types'
 
 type Kind = 'target' | 'scenario' | 'case-tag'
+type CaseTagScope = 'global' | 'scenario'
 
 const activeTab = ref<Kind>('target')
 const targets = ref<CatalogItem[]>([])
 const scenarios = ref<Scenario[]>([])
 const caseTags = ref<Tag[]>([])
 const selectedScenario = ref('')
+const tagScope = ref<CaseTagScope>('global')
 const dialog = ref(false)
 const editing = ref<CatalogItem | Scenario | Tag | null>(null)
-const form = reactive({ name: '', description: '', evaluation_target_id: '' })
+const form = reactive({
+  name: '',
+  description: '',
+  evaluation_target_id: '',
+  scope: 'global' as CaseTagScope,
+  scenario_id: '',
+})
 
 const tableData = computed(() => {
   if (activeTab.value === 'target') return targets.value
@@ -45,12 +53,16 @@ async function load() {
 }
 
 async function loadCaseTags() {
-  if (!selectedScenario.value) {
+  if (tagScope.value === 'scenario' && !selectedScenario.value) {
     caseTags.value = []
     return
   }
+  const params = new URLSearchParams({ scope: tagScope.value })
+  if (tagScope.value === 'scenario') {
+    params.set('scenario_id', selectedScenario.value)
+  }
   const response = await apiClient.get<ResponseEnvelope<{ items: Tag[] }>>(
-    `/api/v1/scenarios/${selectedScenario.value}/case-tags`,
+    `/api/v1/case-tags?${params.toString()}`,
   )
   caseTags.value = response.data.data.items
 }
@@ -61,6 +73,8 @@ function openCreate() {
     name: '',
     description: '',
     evaluation_target_id: targets.value[0]?.id || '',
+    scope: tagScope.value,
+    scenario_id: selectedScenario.value,
   })
   dialog.value = true
 }
@@ -72,6 +86,8 @@ function openEdit(item: CatalogItem | Scenario | Tag) {
     description: item.description || '',
     evaluation_target_id:
       'evaluation_target_id' in item ? item.evaluation_target_id : targets.value[0]?.id || '',
+    scope: 'scope' in item && item.scope ? item.scope : tagScope.value,
+    scenario_id: 'scenario_id' in item && item.scenario_id ? item.scenario_id : selectedScenario.value,
   })
   dialog.value = true
 }
@@ -96,10 +112,15 @@ async function save() {
         data: { ...payload, evaluation_target_id: form.evaluation_target_id },
       })
     } else {
-      const path = editing.value
-        ? `/api/v1/case-tags/${editing.value.id}`
-        : `/api/v1/scenarios/${selectedScenario.value}/case-tags`
-      await apiClient.request({ method: editing.value ? 'put' : 'post', url: path, data: payload })
+      const path = editing.value ? `/api/v1/case-tags/${editing.value.id}` : '/api/v1/case-tags'
+      const data = editing.value
+        ? payload
+        : {
+            ...payload,
+            scope: form.scope,
+            scenario_id: form.scope === 'scenario' ? form.scenario_id : null,
+          }
+      await apiClient.request({ method: editing.value ? 'put' : 'post', url: path, data })
     }
     dialog.value = false
     ElMessage.success('目录项已保存')
@@ -129,6 +150,12 @@ async function toggle(item: CatalogItem | Scenario | Tag) {
 }
 
 onMounted(load)
+
+watch([activeTab, tagScope, selectedScenario], ([tab]) => {
+  if (tab === 'case-tag') {
+    void loadCaseTags()
+  }
+})
 </script>
 
 <template>
@@ -147,18 +174,36 @@ onMounted(load)
         <el-tab-pane label="评测场景" name="scenario" />
         <el-tab-pane label="用例标签" name="case-tag" />
       </el-tabs>
-      <el-select
-        v-if="activeTab === 'case-tag'"
-        v-model="selectedScenario"
-        class="catalog-filter"
-        placeholder="选择场景"
-        @change="loadCaseTags"
-      >
-        <el-option v-for="item in scenarios" :key="item.id" :label="item.name" :value="item.id" />
-      </el-select>
+      <div v-if="activeTab === 'case-tag'" class="catalog-filter-row">
+        <el-radio-group v-model="tagScope">
+          <el-radio-button value="global">全局标签</el-radio-button>
+          <el-radio-button value="scenario">场景标签</el-radio-button>
+        </el-radio-group>
+        <el-select
+          v-if="tagScope === 'scenario'"
+          v-model="selectedScenario"
+          class="catalog-filter"
+          placeholder="选择场景"
+        >
+          <el-option v-for="item in scenarios" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+      </div>
       <el-table :data="tableData" empty-text="暂无目录数据">
         <el-table-column prop="name" label="名称" min-width="180" />
         <el-table-column v-if="activeTab === 'scenario'" prop="evaluation_target_name" label="评测对象" />
+        <el-table-column v-if="activeTab === 'case-tag'" label="作用域" width="120">
+          <template #default="{ row }">
+            <el-tag :type="row.scope === 'global' ? 'primary' : 'warning'">
+              {{ row.scope === 'global' ? '全部场景' : '场景专属' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="activeTab === 'case-tag' && tagScope === 'scenario'"
+          prop="scenario_name"
+          label="所属场景"
+          min-width="160"
+        />
         <el-table-column prop="description" label="说明" min-width="260" show-overflow-tooltip />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -186,6 +231,26 @@ onMounted(load)
           <el-option v-for="item in targets" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
       </el-form-item>
+      <template v-if="activeTab === 'case-tag'">
+        <el-form-item label="标签作用域">
+          <el-radio-group v-model="form.scope" :disabled="Boolean(editing)">
+            <el-radio value="global">全部场景</el-radio>
+            <el-radio value="scenario">指定场景</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.scope === 'scenario'" label="所属场景">
+          <el-select v-model="form.scenario_id" :disabled="Boolean(editing)">
+            <el-option v-for="item in scenarios" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-alert
+          v-else
+          title="全局标签创建后将在所有场景中可用"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+      </template>
       <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
       <el-form-item label="说明">
         <el-input v-model="form.description" type="textarea" :rows="3" />

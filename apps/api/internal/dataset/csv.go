@@ -102,7 +102,7 @@ func (service Service) PreviewImport(
 			tagID, exists := tagIDs[name]
 			if !exists {
 				rows[index].Errors = append(rows[index].Errors, CSVFieldError{
-					Field: "tags", Message: "标签“" + name + "”不存在、已停用或不属于当前场景",
+					Field: "tags", Message: "标签“" + name + "”不存在、已停用或不适用于当前场景",
 				})
 				continue
 			}

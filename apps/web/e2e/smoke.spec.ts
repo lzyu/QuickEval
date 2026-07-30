@@ -191,21 +191,24 @@ async function mockDraftReads(page: Page) {
       }),
     })
   })
-  await page.route(`**/api/v1/scenarios/${scenarioId}/case-tags`, async (route) => {
+  await page.route(`**/api/v1/scenarios/${scenarioId}/available-case-tags`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          items: [
+          global: [
             {
               id: tagId,
               name: '事实准确性',
+              scope: 'global',
+              scenario_id: null,
               status: 'active',
               lock_version: 0,
               sort_order: 10,
             },
           ],
+          scenario: [],
         },
         meta,
       }),
@@ -267,6 +270,98 @@ test('member is redirected away from admin routes', async ({ page }) => {
   await page.goto('/admin/users')
   await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible()
   await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
+})
+
+test('admin manages global and scenario case tags by scope', async ({ page }) => {
+  await mockAdminSession(page)
+  let createdGlobalTag = false
+  const scenarioTagId = '019fa2a2-ed09-7660-988d-38cb279d5117'
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [target], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/case-tags?*', async (route) => {
+    const url = new URL(route.request().url())
+    const scope = url.searchParams.get('scope')
+    const item = scope === 'global'
+      ? {
+          id: tagId,
+          name: '意图识别',
+          description: null,
+          scope: 'global',
+          scenario_id: null,
+          status: 'active',
+          lock_version: 0,
+          sort_order: 10,
+        }
+      : {
+          id: scenarioTagId,
+          name: '供应商比较',
+          description: null,
+          scope: 'scenario',
+          scenario_id: scenarioId,
+          scenario_name: scenario.name,
+          status: 'active',
+          lock_version: 0,
+          sort_order: 10,
+        }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [item] }, meta }),
+    })
+  })
+  await page.route('**/api/v1/case-tags', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    expect(route.request().postDataJSON()).toMatchObject({
+      scope: 'global',
+      scenario_id: null,
+      name: '指令遵循',
+    })
+    createdGlobalTag = true
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          id: '019fa2a2-ed09-7660-988d-38cb279d5118',
+          name: '指令遵循',
+          description: null,
+          scope: 'global',
+          scenario_id: null,
+          status: 'active',
+          lock_version: 0,
+          sort_order: 20,
+        },
+        meta,
+      }),
+    })
+  })
+
+  await page.goto('/admin/catalog')
+  await page.getByRole('tab', { name: '用例标签' }).click()
+  await expect(page.getByText('意图识别')).toBeVisible()
+  await page.getByText('场景标签', { exact: true }).click()
+  await expect(page.getByText('供应商比较')).toBeVisible()
+  await expect(page.locator('tbody').getByText(scenario.name)).toBeVisible()
+  await page.getByText('全局标签', { exact: true }).click()
+  await page.getByRole('button', { name: '新建目录项' }).click()
+  await page.getByLabel('名称').fill('指令遵循')
+  await page.getByRole('button', { name: '保存' }).click()
+  await expect.poll(() => createdGlobalTag).toBe(true)
 })
 
 test('admin creates a dataset and enters its initial draft', async ({ page }) => {
@@ -773,7 +868,7 @@ test('registers a business Badcase and advances its processing timeline', async 
     evaluation_target_id: targetId,
     evaluation_target_name: target.name,
     title: '采购助手忽略预算上限',
-    description: '预算为 10 万元时仍推荐超预算商品',
+    description: null,
     agent_response_text: '建议采购高配服务器',
     agent_version: '2026.07.28',
     environment: 'production',
@@ -826,6 +921,7 @@ test('registers a business Badcase and advances its processing timeline', async 
       expect(route.request().postDataJSON()).toMatchObject({
         scenario_id: scenarioId,
         title: '采购助手忽略预算上限',
+        description: null,
         issue_tag_ids: [tagId],
       })
       await route.fulfill({
@@ -931,7 +1027,6 @@ test('registers a business Badcase and advances its processing timeline', async 
   await page.getByLabel('所属场景').click()
   await page.getByRole('option', { name: '智能采购 Agent / 采购询价', exact: true }).click()
   await page.getByLabel('问题标题').fill('采购助手忽略预算上限')
-  await page.getByLabel('问题描述').fill('预算为 10 万元时仍推荐超预算商品')
   await page.getByText('至少选择一个', { exact: true }).click()
   await page.getByRole('option', { name: '事实准确性', exact: true }).last().click()
   await page.getByRole('button', { name: '登记 Badcase' }).click()

@@ -23,7 +23,8 @@ const loading = ref(false)
 const dataset = ref<Dataset | null>(null)
 const version = ref<DatasetVersion | null>(null)
 const cases = ref<VersionCase[]>([])
-const availableTags = ref<Tag[]>([])
+const availableGlobalTags = ref<Tag[]>([])
+const availableScenarioTags = ref<Tag[]>([])
 const editorOpen = ref(false)
 const editing = ref<VersionCase | null>(null)
 const dirty = ref(false)
@@ -69,10 +70,13 @@ async function load() {
     ])
     dataset.value = datasetResponse.data.data.dataset
     cases.value = caseResponse.data.data.items
-    const tagResponse = await apiClient.get<ResponseEnvelope<{ items: Tag[] }>>(
-      `/api/v1/scenarios/${dataset.value.scenario_id}/case-tags`,
+    const tagResponse = await apiClient.get<
+      ResponseEnvelope<{ global: Tag[]; scenario: Tag[] }>
+    >(
+      `/api/v1/scenarios/${dataset.value.scenario_id}/available-case-tags`,
     )
-    availableTags.value = tagResponse.data.data.items
+    availableGlobalTags.value = tagResponse.data.data.global
+    availableScenarioTags.value = tagResponse.data.data.scenario
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   } finally {
@@ -369,7 +373,25 @@ onMounted(load)
       </el-collapse>
       <el-form-item label="用例标签">
         <el-select v-model="form.tag_ids" multiple clearable>
-          <el-option v-for="tag in availableTags" :key="tag.id" :label="tag.name" :value="tag.id" />
+          <el-option-group v-if="availableGlobalTags.length" label="通用能力 · 全部场景">
+            <el-option
+              v-for="tag in availableGlobalTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-option-group>
+          <el-option-group
+            v-if="availableScenarioTags.length"
+            :label="`当前场景 · ${dataset?.scenario_name || ''}`"
+          >
+            <el-option
+              v-for="tag in availableScenarioTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-option-group>
         </el-select>
       </el-form-item>
       <el-form-item label="启用状态">

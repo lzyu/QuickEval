@@ -144,7 +144,7 @@ async function saveEdit() {
   try {
     await apiClient.patch(`/api/v1/badcases/${item.value.id}`, {
       title: editForm.title,
-      description: editForm.description,
+      description: editForm.description.trim() || null,
       agent_response_text: editForm.agent_response_text || null,
       agent_version: editForm.agent_version || null,
       environment: editForm.environment,
@@ -476,7 +476,7 @@ onMounted(load)
   <el-dialog v-model="editOpen" title="编辑业务 Badcase" width="640">
     <el-form label-position="top">
       <el-form-item label="问题标题" required><el-input v-model="editForm.title" maxlength="200" /></el-form-item>
-      <el-form-item label="问题描述" required><el-input v-model="editForm.description" type="textarea" :rows="4" /></el-form-item>
+      <el-form-item label="问题描述（可选）"><el-input v-model="editForm.description" type="textarea" :rows="4" /></el-form-item>
       <el-form-item label="Agent 回答"><el-input v-model="editForm.agent_response_text" type="textarea" :rows="5" /></el-form-item>
       <div class="drawer-form-grid">
         <el-form-item label="Agent 版本"><el-input v-model="editForm.agent_version" maxlength="100" /></el-form-item>
@@ -496,7 +496,7 @@ onMounted(load)
       <el-button
         type="primary"
         :loading="commanding"
-        :disabled="!editForm.title.trim() || !editForm.description.trim()"
+        :disabled="!editForm.title.trim()"
         @click="saveEdit"
       >
         保存

@@ -481,6 +481,60 @@ paths:
       responses:
         "204":
           description: Case tags reordered.
+  /api/v1/scenarios/{scenario_id}/available-case-tags:
+    parameters:
+      - $ref: "#/components/parameters/ScenarioID"
+    get:
+      tags: [Catalog]
+      operationId: listAvailableCaseTags
+      responses:
+        "200":
+          description: Active global and scenario-specific tags available to cases in this scenario.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableCaseTagsResponse"
+  /api/v1/case-tags:
+    get:
+      tags: [Catalog]
+      operationId: listManagedCaseTags
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          schema: { type: string, enum: [global, scenario] }
+        - name: scenario_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, disabled] }
+      responses:
+        "200":
+          description: Case tags in one management scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagListResponse"
+    post:
+      tags: [Catalog]
+      operationId: createManagedCaseTag
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaseTagRequest"
+      responses:
+        "201":
+          description: Global or scenario-specific case tag created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
   /api/v1/issue-tags:
     get:
       tags: [Catalog]
@@ -2051,6 +2105,14 @@ components:
           required: [evaluation_target_id]
           properties:
             evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+    CaseTagRequest:
+      allOf:
+        - $ref: "#/components/schemas/NamedRequest"
+        - type: object
+          required: [scope]
+          properties:
+            scope: { type: string, enum: [global, scenario] }
+            scenario_id: { type: [string, "null"], format: uuid }
     ReorderRequest:
       type: object
       required: [items]
@@ -2126,7 +2188,9 @@ components:
         - type: object
           required: [sort_order]
           properties:
-            scenario_id: { $ref: "#/components/schemas/UUID" }
+            scope: { type: string, enum: [global, scenario] }
+            scenario_id: { type: [string, "null"], format: uuid }
+            scenario_name: { type: [string, "null"] }
             sort_order: { type: integer, minimum: 0 }
     AuditLog:
       type: object
@@ -2508,7 +2572,9 @@ components:
       properties:
         scenario_id: { $ref: "#/components/schemas/UUID" }
         title: { type: string, minLength: 1, maxLength: 200 }
-        description: { type: [string, "null"] }
+        description:
+          type: [string, "null"]
+          description: Optional problem description; blank input is stored as null.
         agent_response_text: { type: [string, "null"] }
         agent_version: { type: [string, "null"], maxLength: 100 }
         environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
@@ -2525,7 +2591,9 @@ components:
       required: [title, environment, occurred_at, expected_lock_version]
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
-        description: { type: [string, "null"] }
+        description:
+          type: [string, "null"]
+          description: Optional problem description; blank input is stored as null.
         agent_response_text: { type: [string, "null"] }
         agent_version: { type: [string, "null"], maxLength: 100 }
         environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
@@ -3046,6 +3114,21 @@ components:
               required: [items]
               properties:
                 items:
+                  type: array
+                  items: { $ref: "#/components/schemas/Tag" }
+    AvailableCaseTagsResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [global, scenario]
+              properties:
+                global:
+                  type: array
+                  items: { $ref: "#/components/schemas/Tag" }
+                scenario:
                   type: array
                   items: { $ref: "#/components/schemas/Tag" }
     UserPage:

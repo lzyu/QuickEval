@@ -33,7 +33,22 @@ func TestValidTransition(t *testing.T) {
 }
 
 func TestValidateBusinessInput(t *testing.T) {
-	description := "生产环境未识别预算"
+	input := BusinessInput{
+		ScenarioID: id.MustNew(), Title: "预算约束失效",
+		Environment: "production", OccurredAt: time.Now().UTC(),
+		IssueTagIDs: []id.UUID{id.MustNew()},
+	}
+	got, err := validateBusinessInput(input, true)
+	if err != nil {
+		t.Fatalf("validateBusinessInput() error = %v", err)
+	}
+	if got.Title != input.Title || got.Description != nil {
+		t.Fatalf("unexpected normalized input: %#v", got)
+	}
+}
+
+func TestValidateBusinessInputNormalizesBlankDescription(t *testing.T) {
+	description := "   "
 	input := BusinessInput{
 		ScenarioID: id.MustNew(), Title: "预算约束失效", Description: &description,
 		Environment: "production", OccurredAt: time.Now().UTC(),
@@ -43,8 +58,8 @@ func TestValidateBusinessInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validateBusinessInput() error = %v", err)
 	}
-	if got.Title != input.Title || got.Description == nil {
-		t.Fatalf("unexpected normalized input: %#v", got)
+	if got.Description != nil {
+		t.Fatalf("description = %#v, want nil", got.Description)
 	}
 }
 

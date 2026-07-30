@@ -683,6 +683,17 @@ h1 {
   margin: 2px 0 18px;
 }
 
+.catalog-filter-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.catalog-filter-row .catalog-filter {
+  margin: 0;
+}
+
 .filter-row {
   padding: 5px 0 12px;
 }

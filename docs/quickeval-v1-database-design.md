@@ -129,7 +129,7 @@ lock_version INT UNSIGNED NOT NULL DEFAULT 0
 | 账号 | `user_identities` | 本地或 OA 登录身份 |
 | 评测结构 | `evaluation_targets` | 被评测的 Agent 产品 |
 | 评测结构 | `scenarios` | 评测与 Badcase 的业务分类边界 |
-| 评测结构 | `case_tags` | 场景级用例分类 |
+| 评测结构 | `case_tags` | 全局或场景级用例能力分类 |
 | 评测集 | `datasets` | 跨版本稳定的评测集 |
 | 评测集 | `dataset_versions` | 草稿、发布及归档版本 |
 | 评测集 | `version_cases` | 版本中的用例内容快照 |
@@ -205,6 +205,7 @@ pending ──> processing ──> resolved
 - 分数为空或在 1～5 范围内。
 - 附件只能属于 CaseResult 或 Badcase 其中之一。
 - 评测来源 Badcase 必须关联 CaseResult，业务来源不能关联。
+- 业务来源 Badcase 的问题描述允许为空。
 - 跳过结果必须填写原因且不能评分。
 - 一条 CaseResult 最多产生一条 Badcase。
 - 状态、角色、来源和环境值在允许集合内。
@@ -218,7 +219,9 @@ pending ──> processing ──> resolved
 - 发布版本号连续且不复用。
 - 发布版本至少包含一条启用用例。
 - 已发布版本内容不可修改。
-- 用例标签必须属于评测集所在场景。
+- 用例标签必须是启用的全局标签，或属于评测集所在场景的启用场景标签。
+- 全局用例标签不绑定场景；场景用例标签必须绑定且只能用于一个场景。
+- 全局标签不能与任一场景标签重名，场景标签不能与同场景或全局标签重名。
 - 评测来源 Badcase 的场景与 CaseResult 一致。
 - `evaluated` 结果具备回答文本或截图。
 - 标记 Badcase 时用例结果评语非空。
@@ -272,7 +275,7 @@ users:                  UNIQUE(email), (status, created_at)
 user_identities:        UNIQUE(provider, provider_subject), UNIQUE(user_id, provider)
 evaluation_targets:     UNIQUE(name), (status, updated_at)
 scenarios:              UNIQUE(evaluation_target_id, name), (evaluation_target_id, status, updated_at)
-case_tags:              UNIQUE(scenario_id, name), (scenario_id, status, sort_order)
+case_tags:              UNIQUE(scope_owner_id, name), (scope, status, sort_order), (scenario_id, status, sort_order)
 datasets:               UNIQUE(scenario_id, name), (scenario_id, status, updated_at)
 dataset_versions:       UNIQUE(dataset_id, version_no), (dataset_id, status, created_at)
 version_cases:          UNIQUE(dataset_version_id, case_key), (dataset_version_id, is_enabled, sort_order), (case_key, dataset_version_id)
