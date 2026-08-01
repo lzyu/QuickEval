@@ -272,6 +272,167 @@ test('member is redirected away from admin routes', async ({ page }) => {
   await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
 })
 
+test('actively registers badcases continuously and retries only a failed screenshot upload', async ({ page }) => {
+  await mockAdminSession(page)
+  const disabledTargetId = '019fa2a2-ed09-7660-988d-38cb279d5201'
+  const issueTagId = '019fa2a2-ed09-7660-988d-38cb279d5202'
+  const badcaseId = '019fa2a2-ed09-7660-988d-38cb279d5203'
+  let createCount = 0
+  let uploadCount = 0
+
+  await page.route('**/api/v1/evaluation-targets*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          items: [target, { ...target, id: disabledTargetId, name: '合同审核助手' }],
+          page: 1,
+          page_size: 100,
+          total: 2,
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/scenarios*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [scenario], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/badcase-options', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          assignees: [],
+          issue_tags: [
+            {
+              id: issueTagId,
+              name: '事实准确性',
+              description: null,
+              status: 'active',
+              lock_version: 0,
+              sort_order: 10,
+              scope: 'global',
+            },
+          ],
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/badcases', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    createCount += 1
+    const request = route.request().postDataJSON()
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          id: badcaseId,
+          source_type: 'business',
+          scenario_id: scenarioId,
+          scenario_name: scenario.name,
+          evaluation_target_id: targetId,
+          evaluation_target_name: target.name,
+          title: request.title,
+          description: request.description,
+          agent_response_text: request.agent_response_text,
+          agent_version: request.agent_version,
+          environment: request.environment,
+          occurred_at: request.occurred_at,
+          business_reference: request.business_reference,
+          session_id: request.session_id,
+          status: 'pending',
+          assignee_id: null,
+          assignee_name: null,
+          resolved_at: null,
+          invalidated_at: null,
+          invalidated_by: null,
+          invalidator_name: null,
+          invalid_reason: null,
+          lock_version: 0,
+          created_by: adminSession.data.user.id,
+          creator_name: adminSession.data.user.display_name,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          issue_tags: [{ id: issueTagId, name: '事实准确性' }],
+          evaluation: null,
+          original_attachments: [],
+          attachments: [],
+          activities: [],
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/badcases/${badcaseId}/attachments`, async (route) => {
+    uploadCount += 1
+    if (uploadCount === 1) {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { message: '模拟对象存储故障' } }),
+      })
+      return
+    }
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], owner_lock_version: 1 }, meta }),
+    })
+  })
+
+  await page.goto('/badcases/register')
+  await expect(page.getByRole('heading', { name: '选择评测对象' })).toBeVisible()
+  await page.getByPlaceholder('搜索评测对象').fill('合同')
+  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeDisabled()
+  await page.getByPlaceholder('搜索评测对象').fill('智能采购')
+  await page.getByRole('button', { name: /智能采购 Agent/ }).click()
+
+  await page.getByPlaceholder('请输入 Badcase 标题').fill('采购推荐违反预算约束')
+  await page.getByPlaceholder('请简要描述问题现象、影响范围、期望结果等').fill('预算为 10 万元')
+  await page.getByPlaceholder('例如 2026.07.30').fill('agent-v2')
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'evidence.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+  })
+
+  await page.reload()
+  await expect(page.getByPlaceholder('请输入 Badcase 标题')).toHaveValue('采购推荐违反预算约束')
+  await expect(page.getByText(/截图需要重新选择/)).toBeVisible()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'evidence.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+  })
+  await page.getByText('至少选择一个问题标签', { exact: true }).click()
+  await page.getByRole('option', { name: '事实准确性' }).click()
+  await page.getByRole('button', { name: '登记并继续' }).click()
+
+  await expect(page.getByText('Badcase 已创建，截图尚未上传')).toBeVisible()
+  expect(createCount).toBe(1)
+  expect(uploadCount).toBe(1)
+  await page.getByRole('button', { name: '重试上传' }).click()
+  await expect(page.getByText('采购推荐违反预算约束')).toBeVisible()
+  await expect(page.getByPlaceholder('请输入 Badcase 标题')).toHaveValue('')
+  await expect(page.getByPlaceholder('例如 2026.07.30')).toHaveValue('agent-v2')
+  expect(createCount).toBe(1)
+  expect(uploadCount).toBe(2)
+})
+
 test('admin manages global and scenario case tags by scope', async ({ page }) => {
   await mockAdminSession(page)
   let createdGlobalTag = false
@@ -895,6 +1056,14 @@ test('registers a business Badcase and advances its processing timeline', async 
     activities,
   })
 
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [target], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+
   await page.route('**/api/v1/scenarios?*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -909,7 +1078,7 @@ test('registers a business Badcase and advances its processing timeline', async 
       body: JSON.stringify({
         data: {
           assignees: [{ id: assigneeId, display_name: '系统管理员' }],
-          issue_tags: [{ id: tagId, name: '事实准确性' }],
+          issue_tags: [{ id: tagId, name: '事实准确性', status: 'active', scope: 'global' }],
         },
         meta,
       }),
@@ -1023,13 +1192,14 @@ test('registers a business Badcase and advances its processing timeline', async 
   })
 
   await page.goto('/badcases')
-  await page.getByRole('button', { name: '登记业务 Badcase' }).click()
-  await page.getByLabel('所属场景').click()
-  await page.getByRole('option', { name: '智能采购 Agent / 采购询价', exact: true }).click()
-  await page.getByLabel('问题标题').fill('采购助手忽略预算上限')
-  await page.getByText('至少选择一个', { exact: true }).click()
+  await page.getByRole('button', { name: '主动登记 Badcase' }).click()
+  await page.getByRole('button', { name: /智能采购 Agent/ }).click()
+  await page.getByPlaceholder('请输入 Badcase 标题').fill('采购助手忽略预算上限')
+  await page.getByPlaceholder('请粘贴 Agent 的完整回答文本，便于复现与分析').fill('建议采购高配服务器')
+  await page.getByText('至少选择一个问题标签', { exact: true }).click()
   await page.getByRole('option', { name: '事实准确性', exact: true }).last().click()
-  await page.getByRole('button', { name: '登记 Badcase' }).click()
+  await page.getByRole('button', { name: '登记并继续' }).click()
+  await page.getByRole('button', { name: '查看详情' }).click()
 
   await expect(page).toHaveURL(`/badcases/${badcaseId}`)
   await expect(page.getByRole('heading', { name: '采购助手忽略预算上限' })).toBeVisible()

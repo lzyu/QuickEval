@@ -66,6 +66,12 @@ const router = createRouter({
           component: () => import('@/views/badcases/BadcaseListView.vue'),
         },
         {
+          path: 'badcases/register',
+          name: 'badcase-register',
+          component: () => import('@/views/badcases/BadcaseRegisterView.vue'),
+          meta: { title: 'Badcase 中心 / 主动登记' },
+        },
+        {
           path: 'badcases/:badcaseId',
           name: 'badcase-detail',
           component: () => import('@/views/badcases/BadcaseDetailView.vue'),

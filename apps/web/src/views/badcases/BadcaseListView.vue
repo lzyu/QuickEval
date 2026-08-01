@@ -1,26 +1,23 @@
 <script setup lang="ts">
-import { Plus, Search, UploadFilled } from '@element-plus/icons-vue'
+import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
-import type { Badcase, PageData, ResponseEnvelope, Scenario, Tag } from '@/api/types'
+import type { Badcase, PageData, ResponseEnvelope, Scenario } from '@/api/types'
+import EvaluationTargetDialog from '@/components/badcases/EvaluationTargetDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
-const creating = ref(false)
-const drawerOpen = ref(false)
+const targetPickerOpen = ref(false)
 const items = ref<Badcase[]>([])
 const total = ref(0)
 const scenarios = ref<Scenario[]>([])
-const issueTags = ref<Tag[]>([])
 const assignees = ref<Array<{ id: string; display_name: string }>>([])
-const pendingFiles = ref<File[]>([])
-const fileInput = ref<HTMLInputElement | null>(null)
 const query = reactive({
   page: 1,
   page_size: 20,
@@ -41,26 +38,6 @@ const query = reactive({
   occurred_from: String(route.query.occurred_from || ''),
   occurred_to: String(route.query.occurred_to || ''),
 })
-const createForm = reactive({
-  scenario_id: '',
-  title: '',
-  description: '',
-  agent_response_text: '',
-  agent_version: '',
-  environment: 'production',
-  occurred_at: new Date().toISOString().slice(0, 16),
-  business_reference: '',
-  session_id: '',
-  issue_tag_ids: [] as string[],
-})
-const createValid = computed(
-  () =>
-    createForm.scenario_id &&
-    createForm.title.trim() &&
-    createForm.occurred_at &&
-    createForm.issue_tag_ids.length > 0,
-)
-
 async function loadOptions() {
   try {
     const [scenarioResponse, optionResponse] = await Promise.all([
@@ -70,13 +47,12 @@ async function loadOptions() {
       apiClient.get<
         ResponseEnvelope<{
           assignees: Array<{ id: string; display_name: string }>
-          issue_tags: Tag[]
+          issue_tags: unknown[]
         }>
       >('/api/v1/badcase-options'),
     ])
     scenarios.value = scenarioResponse.data.data.items
     assignees.value = optionResponse.data.data.assignees
-    issueTags.value = optionResponse.data.data.issue_tags
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   }
@@ -109,70 +85,6 @@ function search() {
   load()
 }
 
-function chooseFiles() {
-  fileInput.value?.click()
-}
-
-function selectFiles(event: Event) {
-  const input = event.target as HTMLInputElement
-  const selected = Array.from(input.files || [])
-  input.value = ''
-  const combined = [...pendingFiles.value, ...selected]
-  if (combined.length > auth.uploadPolicy.max_files_per_owner) {
-    ElMessage.warning(`最多选择 ${auth.uploadPolicy.max_files_per_owner} 张截图`)
-    return
-  }
-  const invalid = selected.find(
-    (file) =>
-      !auth.uploadPolicy.allowed_media_types.includes(file.type) ||
-      file.size > auth.uploadPolicy.max_file_size,
-  )
-  if (invalid) {
-    ElMessage.warning(`文件 ${invalid.name} 的格式不支持或超过 10 MB`)
-    return
-  }
-  pendingFiles.value = combined
-}
-
-async function createBusinessBadcase() {
-  if (!createValid.value) return
-  creating.value = true
-  try {
-    const response = await apiClient.post<ResponseEnvelope<Badcase>>(
-      '/api/v1/badcases',
-      {
-        scenario_id: createForm.scenario_id,
-        title: createForm.title,
-        description: createForm.description.trim() || null,
-        agent_response_text: createForm.agent_response_text || null,
-        agent_version: createForm.agent_version || null,
-        environment: createForm.environment,
-        occurred_at: new Date(createForm.occurred_at).toISOString(),
-        business_reference: createForm.business_reference || null,
-        session_id: createForm.session_id || null,
-        issue_tag_ids: createForm.issue_tag_ids,
-      },
-      { headers: { 'Idempotency-Key': crypto.randomUUID() } },
-    )
-    const item = response.data.data
-    if (pendingFiles.value.length > 0) {
-      const body = new FormData()
-      pendingFiles.value.forEach((file) => body.append('files', file))
-      body.append('expected_owner_lock_version', String(item.lock_version))
-      await apiClient.post(`/api/v1/badcases/${item.id}/attachments`, body, {
-        headers: { 'Idempotency-Key': crypto.randomUUID() },
-      })
-    }
-    ElMessage.success('业务 Badcase 已登记')
-    drawerOpen.value = false
-    await router.push(`/badcases/${item.id}`)
-  } catch (error) {
-    ElMessage.error(apiErrorMessage(error))
-  } finally {
-    creating.value = false
-  }
-}
-
 function formatTime(value: string) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
@@ -186,20 +98,8 @@ function statusLabel(status: Badcase['status']) {
   }[status]
 }
 
-function resetCreateForm() {
-  Object.assign(createForm, {
-    scenario_id: '',
-    title: '',
-    description: '',
-    agent_response_text: '',
-    agent_version: '',
-    environment: 'production',
-    occurred_at: new Date().toISOString().slice(0, 16),
-    business_reference: '',
-    session_id: '',
-    issue_tag_ids: [],
-  })
-  pendingFiles.value = []
+function openRegistration(targetId: string) {
+  router.push({ name: 'badcase-register', query: { evaluation_target_id: targetId } })
 }
 
 onMounted(() => Promise.all([loadOptions(), load()]))
@@ -213,8 +113,8 @@ onMounted(() => Promise.all([loadOptions(), load()]))
         <h1>Badcase 中心</h1>
         <p>统一记录评测与真实业务问题，保留现场证据并跟踪处理闭环。</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="resetCreateForm(); drawerOpen = true">
-        登记业务 Badcase
+      <el-button type="primary" :icon="Plus" @click="targetPickerOpen = true">
+        主动登记 Badcase
       </el-button>
     </div>
 
@@ -317,90 +217,5 @@ onMounted(() => Promise.all([loadOptions(), load()]))
     </el-card>
   </section>
 
-  <el-drawer v-model="drawerOpen" title="登记业务 Badcase" size="620px" destroy-on-close>
-    <el-form label-position="top">
-      <el-form-item label="所属场景" required>
-        <el-select v-model="createForm.scenario_id" filterable placeholder="选择启用场景">
-          <el-option
-            v-for="scenario in scenarios"
-            :key="scenario.id"
-            :label="`${scenario.evaluation_target_name || ''} / ${scenario.name}`"
-            :value="scenario.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="问题标题" required>
-        <el-input v-model="createForm.title" maxlength="200" show-word-limit />
-      </el-form-item>
-      <el-form-item label="问题描述（可选）">
-        <el-input v-model="createForm.description" type="textarea" :rows="4" maxlength="5000" show-word-limit />
-      </el-form-item>
-      <el-form-item label="Agent 回答现场">
-        <el-input v-model="createForm.agent_response_text" type="textarea" :rows="5" maxlength="20000" show-word-limit />
-      </el-form-item>
-      <div class="drawer-form-grid">
-        <el-form-item label="Agent 版本">
-          <el-input v-model="createForm.agent_version" maxlength="100" />
-        </el-form-item>
-        <el-form-item label="运行环境" required>
-          <el-select v-model="createForm.environment">
-            <el-option label="测试" value="test" />
-            <el-option label="预发布" value="staging" />
-            <el-option label="生产" value="production" />
-            <el-option label="其他" value="other" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="发生时间" required>
-          <el-input v-model="createForm.occurred_at" type="datetime-local" />
-        </el-form-item>
-        <el-form-item label="问题标签" required>
-          <el-select v-model="createForm.issue_tag_ids" multiple placeholder="至少选择一个">
-            <el-option v-for="tag in issueTags" :key="tag.id" :label="tag.name" :value="tag.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="业务单号">
-          <el-input v-model="createForm.business_reference" maxlength="200" />
-        </el-form-item>
-        <el-form-item label="会话 ID">
-          <el-input v-model="createForm.session_id" maxlength="200" />
-        </el-form-item>
-      </div>
-      <el-form-item label="现场截图">
-        <input
-          ref="fileInput"
-          class="visually-hidden"
-          type="file"
-          accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-          multiple
-          @change="selectFiles"
-        />
-        <div class="business-upload-box" @click="chooseFiles">
-          <el-icon :size="28"><UploadFilled /></el-icon>
-          <span>选择截图（{{ pendingFiles.length }}/{{ auth.uploadPolicy.max_files_per_owner }}）</span>
-          <small>PNG、JPG、WebP，单张不超过 10 MB</small>
-        </div>
-        <div class="pending-file-list">
-          <el-tag
-            v-for="(file, index) in pendingFiles"
-            :key="`${file.name}-${index}`"
-            closable
-            @close="pendingFiles.splice(index, 1)"
-          >
-            {{ file.name }}
-          </el-tag>
-        </div>
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="drawerOpen = false">取消</el-button>
-      <el-button
-        type="primary"
-        :loading="creating"
-        :disabled="!createValid"
-        @click="createBusinessBadcase"
-      >
-        登记 Badcase
-      </el-button>
-    </template>
-  </el-drawer>
+  <EvaluationTargetDialog v-model="targetPickerOpen" @select="openRegistration" />
 </template>
