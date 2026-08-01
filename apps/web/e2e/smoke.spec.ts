@@ -221,6 +221,29 @@ async function mockDraftReads(page: Page) {
       }),
     })
   })
+  await page.route(`**/api/v1/scenarios/${scenarioId}/available-case-tags`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          global: [
+            {
+              id: tagId,
+              name: '事实准确性',
+              scope: 'global',
+              scenario_id: null,
+              status: 'active',
+              lock_version: 0,
+              sort_order: 10,
+            },
+          ],
+          scenario: [],
+        },
+        meta,
+      }),
+    })
+  })
 }
 
 test('logs in, restores the shell, and exposes admin navigation', async ({ page }) => {
@@ -669,6 +692,108 @@ test('disabled evaluation targets are unavailable when browsing and creating dat
   await page.getByRole('combobox', { name: '所属评测对象' }).click()
   await expect(page.getByRole('option', { name: target.name })).toBeVisible()
   await expect(page.getByRole('option', { name: disabledTarget.name })).toHaveCount(0)
+})
+
+test('draft editor adds an input-only case from the inline composer', async ({ page }) => {
+  await mockAdminSession(page)
+  await mockDraftReads(page)
+  const prompt = '如果供应商没有现货，我应该如何调整采购计划？'
+  let created = false
+  await page.route(`**/api/v1/dataset-versions/${draftId}/cases`, async (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toMatchObject({
+      scenario_id: null,
+      name: null,
+      user_prompt: prompt,
+      tag_ids: [],
+      is_enabled: true,
+    })
+    created = true
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          ...versionCase,
+          id: '019fa2a2-ed09-7660-988d-38cb279d5123',
+          case_key: '019fa2a2-ed09-7660-988d-38cb279d5124',
+          scenario_id: null,
+          scenario_name: null,
+          scenario_status: null,
+          scenario_assignment_status: 'unclassified',
+          name: null,
+          user_prompt: prompt,
+          sort_order: 20,
+          tags: [],
+        },
+        meta,
+      }),
+    })
+  })
+
+  await page.goto(`/dataset-versions/${draftId}/edit`)
+  await expect(page.getByRole('columnheader', { name: '序号' })).toBeVisible()
+  await expect(page.locator('.case-sequence')).toHaveText(['1'])
+  await expect(page.getByRole('button', { name: /上移用例|下移用例/ })).toHaveCount(0)
+  const trigger = page.locator('.case-create-trigger')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await trigger.click()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('.inline-case-editor')).toBeVisible()
+  await expect(page.locator('.el-drawer:visible')).toHaveCount(0)
+
+  await page.getByLabel('用户输入', { exact: true }).fill(prompt)
+  await expect(page.getByRole('status')).toContainText('有未保存的用例')
+  await expect(page.getByRole('button', { name: '发布版本' })).toBeDisabled()
+  await page.getByRole('button', { name: '添加用例', exact: true }).click()
+
+  await expect.poll(() => created).toBe(true)
+  await expect(page.locator('.inline-case-editor')).toHaveCount(0)
+  await expect(page.locator('.case-content-cell').getByText(prompt)).toBeVisible()
+  await expect(page.locator('.case-sequence')).toHaveText(['1', '2'])
+})
+
+test('draft editor edits an existing case below its table row', async ({ page }) => {
+  await mockAdminSession(page)
+  await mockDraftReads(page)
+  const updatedPrompt = '预算 12 万元，请重新推荐采购方案'
+  let updated = false
+  await page.route(`**/api/v1/version-cases/${caseId}`, async (route) => {
+    expect(route.request().method()).toBe('PATCH')
+    expect(route.request().postDataJSON()).toMatchObject({
+      scenario_id: scenarioId,
+      name: versionCase.name,
+      user_prompt: updatedPrompt,
+      expected_lock_version: versionCase.lock_version,
+    })
+    updated = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { ...versionCase, user_prompt: updatedPrompt, lock_version: 1 },
+        meta,
+      }),
+    })
+  })
+
+  await page.goto(`/dataset-versions/${draftId}/edit`)
+  const editTrigger = page.locator(`#edit-case-trigger-${caseId}`)
+  await editTrigger.click()
+
+  await expect(page.locator('.inline-case-editor--edit')).toBeVisible()
+  await expect(page.locator('.el-drawer:visible')).toHaveCount(0)
+  await expect(editTrigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('status')).toContainText('所有更改已保存')
+
+  const editor = page.locator('.inline-case-editor--edit')
+  await editor.getByLabel('用户输入', { exact: true }).fill(updatedPrompt)
+  await expect(page.getByRole('status')).toContainText('有未保存的用例')
+  await editor.getByRole('button', { name: '保存修改', exact: true }).click()
+
+  await expect.poll(() => updated).toBe(true)
+  await expect(page.locator('.inline-case-editor--edit')).toHaveCount(0)
+  await expect(page.locator('.case-content-cell').getByText(updatedPrompt)).toBeVisible()
 })
 
 test('draft editor previews CSV, commits it, and publishes the version', async ({ page }) => {

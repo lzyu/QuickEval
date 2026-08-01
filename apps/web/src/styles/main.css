@@ -1250,6 +1250,12 @@ h3 {
   font-size: 13px;
 }
 
+.unsaved-hint {
+  color: #b54708;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .validation-error {
   color: #f04438;
   font-size: 13px;
@@ -1257,6 +1263,15 @@ h3 {
 
 .case-editor-card .el-card__body {
   padding: 0;
+}
+
+.case-editor-card .el-table__expand-column .cell {
+  display: none;
+}
+
+.case-editor-card .el-table__expanded-cell {
+  padding: 0 !important;
+  background: var(--qe-primary-soft);
 }
 
 .case-toolbar {
@@ -1272,6 +1287,202 @@ h3 {
 
 .case-tag {
   margin: 2px 4px 2px 0;
+}
+
+.case-sequence {
+  color: var(--qe-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.case-content-cell {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.case-content-cell strong,
+.case-content-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-content-cell strong {
+  color: #1d2939;
+  font-weight: 600;
+}
+
+.case-content-cell span {
+  color: var(--qe-muted);
+  font-size: var(--qe-font-sm);
+}
+
+.case-create-area {
+  border-top: 1px solid var(--qe-border);
+  background: #f8fafc;
+}
+
+.case-create-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border: 0;
+  color: var(--qe-primary);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease-out;
+}
+
+.case-create-trigger:hover,
+.case-create-trigger[aria-expanded='true'] {
+  background: var(--qe-primary-soft);
+}
+
+.case-create-trigger .el-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 17px;
+}
+
+.case-create-trigger > span {
+  display: grid;
+  gap: 2px;
+}
+
+.case-create-trigger strong {
+  font-size: var(--qe-font-base);
+  font-weight: 600;
+}
+
+.case-create-trigger small {
+  color: var(--qe-muted);
+  font-size: var(--qe-font-sm);
+}
+
+.inline-case-editor {
+  padding: 6px 20px 22px;
+  background: var(--qe-primary-soft);
+}
+
+.inline-case-editor--edit {
+  padding-top: 18px;
+  border-top: 1px solid #cfdcf0;
+  border-bottom: 1px solid #cfdcf0;
+}
+
+.inline-case-edit-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.inline-case-edit-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.inline-case-edit-heading strong {
+  color: #1d2939;
+  font-size: var(--qe-font-md);
+  font-weight: 600;
+}
+
+.inline-case-edit-heading span {
+  overflow: hidden;
+  color: var(--qe-muted);
+  font-size: var(--qe-font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-case-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 24px;
+}
+
+.inline-case-main-grid > *,
+.inline-case-extra-grid > * {
+  min-width: 0;
+}
+
+.inline-case-prompt,
+.inline-case-options .el-form-item {
+  margin-bottom: 0;
+}
+
+.inline-case-prompt .el-textarea__inner {
+  min-height: 160px !important;
+  max-height: 280px;
+}
+
+.inline-case-options {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.inline-case-options .el-select {
+  width: 100%;
+}
+
+.inline-form-help {
+  display: block;
+  margin-top: 7px;
+  color: var(--qe-muted);
+  font-size: var(--qe-font-sm);
+}
+
+.inline-case-extras {
+  --el-collapse-border-color: transparent;
+  margin-top: 20px;
+  border-top: 1px solid #cfdcf0;
+}
+
+.inline-case-extras .el-collapse-item__header,
+.inline-case-extras .el-collapse-item__wrap {
+  background: transparent;
+}
+
+.inline-case-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.inline-case-actions,
+.inline-case-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inline-case-actions {
+  justify-content: space-between;
+  padding-top: 18px;
+  border-top: 1px solid #cfdcf0;
+}
+
+.inline-case-actions > div {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.inline-case-actions > div > span {
+  margin-right: 4px;
+  color: var(--qe-muted);
+  font-size: var(--qe-font-sm);
 }
 
 .danger-zone {
@@ -2150,6 +2361,20 @@ h3 {
   .section-title {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .inline-case-main-grid,
+  .inline-case-extra-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-case-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inline-case-actions > div {
+    justify-content: flex-start;
   }
 
   .dataset-metrics,

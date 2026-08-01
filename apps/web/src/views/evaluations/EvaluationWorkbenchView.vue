@@ -14,6 +14,7 @@ import type {
   ResultStatus,
   Tag,
 } from '@/api/types'
+import { caseDisplayName } from '@/features/datasets/case-display'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -548,7 +549,7 @@ onMounted(() => Promise.all([load(), loadIssueTags()]))
               @click="choose(item)"
             >
               <span>{{ String(results.indexOf(item) + 1).padStart(2, '0') }}</span>
-              <strong>{{ item.name || item.user_prompt.slice(0, 18) }}</strong>
+              <strong>{{ caseDisplayName(item.name, item.user_prompt, 18) }}</strong>
               <el-tag :type="statusType(item.status)" size="small">{{ statusLabel(item.status) }}</el-tag>
               <em v-if="item.score">{{ item.score }}</em>
             </button>
@@ -558,7 +559,7 @@ onMounted(() => Promise.all([load(), loadIssueTags()]))
 
         <main v-if="selected" class="case-snapshot">
           <div class="case-snapshot-heading">
-            <h2>{{ selected.name || '未命名用例' }}</h2>
+            <h2>{{ caseDisplayName(selected.name, selected.user_prompt) }}</h2>
             <div>
               <el-tag :type="selected.scenario_name ? 'info' : 'warning'">
                 {{ selected.scenario_name || '待归类' }}

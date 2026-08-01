@@ -10,6 +10,7 @@ import type {
   PageData,
   ResponseEnvelope,
 } from '@/api/types'
+import { caseDisplayName } from '@/features/datasets/case-display'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,7 +153,7 @@ onMounted(load)
         <el-table-column label="用例 / 问题" min-width="280">
           <template #default="{ row }">
             <button class="table-primary-link" type="button" @click="router.push(row.result_detail_url)">
-              {{ row.case_name || '未命名用例' }}
+              {{ caseDisplayName(row.case_name, row.user_prompt) }}
             </button>
             <p class="table-secondary-text">{{ row.user_prompt }}</p>
           </template>
