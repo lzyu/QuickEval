@@ -143,16 +143,12 @@ onMounted(() => Promise.all([loadOptions(), load()]))
 
 <template>
   <section class="badcase-list-page">
-    <div class="page-heading">
-      <div>
-        <p>统一记录评测与真实业务问题，保留现场证据并跟踪处理闭环。</p>
-      </div>
-      <el-button type="primary" :icon="Plus" @click="targetPickerOpen = true">
-        主动登记 Badcase
-      </el-button>
-    </div>
-
     <el-card shadow="never">
+      <div class="content-primary-actions">
+        <el-button type="primary" :icon="Plus" @click="targetPickerOpen = true">
+          主动登记 Badcase
+        </el-button>
+      </div>
       <div class="badcase-filter-bar">
         <el-input
           v-model="query.keyword"
@@ -241,7 +237,9 @@ onMounted(() => Promise.all([loadOptions(), load()]))
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="scenario_name" label="场景" min-width="130" />
+        <el-table-column label="场景" min-width="130">
+          <template #default="{ row }">{{ row.scenario_name || '待归类' }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="statusType(row)">

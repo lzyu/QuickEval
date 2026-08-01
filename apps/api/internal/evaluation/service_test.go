@@ -91,24 +91,16 @@ func TestValidateVersionAvailability(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name: "active ownership chain",
+			name: "active target and dataset",
 			context: VersionContext{
-				Status: "published", DatasetStatus: "active", ScenarioStatus: "active",
+				Status: "published", DatasetStatus: "active",
 				TargetStatus: "active", EnabledCount: 1,
 			},
-		},
-		{
-			name: "disabled scenario",
-			context: VersionContext{
-				Status: "published", DatasetStatus: "active", ScenarioStatus: "disabled",
-				TargetStatus: "active", EnabledCount: 1,
-			},
-			wantCode: "VERSION_NOT_EVALUATABLE",
 		},
 		{
 			name: "disabled target",
 			context: VersionContext{
-				Status: "published", DatasetStatus: "active", ScenarioStatus: "active",
+				Status: "published", DatasetStatus: "active",
 				TargetStatus: "disabled", EnabledCount: 1,
 			},
 			wantCode: "VERSION_NOT_EVALUATABLE",

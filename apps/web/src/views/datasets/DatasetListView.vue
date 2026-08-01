@@ -30,7 +30,7 @@ const filters = reactive({
   status: '',
   keyword: '',
 })
-const form = reactive({ scenario_id: '', name: '', description: '' })
+const form = reactive({ evaluation_target_id: '', name: '', description: '' })
 
 const activeTargetIds = computed(
   () => new Set(targets.value.filter((item) => item.status === 'active').map((item) => item.id)),
@@ -71,7 +71,7 @@ function scenarioAvailable(item: Scenario) {
 }
 
 function datasetOwnershipActive(item: Dataset) {
-  return item.evaluation_target_status !== 'disabled' && item.scenario_status !== 'disabled'
+  return item.evaluation_target_status !== 'disabled'
 }
 
 async function loadCatalog() {
@@ -107,9 +107,9 @@ async function load() {
 
 function openCreate() {
   Object.assign(form, {
-    scenario_id:
-      selectableScenarios.value.find((item) => item.id === filters.scenario_id)?.id ||
-      selectableScenarios.value[0]?.id ||
+    evaluation_target_id:
+      selectableTargets.value.find((item) => item.id === filters.evaluation_target_id)?.id ||
+      selectableTargets.value[0]?.id ||
       '',
     name: '',
     description: '',
@@ -128,7 +128,7 @@ async function createDataset() {
     const response = await apiClient.post<
       ResponseEnvelope<{ dataset: Dataset; draft: { id: string } }>
     >('/api/v1/datasets', {
-      scenario_id: form.scenario_id,
+      evaluation_target_id: form.evaluation_target_id,
       name: form.name,
       description: form.description || null,
     })
@@ -170,15 +170,6 @@ onMounted(async () => {
 
 <template>
   <section class="dataset-page">
-    <div class="page-heading">
-      <div>
-        <p>按评测对象和场景管理稳定、可追溯的用例版本。</p>
-      </div>
-      <el-button v-if="auth.isAdmin" type="primary" :icon="Plus" @click="openCreate">
-        新建评测集
-      </el-button>
-    </div>
-
     <div class="dataset-layout">
       <el-card class="dataset-filter-panel" shadow="never">
         <el-input
@@ -211,7 +202,7 @@ onMounted(async () => {
           </button>
         </div>
         <div class="filter-block">
-          <span class="filter-label">评测场景</span>
+          <span class="filter-label">用例场景</span>
           <button
             class="filter-choice"
             :class="{ selected: !filters.scenario_id }"
@@ -236,6 +227,9 @@ onMounted(async () => {
       </el-card>
 
       <el-card class="dataset-list-card" shadow="never">
+        <div v-if="auth.isAdmin" class="content-primary-actions">
+          <el-button type="primary" :icon="Plus" @click="openCreate">新建评测集</el-button>
+        </div>
         <div class="dataset-toolbar">
           <div>
             <strong>{{ visibleDatasets.length }} 个评测集</strong>
@@ -267,7 +261,7 @@ onMounted(async () => {
                 {{ row.name }}
               </a>
               <div class="table-secondary">
-                {{ row.evaluation_target_name }} / {{ row.scenario_name }}
+                {{ row.evaluation_target_name }}
                 <el-tag v-if="!datasetOwnershipActive(row)" type="info" size="small">归属已停用</el-tag>
               </div>
               <div class="table-description">{{ row.description || '暂无说明' }}</div>
@@ -315,13 +309,13 @@ onMounted(async () => {
 
   <el-dialog v-model="createDialog" title="新建评测集" width="560">
     <el-form label-position="top">
-      <el-form-item label="所属场景" required>
-        <el-select v-model="form.scenario_id" filterable aria-label="所属场景">
+      <el-form-item label="所属评测对象" required>
+        <el-select v-model="form.evaluation_target_id" filterable aria-label="所属评测对象">
           <el-option
-            v-for="scenario in selectableScenarios"
-            :key="scenario.id"
-            :label="`${scenario.evaluation_target_name} / ${scenario.name}`"
-            :value="scenario.id"
+            v-for="target in selectableTargets"
+            :key="target.id"
+            :label="target.name"
+            :value="target.id"
           />
         </el-select>
       </el-form-item>
@@ -341,7 +335,7 @@ onMounted(async () => {
       <el-button @click="createDialog = false">取消</el-button>
       <el-button
         type="primary"
-        :disabled="!form.scenario_id || !form.name.trim()"
+        :disabled="!form.evaluation_target_id || !form.name.trim()"
         @click="createDataset"
       >
         创建并编辑草稿

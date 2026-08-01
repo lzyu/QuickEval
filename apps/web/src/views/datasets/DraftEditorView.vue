@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Download, Plus, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
@@ -12,6 +12,7 @@ import type {
   ImportPreview,
   PageData,
   ResponseEnvelope,
+  Scenario,
   Tag,
   VersionCase,
 } from '@/api/types'
@@ -23,8 +24,8 @@ const loading = ref(false)
 const dataset = ref<Dataset | null>(null)
 const version = ref<DatasetVersion | null>(null)
 const cases = ref<VersionCase[]>([])
-const availableGlobalTags = ref<Tag[]>([])
-const availableScenarioTags = ref<Tag[]>([])
+const scenarios = ref<Scenario[]>([])
+const caseTags = ref<Tag[]>([])
 const editorOpen = ref(false)
 const editing = ref<VersionCase | null>(null)
 const dirty = ref(false)
@@ -35,6 +36,7 @@ const importLoading = ref(false)
 const publishOpen = ref(false)
 const releaseNote = ref('')
 const form = reactive({
+  scenario_id: '',
   name: '',
   user_prompt: '',
   precondition: '',
@@ -47,6 +49,19 @@ const form = reactive({
 const enabledCount = computed(() => cases.value.filter((item) => item.is_enabled).length)
 const disabledCount = computed(() => cases.value.length - enabledCount.value)
 const nextVersionNo = computed(() => (dataset.value?.latest_version_no || 0) + 1)
+const availableGlobalTags = computed(() =>
+  caseTags.value.filter((tag) => tag.status === 'active' && tag.scope === 'global'),
+)
+const availableScenarioTags = computed(() =>
+  caseTags.value.filter(
+    (tag) => tag.status === 'active' && tag.scope === 'scenario' && tag.scenario_id === form.scenario_id,
+  ),
+)
+const targetScenarios = computed(() =>
+  scenarios.value.filter(
+    (item) => item.status === 'active' && item.evaluation_target_id === dataset.value?.evaluation_target_id,
+  ),
+)
 
 async function load() {
   loading.value = true
@@ -70,13 +85,12 @@ async function load() {
     ])
     dataset.value = datasetResponse.data.data.dataset
     cases.value = caseResponse.data.data.items
-    const tagResponse = await apiClient.get<
-      ResponseEnvelope<{ global: Tag[]; scenario: Tag[] }>
-    >(
-      `/api/v1/scenarios/${dataset.value.scenario_id}/available-case-tags`,
-    )
-    availableGlobalTags.value = tagResponse.data.data.global
-    availableScenarioTags.value = tagResponse.data.data.scenario
+    const [scenarioResponse, tagResponse] = await Promise.all([
+      apiClient.get<ResponseEnvelope<PageData<Scenario>>>('/api/v1/scenarios?page_size=100'),
+      apiClient.get<ResponseEnvelope<{ items: Tag[] }>>('/api/v1/case-tags?scope=global'),
+    ])
+    scenarios.value = scenarioResponse.data.data.items
+    caseTags.value = tagResponse.data.data.items
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   } finally {
@@ -84,9 +98,30 @@ async function load() {
   }
 }
 
-function openEditor(item?: VersionCase) {
+async function loadCaseTags(scenarioID: string) {
+  if (!scenarioID) {
+    const response = await apiClient.get<ResponseEnvelope<{ items: Tag[] }>>(
+      '/api/v1/case-tags?scope=global',
+    )
+    caseTags.value = response.data.data.items
+    return
+  }
+  const response = await apiClient.get<ResponseEnvelope<{ global: Tag[]; scenario: Tag[] }>>(
+    `/api/v1/scenarios/${scenarioID}/available-case-tags`,
+  )
+  caseTags.value = [...response.data.data.global, ...response.data.data.scenario]
+}
+
+async function openEditor(item?: VersionCase) {
   editing.value = item || null
+  try {
+    await loadCaseTags(item?.scenario_id || '')
+  } catch (error) {
+    ElMessage.error(apiErrorMessage(error))
+    return
+  }
   Object.assign(form, {
+    scenario_id: item?.scenario_id || '',
     name: item?.name || '',
     user_prompt: item?.user_prompt || '',
     precondition: item?.precondition || '',
@@ -122,6 +157,7 @@ function downloadTemplate() {
 
 async function saveCase() {
   const payload = {
+    scenario_id: form.scenario_id || null,
     name: form.name || null,
     user_prompt: form.user_prompt,
     precondition: form.precondition || null,
@@ -261,6 +297,23 @@ onBeforeRouteLeave(() => {
   return window.confirm('当前用例存在未保存修改，确定离开吗？')
 })
 
+watch(
+  () => form.scenario_id,
+  async (scenarioID) => {
+    try {
+      await loadCaseTags(scenarioID)
+    } catch (error) {
+      ElMessage.error(apiErrorMessage(error))
+      return
+    }
+    const allowed = new Set([
+      ...availableGlobalTags.value.map((tag) => tag.id),
+      ...availableScenarioTags.value.map((tag) => tag.id),
+    ])
+    form.tag_ids = form.tag_ids.filter((tagID) => allowed.has(tagID))
+  },
+)
+
 onMounted(load)
 </script>
 
@@ -280,7 +333,7 @@ onMounted(load)
           <h1>编辑草稿</h1>
           <el-tag type="warning">未发布</el-tag>
         </div>
-        <p>{{ dataset?.evaluation_target_name }} / {{ dataset?.scenario_name }} / {{ dataset?.name }}</p>
+        <p>{{ dataset?.evaluation_target_name }} / {{ dataset?.name }}</p>
       </div>
       <div class="heading-actions">
         <span class="saved-hint">✓ 所有更改已保存</span>
@@ -318,6 +371,12 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="用户问题摘要" min-width="280" show-overflow-tooltip>
           <template #default="{ row }">{{ row.user_prompt }}</template>
+        </el-table-column>
+        <el-table-column label="场景归类" min-width="150">
+          <template #default="{ row }">
+            <el-tag v-if="row.scenario_name" type="info">{{ row.scenario_name }}</el-tag>
+            <span v-else class="classification-pending">待归类</span>
+          </template>
         </el-table-column>
         <el-table-column label="用例标签" min-width="170">
           <template #default="{ row }">
@@ -358,6 +417,17 @@ onMounted(load)
       <el-form-item label="用户问题或任务指令" required>
         <el-input v-model="form.user_prompt" type="textarea" :rows="5" />
       </el-form-item>
+      <el-form-item label="场景归类（可选）">
+        <el-select v-model="form.scenario_id" clearable filterable placeholder="暂不归类，稍后补充">
+          <el-option
+            v-for="scenario in targetScenarios"
+            :key="scenario.id"
+            :label="scenario.name"
+            :value="scenario.id"
+          />
+        </el-select>
+        <div class="muted">场景不完整时可以留空，不影响保存、导入或发布。</div>
+      </el-form-item>
       <el-collapse>
         <el-collapse-item title="补充评测信息" name="extra">
           <el-form-item label="前置条件">
@@ -383,7 +453,7 @@ onMounted(load)
           </el-option-group>
           <el-option-group
             v-if="availableScenarioTags.length"
-            :label="`当前场景 · ${dataset?.scenario_name || ''}`"
+            :label="`场景标签 · ${targetScenarios.find((item) => item.id === form.scenario_id)?.name || ''}`"
           >
             <el-option
               v-for="tag in availableScenarioTags"
@@ -422,6 +492,12 @@ onMounted(load)
       <div>将 CSV 文件拖到此处，或点击选择</div>
       <template #tip>仅接受 UTF-8 CSV；导入只会追加到当前草稿。</template>
     </el-upload>
+    <el-alert
+      title="导入的用例将先进入“待归类”，后续可逐条补充场景。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
     <div v-if="importPreview" class="import-summary">
       <el-statistic title="总行数" :value="importPreview.rows.length" />
       <el-statistic title="有效数据" :value="importPreview.valid_row_count" />

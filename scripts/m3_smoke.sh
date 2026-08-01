@@ -75,15 +75,15 @@ test "$(request POST /api/v1/scenarios "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/scenario-input.json" "${smoke_dir}/scenario.json")" = "201"
 scenario_id="$(jq -er '.data.id' "${smoke_dir}/scenario.json")"
 
-jq -n --arg id "${scenario_id}" --arg name "M3 基础评测集 ${timestamp}" \
-  '{scenario_id: $id, name: $name, description: "M3 smoke"}' > "${smoke_dir}/dataset-input.json"
+jq -n --arg id "${target_id}" --arg name "M3 基础评测集 ${timestamp}" \
+  '{evaluation_target_id: $id, name: $name, description: "M3 smoke"}' > "${smoke_dir}/dataset-input.json"
 test "$(request POST /api/v1/datasets "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/dataset-input.json" "${smoke_dir}/dataset.json")" = "201"
 draft_id="$(jq -er '.data.draft.id' "${smoke_dir}/dataset.json")"
 
 for position in 1 2; do
-  jq -n --arg name "用例 ${position}" --arg prompt "请回答采购问题 ${position}" \
-    '{name: $name, user_prompt: $prompt, precondition: null, expected_result: null,
+  jq -n --arg scenario "${scenario_id}" --arg name "用例 ${position}" --arg prompt "请回答采购问题 ${position}" \
+    '{scenario_id: $scenario, name: $name, user_prompt: $prompt, precondition: null, expected_result: null,
       judging_guide: "回答准确", is_enabled: true, tag_ids: []}' \
     > "${smoke_dir}/case-${position}-input.json"
   test "$(request POST "/api/v1/dataset-versions/${draft_id}/cases" \

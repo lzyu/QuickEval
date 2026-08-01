@@ -17,6 +17,7 @@
   --qe-primary-soft: #eaf2ff;
   --qe-radius-card: 12px;
   --qe-radius-control: 8px;
+  --qe-page-max-width: 1320px;
   color: var(--qe-text);
   background: var(--qe-canvas);
   font-family: var(--qe-font-sans);
@@ -33,6 +34,10 @@
   --el-color-primary-light-8: #d1e2fa;
   --el-color-primary-light-9: var(--qe-primary-soft);
   --el-color-primary-dark-2: #1254b3;
+}
+
+html {
+  scrollbar-gutter: stable;
 }
 
 * {
@@ -320,6 +325,25 @@ textarea {
   padding: 28px;
 }
 
+:where(
+  .home-page,
+  .dashboard-page,
+  .management-page,
+  .dataset-page,
+  .dataset-detail-page,
+  .draft-page,
+  .evaluation-list-page,
+  .badcase-list-page,
+  .badcase-detail-page,
+  .case-detail-page,
+  .evaluation-results-page
+) {
+  width: 100%;
+  max-width: var(--qe-page-max-width);
+  min-width: 0;
+  margin-inline: auto;
+}
+
 .actionable-empty-state {
   display: grid;
   justify-items: center;
@@ -361,11 +385,6 @@ textarea {
   display: flex;
   gap: 10px;
   margin-top: 18px;
-}
-
-.home-page {
-  max-width: 1180px;
-  margin: 0 auto;
 }
 
 .page-actions,
@@ -517,11 +536,6 @@ textarea {
   border-radius: 50%;
   background: var(--qe-primary);
   box-shadow: 0 0 0 5px var(--qe-primary-soft);
-}
-
-.dashboard-page {
-  max-width: 1500px;
-  margin: 0 auto;
 }
 
 .dashboard-filter-card {
@@ -876,14 +890,25 @@ h3 {
   margin-top: 8px;
 }
 
-.management-page {
-  max-width: 1280px;
-  margin: 0 auto;
-}
-
 .management-page .el-card {
   border-color: var(--qe-border);
   border-radius: 12px;
+}
+
+.content-primary-actions,
+.content-utility-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.content-primary-actions {
+  justify-content: flex-start;
+}
+
+.content-utility-actions {
+  justify-content: flex-end;
 }
 
 .table-secondary {
@@ -929,11 +954,16 @@ h3 {
   color: #98a2b3;
 }
 
-.dataset-page,
-.dataset-detail-page,
-.draft-page {
-  max-width: 1320px;
-  margin: 0 auto;
+.classification-pending {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 999px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-lighter);
+  font-size: 12px;
 }
 
 .dataset-layout {
@@ -1360,11 +1390,6 @@ h3 {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   letter-spacing: -0.02em;
-}
-
-.evaluation-list-page > .page-heading,
-.badcase-list-page > .page-heading {
-  margin-bottom: 0;
 }
 
 .run-filter-bar {
@@ -1949,8 +1974,21 @@ h3 {
 }
 
 @media (max-width: 860px) {
+  html {
+    scrollbar-gutter: auto;
+  }
+
   .app-shell {
     display: block;
+  }
+
+  .content-primary-actions .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .content-utility-actions {
+    flex-wrap: wrap;
   }
 
   .app-sidebar {

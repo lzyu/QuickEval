@@ -11,7 +11,9 @@ import (
 type Badcase struct {
 	ID                id.UUID    `gorm:"column:id;type:binary(16);primaryKey"`
 	SourceType        string     `gorm:"column:source_type"`
-	ScenarioID        id.UUID    `gorm:"column:scenario_id;type:binary(16)"`
+	TargetID          id.UUID    `gorm:"column:evaluation_target_id;type:binary(16)"`
+	ScenarioID        *id.UUID   `gorm:"column:scenario_id;type:binary(16)"`
+	AssignmentStatus  string     `gorm:"column:scenario_assignment_status"`
 	CaseResultID      *id.UUID   `gorm:"column:case_result_id;type:binary(16)"`
 	Title             string     `gorm:"column:title"`
 	Description       *string    `gorm:"column:description"`
@@ -33,8 +35,7 @@ type Badcase struct {
 	CreatedAt         time.Time  `gorm:"column:created_at"`
 	UpdatedAt         time.Time  `gorm:"column:updated_at"`
 
-	ScenarioName        string              `gorm:"column:scenario_name;->"`
-	TargetID            id.UUID             `gorm:"column:evaluation_target_id;type:binary(16);->"`
+	ScenarioName        *string             `gorm:"column:scenario_name;->"`
 	TargetName          string              `gorm:"column:evaluation_target_name;->"`
 	CreatorName         string              `gorm:"column:creator_name;->"`
 	AssigneeName        string              `gorm:"column:assignee_name;->"`
@@ -100,38 +101,39 @@ type ActivityPublic struct {
 }
 
 type Public struct {
-	ID                  string              `json:"id"`
-	SourceType          string              `json:"source_type"`
-	ScenarioID          string              `json:"scenario_id"`
-	ScenarioName        string              `json:"scenario_name"`
-	TargetID            string              `json:"evaluation_target_id"`
-	TargetName          string              `json:"evaluation_target_name"`
-	Title               string              `json:"title"`
-	Description         *string             `json:"description"`
-	AgentResponseText   *string             `json:"agent_response_text"`
-	AgentVersion        *string             `json:"agent_version"`
-	Environment         string              `json:"environment"`
-	OccurredAt          time.Time           `json:"occurred_at"`
-	Status              string              `json:"status"`
-	AssigneeID          *string             `json:"assignee_id"`
-	AssigneeName        *string             `json:"assignee_name"`
-	ResolvedAt          *time.Time          `json:"resolved_at"`
-	BusinessReference   *string             `json:"business_reference"`
-	SessionID           *string             `json:"session_id"`
-	InvalidatedAt       *time.Time          `json:"invalidated_at"`
-	InvalidatedBy       *string             `json:"invalidated_by"`
-	InvalidatorName     *string             `json:"invalidator_name"`
-	InvalidReason       *string             `json:"invalid_reason"`
-	LockVersion         uint32              `json:"lock_version"`
-	CreatedBy           string              `json:"created_by"`
-	CreatorName         string              `json:"creator_name"`
-	CreatedAt           time.Time           `json:"created_at"`
-	UpdatedAt           time.Time           `json:"updated_at"`
-	IssueTags           []dataset.CaseTag   `json:"issue_tags"`
-	Evaluation          *EvaluationContext  `json:"evaluation"`
-	OriginalAttachments []attachment.Public `json:"original_attachments"`
-	Attachments         []attachment.Public `json:"attachments"`
-	Activities          []ActivityPublic    `json:"activities"`
+	ID                       string              `json:"id"`
+	SourceType               string              `json:"source_type"`
+	ScenarioID               *string             `json:"scenario_id"`
+	ScenarioName             *string             `json:"scenario_name"`
+	ScenarioAssignmentStatus string              `json:"scenario_assignment_status"`
+	TargetID                 string              `json:"evaluation_target_id"`
+	TargetName               string              `json:"evaluation_target_name"`
+	Title                    string              `json:"title"`
+	Description              *string             `json:"description"`
+	AgentResponseText        *string             `json:"agent_response_text"`
+	AgentVersion             *string             `json:"agent_version"`
+	Environment              string              `json:"environment"`
+	OccurredAt               time.Time           `json:"occurred_at"`
+	Status                   string              `json:"status"`
+	AssigneeID               *string             `json:"assignee_id"`
+	AssigneeName             *string             `json:"assignee_name"`
+	ResolvedAt               *time.Time          `json:"resolved_at"`
+	BusinessReference        *string             `json:"business_reference"`
+	SessionID                *string             `json:"session_id"`
+	InvalidatedAt            *time.Time          `json:"invalidated_at"`
+	InvalidatedBy            *string             `json:"invalidated_by"`
+	InvalidatorName          *string             `json:"invalidator_name"`
+	InvalidReason            *string             `json:"invalid_reason"`
+	LockVersion              uint32              `json:"lock_version"`
+	CreatedBy                string              `json:"created_by"`
+	CreatorName              string              `json:"creator_name"`
+	CreatedAt                time.Time           `json:"created_at"`
+	UpdatedAt                time.Time           `json:"updated_at"`
+	IssueTags                []dataset.CaseTag   `json:"issue_tags"`
+	Evaluation               *EvaluationContext  `json:"evaluation"`
+	OriginalAttachments      []attachment.Public `json:"original_attachments"`
+	Attachments              []attachment.Public `json:"attachments"`
+	Activities               []ActivityPublic    `json:"activities"`
 }
 
 type EvaluationContext struct {
@@ -189,10 +191,16 @@ func (item Badcase) Public() Public {
 		name := item.InvalidatorName
 		invalidatorName = &name
 	}
+	var scenarioID *string
+	if item.ScenarioID != nil {
+		value := item.ScenarioID.String()
+		scenarioID = &value
+	}
 	return Public{
 		ID: item.ID.String(), SourceType: item.SourceType,
-		ScenarioID: item.ScenarioID.String(), ScenarioName: item.ScenarioName,
-		TargetID: item.TargetID.String(), TargetName: item.TargetName,
+		ScenarioID: scenarioID, ScenarioName: item.ScenarioName,
+		ScenarioAssignmentStatus: item.AssignmentStatus,
+		TargetID:                 item.TargetID.String(), TargetName: item.TargetName,
 		Title: item.Title, Description: item.Description,
 		AgentResponseText: item.AgentResponseText, AgentVersion: item.AgentVersion,
 		Environment: item.Environment, OccurredAt: item.OccurredAt,

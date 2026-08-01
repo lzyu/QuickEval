@@ -68,7 +68,8 @@ const scenarios = computed(() =>
 )
 const datasets = computed(() =>
   (data.value?.options.datasets || []).filter(
-    (item) => !filters.scenario_id || item.parent_id === filters.scenario_id,
+    (item) =>
+      !filters.evaluation_target_id || item.parent_id === filters.evaluation_target_id,
   ),
 )
 const versions = computed(() =>
@@ -311,8 +312,6 @@ watch(() => filters.evaluation_target_id, () => {
   if (filters.scenario_id && !scenarios.value.some((item) => item.id === filters.scenario_id)) {
     filters.scenario_id = ''
   }
-})
-watch(() => filters.scenario_id, () => {
   if (filters.dataset_id && !datasets.value.some((item) => item.id === filters.dataset_id)) {
     filters.dataset_id = ''
   }
@@ -338,11 +337,8 @@ onBeforeUnmount(() => {
 
 <template>
   <section v-loading="loading" class="dashboard-page">
-    <div class="page-heading">
-      <div>
-        <p>只统计已完成评测与有效 Badcase；所有指标都可追溯到当前筛选口径。</p>
-      </div>
-      <div class="page-actions">
+    <el-card v-if="data" class="dashboard-filter-card" shadow="never">
+      <div class="content-utility-actions">
         <el-dropdown>
           <el-button :icon="Download">导出当前筛选</el-button>
           <template #dropdown>
@@ -361,9 +357,6 @@ onBeforeUnmount(() => {
         </el-dropdown>
         <el-button type="primary" :icon="Refresh" @click="load">刷新</el-button>
       </div>
-    </div>
-
-    <el-card v-if="data" class="dashboard-filter-card" shadow="never">
       <div class="dashboard-filter-primary">
         <el-select v-model="filters.evaluation_target_id" clearable placeholder="评测对象" aria-label="按评测对象筛选">
           <el-option v-for="item in data.options.evaluation_targets" :key="item.id" :label="item.name" :value="item.id" />

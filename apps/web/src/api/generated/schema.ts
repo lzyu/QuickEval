@@ -1446,7 +1446,7 @@ export interface components {
             created_at: components["schemas"]["UTCTimestamp"];
         };
         DatasetRequest: {
-            scenario_id: components["schemas"]["UUID"];
+            evaluation_target_id: components["schemas"]["UUID"];
             name: string;
             description?: string | null;
             /** @default 0 */
@@ -1462,6 +1462,8 @@ export interface components {
             expected_lock_version: number;
         };
         VersionCaseRequest: {
+            /** Format: uuid */
+            scenario_id?: string | null;
             name?: string | null;
             user_prompt: string;
             precondition?: string | null;
@@ -1486,10 +1488,6 @@ export interface components {
         };
         Dataset: {
             id: components["schemas"]["UUID"];
-            scenario_id: components["schemas"]["UUID"];
-            scenario_name: string;
-            /** @enum {string} */
-            scenario_status: "active" | "disabled";
             evaluation_target_id: components["schemas"]["UUID"];
             evaluation_target_name: string;
             /** @enum {string} */
@@ -1534,6 +1532,13 @@ export interface components {
             id: components["schemas"]["UUID"];
             dataset_version_id: components["schemas"]["UUID"];
             case_key: components["schemas"]["UUID"];
+            /** Format: uuid */
+            scenario_id: string | null;
+            scenario_name: string | null;
+            /** @enum {string|null} */
+            scenario_status: "active" | "disabled" | null;
+            /** @enum {string} */
+            scenario_assignment_status: "unclassified" | "suggested" | "confirmed";
             name?: string | null;
             user_prompt: string;
             precondition?: string | null;
@@ -1668,7 +1673,9 @@ export interface components {
         /** @enum {string} */
         BadcaseStatus: "pending" | "processing" | "resolved" | "deferred";
         CreateBusinessBadcaseRequest: {
-            scenario_id: components["schemas"]["UUID"];
+            evaluation_target_id: components["schemas"]["UUID"];
+            /** Format: uuid */
+            scenario_id?: string | null;
             title: string;
             /** @description Optional problem description; blank input is stored as null. */
             description?: string | null;
@@ -1681,6 +1688,8 @@ export interface components {
             issue_tag_ids: components["schemas"]["UUID"][];
         };
         UpdateBusinessBadcaseRequest: {
+            /** Format: uuid */
+            scenario_id?: string | null;
             title: string;
             /** @description Optional problem description; blank input is stored as null. */
             description?: string | null;
@@ -1731,8 +1740,6 @@ export interface components {
             dataset_id: components["schemas"]["UUID"];
             dataset_name: string;
             version_no: number;
-            scenario_id: components["schemas"]["UUID"];
-            scenario_name: string;
             evaluation_target_id: components["schemas"]["UUID"];
             evaluation_target_name: string;
             evaluator_id: components["schemas"]["UUID"];
@@ -1760,6 +1767,11 @@ export interface components {
             evaluation_run_id: components["schemas"]["UUID"];
             version_case_id: components["schemas"]["UUID"];
             case_key: components["schemas"]["UUID"];
+            /** Format: uuid */
+            scenario_id: string | null;
+            scenario_name: string | null;
+            /** @enum {string} */
+            scenario_assignment_status: "unclassified" | "suggested" | "confirmed";
             name?: string | null;
             user_prompt: string;
             precondition?: string | null;
@@ -1838,8 +1850,11 @@ export interface components {
             id: components["schemas"]["UUID"];
             /** @enum {string} */
             source_type: "evaluation" | "business";
-            scenario_id: components["schemas"]["UUID"];
-            scenario_name: string;
+            /** Format: uuid */
+            scenario_id: string | null;
+            scenario_name: string | null;
+            /** @enum {string} */
+            scenario_assignment_status: "unclassified" | "suggested" | "confirmed";
             evaluation_target_id: components["schemas"]["UUID"];
             evaluation_target_name: string;
             title: string;
@@ -2021,7 +2036,7 @@ export interface components {
             id: components["schemas"]["UUID"];
             dataset_name: string;
             version_no: number;
-            scenario_name: string;
+            evaluation_target_name: string;
             agent_version: string;
             environment: components["schemas"]["EvaluationEnvironment"];
             completed_count: number;
@@ -2041,7 +2056,6 @@ export interface components {
             dataset_id: components["schemas"]["UUID"];
             version_id: components["schemas"]["UUID"];
             dataset_name: string;
-            scenario_name: string;
             evaluation_target_name: string;
             version_no: number;
             case_count: number;

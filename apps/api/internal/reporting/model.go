@@ -45,7 +45,7 @@ type HomeRun struct {
 	ID             id.UUID   `gorm:"column:id"`
 	DatasetName    string    `gorm:"column:dataset_name"`
 	VersionNo      uint32    `gorm:"column:version_no"`
-	ScenarioName   string    `gorm:"column:scenario_name"`
+	TargetName     string    `gorm:"column:evaluation_target_name"`
 	AgentVersion   string    `gorm:"column:agent_version"`
 	Environment    string    `gorm:"column:environment"`
 	EvaluatedCount int64     `gorm:"column:evaluated_count"`
@@ -58,7 +58,7 @@ type HomeRunPublic struct {
 	ID             string    `json:"id"`
 	DatasetName    string    `json:"dataset_name"`
 	VersionNo      uint32    `json:"version_no"`
-	ScenarioName   string    `json:"scenario_name"`
+	TargetName     string    `json:"evaluation_target_name"`
 	AgentVersion   string    `json:"agent_version"`
 	Environment    string    `json:"environment"`
 	CompletedCount int64     `json:"completed_count"`
@@ -69,7 +69,7 @@ type HomeRunPublic struct {
 func (item HomeRun) Public() HomeRunPublic {
 	return HomeRunPublic{
 		ID: item.ID.String(), DatasetName: item.DatasetName, VersionNo: item.VersionNo,
-		ScenarioName: item.ScenarioName, AgentVersion: item.AgentVersion,
+		TargetName: item.TargetName, AgentVersion: item.AgentVersion,
 		Environment: item.Environment, CompletedCount: item.EvaluatedCount + item.SkippedCount,
 		TotalCount: item.TotalCount, UpdatedAt: item.UpdatedAt,
 	}
@@ -101,32 +101,30 @@ func (item HomeBadcase) Public() HomeBadcasePublic {
 }
 
 type RecentDataset struct {
-	DatasetID    id.UUID   `gorm:"column:dataset_id"`
-	VersionID    id.UUID   `gorm:"column:version_id"`
-	DatasetName  string    `gorm:"column:dataset_name"`
-	ScenarioName string    `gorm:"column:scenario_name"`
-	TargetName   string    `gorm:"column:target_name"`
-	VersionNo    uint32    `gorm:"column:version_no"`
-	CaseCount    int64     `gorm:"column:case_count"`
-	PublishedAt  time.Time `gorm:"column:published_at"`
+	DatasetID   id.UUID   `gorm:"column:dataset_id"`
+	VersionID   id.UUID   `gorm:"column:version_id"`
+	DatasetName string    `gorm:"column:dataset_name"`
+	TargetName  string    `gorm:"column:target_name"`
+	VersionNo   uint32    `gorm:"column:version_no"`
+	CaseCount   int64     `gorm:"column:case_count"`
+	PublishedAt time.Time `gorm:"column:published_at"`
 }
 
 type RecentDatasetPublic struct {
-	DatasetID    string    `json:"dataset_id"`
-	VersionID    string    `json:"version_id"`
-	DatasetName  string    `json:"dataset_name"`
-	ScenarioName string    `json:"scenario_name"`
-	TargetName   string    `json:"evaluation_target_name"`
-	VersionNo    uint32    `json:"version_no"`
-	CaseCount    int64     `json:"case_count"`
-	PublishedAt  time.Time `json:"published_at"`
+	DatasetID   string    `json:"dataset_id"`
+	VersionID   string    `json:"version_id"`
+	DatasetName string    `json:"dataset_name"`
+	TargetName  string    `json:"evaluation_target_name"`
+	VersionNo   uint32    `json:"version_no"`
+	CaseCount   int64     `json:"case_count"`
+	PublishedAt time.Time `json:"published_at"`
 }
 
 func (item RecentDataset) Public() RecentDatasetPublic {
 	return RecentDatasetPublic{
 		DatasetID: item.DatasetID.String(), VersionID: item.VersionID.String(),
-		DatasetName: item.DatasetName, ScenarioName: item.ScenarioName,
-		TargetName: item.TargetName, VersionNo: item.VersionNo,
+		DatasetName: item.DatasetName,
+		TargetName:  item.TargetName, VersionNo: item.VersionNo,
 		CaseCount: item.CaseCount, PublishedAt: item.PublishedAt,
 	}
 }

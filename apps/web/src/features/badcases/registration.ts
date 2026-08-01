@@ -65,7 +65,6 @@ export function availableTags(tags: Tag[], scenarioId: string) {
 export function validateRegistration(form: RegistrationFormState) {
   return {
     title: form.title.trim() ? '' : '请输入 Badcase 标题',
-    scenario_id: form.scenario_id ? '' : '请选择所属场景',
     issue_tag_ids: form.issue_tag_ids.length ? '' : '请至少选择一个问题标签',
     environment: form.environment ? '' : '请选择运行环境',
     occurred_at: form.occurred_at ? '' : '请选择发生时间',

@@ -37,9 +37,7 @@ const releasedVersions = computed(() =>
   versions.value.filter((item) => item.status !== 'draft'),
 )
 const ownershipActive = computed(
-  () =>
-    dataset.value?.evaluation_target_status !== 'disabled' &&
-    dataset.value?.scenario_status !== 'disabled',
+  () => dataset.value?.evaluation_target_status !== 'disabled',
 )
 
 async function load() {
@@ -60,7 +58,7 @@ async function load() {
 async function createDraft(base?: DatasetVersion) {
   if (!dataset.value) return
   if (!ownershipActive.value) {
-    ElMessage.warning('评测对象或场景已停用，当前评测集只保留历史查看')
+    ElMessage.warning('评测对象已停用，当前评测集只保留历史查看')
     return
   }
   if (draft.value) {
@@ -120,7 +118,7 @@ function exportVersion(version: DatasetVersion) {
 
 function openStart(version?: DatasetVersion) {
   if (!ownershipActive.value) {
-    ElMessage.warning('评测对象或场景已停用，不能开始新的评测')
+    ElMessage.warning('评测对象已停用，不能开始新的评测')
     return
   }
   const selected =
@@ -178,7 +176,7 @@ async function saveDataset() {
   editSaving.value = true
   try {
     await apiClient.patch(`/api/v1/datasets/${dataset.value.id}`, {
-      scenario_id: dataset.value.scenario_id,
+      evaluation_target_id: dataset.value.evaluation_target_id,
       name: editForm.name,
       description: editForm.description || null,
       expected_lock_version: dataset.value.lock_version,
@@ -202,13 +200,12 @@ onMounted(load)
       <el-breadcrumb separator="/">
         <el-breadcrumb-item :to="{ path: '/datasets' }">评测集</el-breadcrumb-item>
         <el-breadcrumb-item>{{ dataset.evaluation_target_name }}</el-breadcrumb-item>
-        <el-breadcrumb-item>{{ dataset.scenario_name }}</el-breadcrumb-item>
         <el-breadcrumb-item>{{ dataset.name }}</el-breadcrumb-item>
       </el-breadcrumb>
 
       <el-alert
         v-if="!ownershipActive"
-        title="评测对象或场景已停用"
+        title="评测对象已停用"
         description="当前评测集保留用于历史追溯，不能编辑草稿、发布版本或开始新的评测。"
         type="warning"
         :closable="false"
@@ -373,9 +370,9 @@ onMounted(load)
 
   <el-dialog v-model="editOpen" title="编辑评测集基本信息" width="560">
     <el-form label-position="top">
-      <el-form-item label="所属场景">
-        <el-input :model-value="`${dataset?.evaluation_target_name} / ${dataset?.scenario_name}`" disabled />
-        <div class="muted">发布版本后不允许更换场景。</div>
+      <el-form-item label="所属评测对象">
+        <el-input :model-value="dataset?.evaluation_target_name" disabled />
+        <div class="muted">评测集包含用例后不允许更换评测对象。</div>
       </el-form-item>
       <el-form-item label="评测集名称" required>
         <el-input v-model="editForm.name" maxlength="200" show-word-limit />
@@ -401,8 +398,8 @@ onMounted(load)
     <el-descriptions v-if="dataset && startVersion" :column="1" border>
       <el-descriptions-item label="评测集">{{ dataset.name }}</el-descriptions-item>
       <el-descriptions-item label="版本">V{{ startVersion.version_no }}</el-descriptions-item>
-      <el-descriptions-item label="场景">
-        {{ dataset.evaluation_target_name }} / {{ dataset.scenario_name }}
+      <el-descriptions-item label="评测对象">
+        {{ dataset.evaluation_target_name }}
       </el-descriptions-item>
       <el-descriptions-item label="启用用例">{{ startVersion.enabled_count }} 条</el-descriptions-item>
     </el-descriptions>

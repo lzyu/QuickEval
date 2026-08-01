@@ -79,13 +79,10 @@ onMounted(load)
 
 <template>
   <section class="management-page">
-    <div class="page-heading">
-      <div>
-        <p>预设 Badcase 问题分类，用于后续分布统计与定位。</p>
-      </div>
-      <el-button type="primary" @click="open()">新建标签</el-button>
-    </div>
     <el-card shadow="never">
+      <div class="content-primary-actions">
+        <el-button type="primary" @click="open()">新建标签</el-button>
+      </div>
       <el-table :data="items" empty-text="暂无问题标签">
         <el-table-column type="index" label="排序" width="80" />
         <el-table-column prop="name" label="标签名称" min-width="180" />

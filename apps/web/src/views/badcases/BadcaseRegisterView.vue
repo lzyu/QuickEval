@@ -73,7 +73,6 @@ const filteredIssueTags = computed(() => availableTags(issueTags.value, form.sce
 const form = reactive(emptyRegistrationForm())
 const errors = reactive({
   title: '',
-  scenario_id: '',
   issue_tag_ids: '',
   environment: '',
   occurred_at: '',
@@ -139,7 +138,7 @@ function restoreDraft() {
   if (draft) {
     Object.assign(form, draft.form)
     if (!targetScenarios.value.some((item) => item.id === form.scenario_id)) {
-      form.scenario_id = targetScenarios.value[0]?.id || ''
+      form.scenario_id = ''
       form.issue_tag_ids = []
     }
     if (draft.had_screenshots) {
@@ -149,7 +148,7 @@ function restoreDraft() {
     }
     draftStatus.value = 'saved'
   } else {
-    form.scenario_id = targetScenarios.value[0]?.id || ''
+    form.scenario_id = ''
     draftStatus.value = 'idle'
   }
   nextTick(() => {
@@ -173,10 +172,7 @@ async function loadPage(targetId: string) {
     scenarios.value = scenarioResponse.data.data.items
     issueTags.value = optionResponse.data.data.issue_tags
     const target = targets.value.find((item) => item.id === targetId && item.status === 'active')
-    const usable = target && scenarios.value.some(
-      (item) => item.evaluation_target_id === target.id && item.status === 'active',
-    )
-    if (!usable) {
+    if (!target) {
       currentTargetId.value = ''
       pickerRequired.value = true
       targetPickerOpen.value = true
@@ -384,7 +380,8 @@ async function submit() {
     const response = await apiClient.post<ResponseEnvelope<Badcase>>(
       '/api/v1/badcases',
       {
-        scenario_id: form.scenario_id,
+        evaluation_target_id: currentTargetId.value,
+        scenario_id: form.scenario_id || null,
         title: form.title.trim(),
         description: form.description.trim() || null,
         agent_response_text: form.agent_response_text.trim() || null,
@@ -414,7 +411,7 @@ function discardFailedScreenshots() {
 function clearCurrent() {
   Object.assign(form, {
     ...emptyRegistrationForm(),
-    scenario_id: targetScenarios.value[0]?.id || '',
+    scenario_id: '',
   })
   revokePreviews()
   const key = currentDraftKey()
@@ -438,7 +435,6 @@ watch(
     if (draftReady.value && !recordLocked.value) {
       Object.assign(errors, {
         title: '',
-        scenario_id: '',
         issue_tag_ids: '',
         environment: '',
         occurred_at: '',
@@ -612,8 +608,8 @@ onBeforeUnmount(() => {
       <section class="register-panel context-panel">
         <h2>归属与定位</h2>
         <el-form label-position="top" :disabled="recordLocked">
-          <el-form-item label="所属场景" required :error="errors.scenario_id">
-            <el-select v-model="form.scenario_id" placeholder="请选择启用场景">
+          <el-form-item label="场景归类（可选）">
+            <el-select v-model="form.scenario_id" clearable placeholder="暂不归类，稍后补充">
               <el-option
                 v-for="scenario in targetScenarios"
                 :key="scenario.id"
@@ -621,6 +617,7 @@ onBeforeUnmount(() => {
                 :value="scenario.id"
               />
             </el-select>
+            <div class="muted">场景尚未配置完整时可留空，不影响登记。</div>
           </el-form-item>
           <el-form-item label="问题标签" required :error="errors.issue_tag_ids">
             <el-select v-model="form.issue_tag_ids" multiple filterable placeholder="至少选择一个问题标签">
@@ -683,7 +680,7 @@ onBeforeUnmount(() => {
         <div class="recent-table-head"><span>标题</span><span>场景</span><span>发生时间</span><span>操作</span></div>
         <div v-for="item in recentItems" :key="item.id" class="recent-table-row">
           <strong>{{ item.title }}</strong>
-          <span>{{ item.scenario_name }}</span>
+          <span>{{ item.scenario_name || '待归类' }}</span>
           <span>{{ formatTime(item.occurred_at) }}</span>
           <el-button link type="primary" @click="router.push(`/badcases/${item.id}`)">查看详情</el-button>
         </div>
@@ -693,7 +690,7 @@ onBeforeUnmount(() => {
     <footer v-if="currentTarget" class="register-footer">
       <el-button :disabled="recordLocked" @click="clearCurrent">清空当前内容</el-button>
       <div>
-        <span v-if="!recordLocked">保存后将保留场景、环境和 Agent 版本</span>
+        <span v-if="!recordLocked">保存后将保留场景归类、环境和 Agent 版本</span>
         <el-button
           v-if="!uploadFailed"
           type="primary"

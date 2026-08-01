@@ -96,13 +96,10 @@ onMounted(load)
 
 <template>
   <section class="management-page">
-    <div class="page-heading">
-      <div>
-        <p>维护小团队本地账号、固定角色与账号状态。</p>
-      </div>
-      <el-button type="primary" @click="openCreate">新建用户</el-button>
-    </div>
     <el-card shadow="never">
+      <div class="content-primary-actions">
+        <el-button type="primary" @click="openCreate">新建用户</el-button>
+      </div>
       <el-table v-loading="loading" :data="users" empty-text="暂无用户">
         <el-table-column prop="display_name" label="用户" min-width="150">
           <template #default="{ row }">

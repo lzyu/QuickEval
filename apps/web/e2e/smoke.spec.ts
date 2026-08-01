@@ -88,10 +88,9 @@ const scenario = {
 }
 const dataset = {
   id: datasetId,
-  scenario_id: scenarioId,
-  scenario_name: scenario.name,
   evaluation_target_id: targetId,
   evaluation_target_name: target.name,
+  evaluation_target_status: 'active',
   name: '采购助手基础能力',
   description: '覆盖预算和交付周期',
   status: 'active',
@@ -122,6 +121,10 @@ const versionCase = {
   id: caseId,
   dataset_version_id: draftId,
   case_key: caseKey,
+  scenario_id: scenarioId,
+  scenario_name: scenario.name,
+  scenario_status: 'active',
+  scenario_assignment_status: 'confirmed',
   name: '预算追问',
   user_prompt: '预算 10 万元，请推荐采购方案',
   precondition: null,
@@ -191,13 +194,19 @@ async function mockDraftReads(page: Page) {
       }),
     })
   })
-  await page.route(`**/api/v1/scenarios/${scenarioId}/available-case-tags`, async (route) => {
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/case-tags?*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        data: {
-          global: [
+        data: { items: [
             {
               id: tagId,
               name: '事实准确性',
@@ -207,9 +216,7 @@ async function mockDraftReads(page: Page) {
               lock_version: 0,
               sort_order: 10,
             },
-          ],
-          scenario: [],
-        },
+          ] },
         meta,
       }),
     })
@@ -240,6 +247,16 @@ test('logs in, restores the shell, and exposes admin navigation', async ({ page 
       body: JSON.stringify(adminSession),
     })
   })
+  await page.route('**/api/v1/audit-logs**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [], page: 1, page_size: 100, total: 0 },
+        meta: { request_id: 'e2e-audit-logs' },
+      }),
+    })
+  })
 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
@@ -252,6 +269,17 @@ test('logs in, restores the shell, and exposes admin navigation', async ({ page 
   await page.getByRole('button', { name: '系统管理', exact: true }).click()
   await expect(page.getByRole('button', { name: /用户管理/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /审计日志/ })).toBeVisible()
+  await page.getByRole('button', { name: /审计日志/ }).click()
+  await expect(page).toHaveURL('/admin/audit-logs')
+  const filterControlTops = await page.locator('.filter-row').evaluate((form) => {
+    const input = form.querySelector('.el-input')
+    const button = form.querySelector('.el-button')
+    return {
+      input: Math.round(input?.getBoundingClientRect().top ?? 0),
+      button: Math.round(button?.getBoundingClientRect().top ?? 0),
+    }
+  })
+  expect(filterControlTops.button).toBe(filterControlTops.input)
 })
 
 test('member is redirected away from admin routes', async ({ page }) => {
@@ -343,8 +371,9 @@ test('actively registers badcases continuously and retries only a failed screens
         data: {
           id: badcaseId,
           source_type: 'business',
-          scenario_id: scenarioId,
-          scenario_name: scenario.name,
+          scenario_id: null,
+          scenario_name: null,
+          scenario_assignment_status: 'unclassified',
           evaluation_target_id: targetId,
           evaluation_target_name: target.name,
           title: request.title,
@@ -398,7 +427,7 @@ test('actively registers badcases continuously and retries only a failed screens
   await page.goto('/badcases/register')
   await expect(page.getByRole('heading', { name: '选择评测对象' })).toBeVisible()
   await page.getByPlaceholder('搜索评测对象').fill('合同')
-  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeDisabled()
+  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeEnabled()
   await page.getByPlaceholder('搜索评测对象').fill('智能采购')
   await page.getByRole('button', { name: /智能采购 Agent/ }).click()
 
@@ -545,7 +574,7 @@ test('admin creates a dataset and enters its initial draft', async ({ page }) =>
   await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST') {
       const payload = route.request().postDataJSON()
-      expect(payload).toMatchObject({ scenario_id: scenarioId, name: '采购助手基础能力' })
+      expect(payload).toMatchObject({ evaluation_target_id: targetId, name: '采购助手基础能力' })
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
@@ -590,9 +619,6 @@ test('disabled evaluation targets are unavailable when browsing and creating dat
     ...dataset,
     id: '019fa2a2-ed09-7660-988d-38cb279d5122',
     name: '停用对象历史评测集',
-    scenario_id: disabledScenario.id,
-    scenario_name: disabledScenario.name,
-    scenario_status: 'active',
     evaluation_target_id: disabledTarget.id,
     evaluation_target_name: disabledTarget.name,
     evaluation_target_status: 'disabled',
@@ -640,11 +666,9 @@ test('disabled evaluation targets are unavailable when browsing and creating dat
   await expect(page.locator('.dataset-list-card')).toContainText(disabledDataset.name)
 
   await page.getByRole('button', { name: '新建评测集' }).click()
-  await page.getByRole('combobox', { name: '所属场景' }).click()
-  await expect(page.getByRole('option', { name: `${target.name} / ${scenario.name}` })).toBeVisible()
-  await expect(
-    page.getByRole('option', { name: `${disabledTarget.name} / ${disabledScenario.name}` }),
-  ).toHaveCount(0)
+  await page.getByRole('combobox', { name: '所属评测对象' }).click()
+  await expect(page.getByRole('option', { name: target.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: disabledTarget.name })).toHaveCount(0)
 })
 
 test('draft editor previews CSV, commits it, and publishes the version', async ({ page }) => {
@@ -742,8 +766,6 @@ const evaluationRun = {
   dataset_id: datasetId,
   dataset_name: dataset.name,
   version_no: 1,
-  scenario_id: scenarioId,
-  scenario_name: scenario.name,
   evaluation_target_id: targetId,
   evaluation_target_name: target.name,
   evaluator_id: adminSession.data.user.id,
@@ -1102,6 +1124,7 @@ test('registers a business Badcase and advances its processing timeline', async 
     source_type: 'business',
     scenario_id: scenarioId,
     scenario_name: scenario.name,
+    scenario_assignment_status: 'confirmed',
     evaluation_target_id: targetId,
     evaluation_target_name: target.name,
     title: '采购助手忽略预算上限',
@@ -1164,7 +1187,8 @@ test('registers a business Badcase and advances its processing timeline', async 
     if (route.request().method() === 'POST') {
       expect(route.request().headers()['idempotency-key']).toBeTruthy()
       expect(route.request().postDataJSON()).toMatchObject({
-        scenario_id: scenarioId,
+        evaluation_target_id: targetId,
+        scenario_id: null,
         title: '采购助手忽略预算上限',
         description: null,
         issue_tag_ids: [tagId],
@@ -1324,7 +1348,7 @@ test('renders personal home, dashboard metrics, charts, and global search', asyn
     options: {
       evaluation_targets: [{ id: targetId, name: target.name }],
       scenarios: [{ id: scenarioId, name: scenario.name, parent_id: targetId }],
-      datasets: [{ id: datasetId, name: dataset.name, parent_id: scenarioId }],
+      datasets: [{ id: datasetId, name: dataset.name, parent_id: targetId }],
       dataset_versions: [{ id: draftId, name: `${dataset.name} V1`, parent_id: datasetId }],
       evaluators: [{ id: adminSession.data.user.id, name: '系统管理员' }],
       agent_versions: ['2026.07.28'],

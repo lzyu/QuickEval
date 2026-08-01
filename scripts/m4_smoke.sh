@@ -90,13 +90,13 @@ test "$(request POST /api/v1/issue-tags "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/tag-input.json" "${smoke_dir}/tag.json")" = "201"
 tag_id="$(jq -er '.data.id' "${smoke_dir}/tag.json")"
 
-jq -n --arg id "${scenario_id}" --arg name "M4 评测集 ${timestamp}" \
-  '{scenario_id: $id, name: $name, description: "M4 smoke"}' > "${smoke_dir}/dataset-input.json"
+jq -n --arg id "${target_id}" --arg name "M4 评测集 ${timestamp}" \
+  '{evaluation_target_id: $id, name: $name, description: "M4 smoke"}' > "${smoke_dir}/dataset-input.json"
 test "$(request POST /api/v1/datasets "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/dataset-input.json" "${smoke_dir}/dataset.json")" = "201"
 draft_id="$(jq -er '.data.draft.id' "${smoke_dir}/dataset.json")"
 
-jq -n '{name: "截图证据用例", user_prompt: "请给出采购建议", precondition: null,
+jq -n --arg scenario "${scenario_id}" '{scenario_id: $scenario, name: "截图证据用例", user_prompt: "请给出采购建议", precondition: null,
   expected_result: null, judging_guide: "证据完整", is_enabled: true, tag_ids: []}' \
   > "${smoke_dir}/case-input.json"
 test "$(request POST "/api/v1/dataset-versions/${draft_id}/cases" \

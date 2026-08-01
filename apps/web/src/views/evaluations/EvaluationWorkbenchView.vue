@@ -477,7 +477,7 @@ onMounted(() => Promise.all([load(), loadIssueTags()]))
               {{ run.status === 'completed' ? '已完成' : run.status === 'voided' ? '已作废' : '进行中' }}
             </el-tag>
           </div>
-          <p>{{ run.evaluation_target_name }} · {{ run.scenario_name }} · Agent {{ run.agent_version }}</p>
+          <p>{{ run.evaluation_target_name }} · Agent {{ run.agent_version }}</p>
         </div>
         <div class="heading-actions">
           <span v-if="!dirty" class="saved-hint">✓ 所有更改已保存</span>
@@ -559,7 +559,12 @@ onMounted(() => Promise.all([load(), loadIssueTags()]))
         <main v-if="selected" class="case-snapshot">
           <div class="case-snapshot-heading">
             <h2>{{ selected.name || '未命名用例' }}</h2>
-            <div><el-tag v-for="tag in selected.tags" :key="tag.id">{{ tag.name }}</el-tag></div>
+            <div>
+              <el-tag :type="selected.scenario_name ? 'info' : 'warning'">
+                {{ selected.scenario_name || '待归类' }}
+              </el-tag>
+              <el-tag v-for="tag in selected.tags" :key="tag.id">{{ tag.name }}</el-tag>
+            </div>
           </div>
           <article>
             <h3>用户问题或任务指令</h3>

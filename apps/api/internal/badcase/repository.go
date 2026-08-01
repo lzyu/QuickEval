@@ -27,18 +27,20 @@ func (repository Repository) Transaction(ctx context.Context, fn func(Repository
 }
 
 type ResultContext struct {
-	ResultID     id.UUID
-	ResultStatus string
-	AnswerText   *string
-	Score        *uint8
-	Comment      *string
-	ResultLock   uint32
-	RunID        id.UUID
-	RunStatus    string
-	EvaluatorID  id.UUID
-	AgentVersion string
-	Environment  string
-	ScenarioID   id.UUID
+	ResultID         id.UUID
+	ResultStatus     string
+	AnswerText       *string
+	Score            *uint8
+	Comment          *string
+	ResultLock       uint32
+	RunID            id.UUID
+	RunStatus        string
+	EvaluatorID      id.UUID
+	AgentVersion     string
+	Environment      string
+	TargetID         id.UUID `gorm:"column:evaluation_target_id"`
+	ScenarioID       *id.UUID
+	AssignmentStatus string `gorm:"column:scenario_assignment_status"`
 }
 
 func (repository Repository) LockResultContext(
@@ -52,8 +54,10 @@ func (repository Repository) LockResultContext(
 			case_results.lock_version AS result_lock,
 			evaluation_runs.id AS run_id, evaluation_runs.status AS run_status,
 			evaluation_runs.evaluator_id, evaluation_runs.agent_version,
-			evaluation_runs.environment, datasets.scenario_id`).
+			evaluation_runs.environment, datasets.evaluation_target_id,
+			version_cases.scenario_id, version_cases.scenario_assignment_status`).
 		Joins("JOIN evaluation_runs ON evaluation_runs.id = case_results.evaluation_run_id").
+		Joins("JOIN version_cases ON version_cases.id = case_results.version_case_id").
 		Joins("JOIN dataset_versions ON dataset_versions.id = evaluation_runs.dataset_version_id").
 		Joins("JOIN datasets ON datasets.id = dataset_versions.dataset_id").
 		Clauses(clause.Locking{Strength: "UPDATE", Table: clause.Table{Name: "case_results"}}).
@@ -229,7 +233,7 @@ func (repository Repository) List(
 		query = query.Where("badcases.agent_version = ?", filters.AgentVersion)
 	}
 	if filters.TargetID != nil {
-		query = query.Where("evaluation_targets.id = ?", *filters.TargetID)
+		query = query.Where("badcases.evaluation_target_id = ?", *filters.TargetID)
 	}
 	if filters.ScenarioID != nil {
 		query = query.Where("badcases.scenario_id = ?", *filters.ScenarioID)
@@ -299,8 +303,8 @@ func (repository Repository) Get(ctx context.Context, badcaseID id.UUID) (Badcas
 
 func (repository Repository) baseQuery(db *gorm.DB) *gorm.DB {
 	return db.Table("badcases").
-		Joins("JOIN scenarios ON scenarios.id = badcases.scenario_id").
-		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
+		Joins("LEFT JOIN scenarios ON scenarios.id = badcases.scenario_id").
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = badcases.evaluation_target_id").
 		Joins("JOIN users creator ON creator.id = badcases.created_by").
 		Joins("LEFT JOIN users assignee ON assignee.id = badcases.assignee_id").
 		Joins("LEFT JOIN users invalidator ON invalidator.id = badcases.invalidated_by").
@@ -442,12 +446,20 @@ func (repository Repository) LockBadcase(ctx context.Context, badcaseID id.UUID)
 	return item, err
 }
 
-func (repository Repository) ScenarioActive(ctx context.Context, scenarioID id.UUID) (bool, error) {
+func (repository Repository) TargetActive(ctx context.Context, targetID id.UUID) (bool, error) {
+	var count int64
+	err := repository.db.WithContext(ctx).Table("evaluation_targets").
+		Where("id = ? AND status = 'active'", targetID).Count(&count).Error
+	return count > 0, err
+}
+
+func (repository Repository) ScenarioForTargetActive(
+	ctx context.Context,
+	scenarioID, targetID id.UUID,
+) (bool, error) {
 	var count int64
 	err := repository.db.WithContext(ctx).Table("scenarios").
-		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
-		Where("scenarios.id = ? AND scenarios.status = 'active' AND evaluation_targets.status = 'active'",
-			scenarioID).
+		Where("id = ? AND evaluation_target_id = ? AND status = 'active'", scenarioID, targetID).
 		Count(&count).Error
 	return count > 0, err
 }
@@ -499,8 +511,10 @@ func (repository Repository) UpdateBusiness(
 		Where("id = ? AND lock_version = ?", item.ID, input.ExpectedLockVersion).
 		Updates(map[string]any{
 			"title": input.Title, "description": input.Description,
-			"agent_response_text": input.AgentResponseText,
-			"agent_version":       input.AgentVersion, "environment": input.Environment,
+			"scenario_id":                input.ScenarioID,
+			"scenario_assignment_status": scenarioAssignmentStatus(input.ScenarioID),
+			"agent_response_text":        input.AgentResponseText,
+			"agent_version":              input.AgentVersion, "environment": input.Environment,
 			"occurred_at": input.OccurredAt, "business_reference": input.BusinessReference,
 			"session_id": input.SessionID, "updated_by": actorID,
 			"lock_version": gorm.Expr("lock_version + 1"),

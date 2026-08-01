@@ -4,22 +4,22 @@ import (
 	"testing"
 
 	"github.com/lzyu/QuickEval/apps/api/internal/apperror"
+	"github.com/lzyu/QuickEval/apps/api/internal/id"
 )
 
-func TestValidateScenarioAvailability(t *testing.T) {
+func TestValidateTargetAvailability(t *testing.T) {
 	tests := []struct {
 		name     string
-		info     ScenarioInfo
+		info     TargetInfo
 		wantCode string
 	}{
-		{name: "active ownership chain", info: ScenarioInfo{Status: "active", TargetStatus: "active"}},
-		{name: "disabled scenario", info: ScenarioInfo{Status: "disabled", TargetStatus: "active"}, wantCode: "SCENARIO_DISABLED"},
-		{name: "disabled target", info: ScenarioInfo{Status: "active", TargetStatus: "disabled"}, wantCode: "EVALUATION_TARGET_DISABLED"},
+		{name: "active target", info: TargetInfo{Status: "active"}},
+		{name: "disabled target", info: TargetInfo{Status: "disabled"}, wantCode: "EVALUATION_TARGET_DISABLED"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateScenarioAvailability(test.info)
+			err := validateTargetAvailability(test.info)
 			if test.wantCode == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -38,11 +38,20 @@ func TestValidateScenarioAvailability(t *testing.T) {
 
 func TestValidateDatasetAvailability(t *testing.T) {
 	err := validateDatasetAvailability(Dataset{
-		Status:         DatasetActive,
-		ScenarioStatus: "active",
-		TargetStatus:   "disabled",
+		Status:       DatasetActive,
+		TargetStatus: "disabled",
 	})
 	if err == nil || apperror.As(err).Code != "EVALUATION_TARGET_DISABLED" {
 		t.Fatalf("disabled target should freeze dataset mutations: %v", err)
+	}
+}
+
+func TestAssignmentStatusAllowsUnclassifiedCases(t *testing.T) {
+	if got := assignmentStatus(nil); got != "unclassified" {
+		t.Fatalf("missing scenario should remain unclassified, got %s", got)
+	}
+	scenarioID := id.MustNew()
+	if got := assignmentStatus(&scenarioID); got != "confirmed" {
+		t.Fatalf("manual scenario should be confirmed, got %s", got)
 	}
 }

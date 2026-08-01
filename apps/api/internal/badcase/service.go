@@ -124,7 +124,8 @@ func (service Service) MarkEvaluation(
 		} else if errors.Is(findErr, gorm.ErrRecordNotFound) {
 			agentVersion := result.AgentVersion
 			item := Badcase{
-				ID: id.MustNew(), SourceType: "evaluation", ScenarioID: result.ScenarioID,
+				ID: id.MustNew(), SourceType: "evaluation", TargetID: result.TargetID,
+				ScenarioID: result.ScenarioID, AssignmentStatus: result.AssignmentStatus,
 				CaseResultID: &resultID, Title: normalized.Title,
 				Description: normalized.Description, AgentResponseText: answer,
 				AgentVersion: &agentVersion, Environment: result.Environment,

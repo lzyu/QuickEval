@@ -62,7 +62,7 @@ function close() {
 }
 
 function selectTarget(target: (typeof choices.value)[number]) {
-  if (target.status !== 'active' || target.availableScenarioCount === 0) return
+  if (target.status !== 'active') return
   selectionMade.value = true
   emit('select', target.id)
   emit('update:modelValue', false)
@@ -118,10 +118,10 @@ watch(
         class="target-choice"
         :class="{
           selected: target.id === currentTargetId,
-          disabled: target.status !== 'active' || target.availableScenarioCount === 0,
+          disabled: target.status !== 'active',
         }"
         type="button"
-        :disabled="target.status !== 'active' || target.availableScenarioCount === 0"
+        :disabled="target.status !== 'active'"
         @click="selectTarget(target)"
       >
         <span class="target-choice-icon"><el-icon :size="25"><Box /></el-icon></span>
@@ -129,10 +129,10 @@ watch(
           <strong>{{ target.name }}</strong>
           <span>{{ target.description || '暂无对象描述' }}</span>
           <small v-if="target.status !== 'active'">对象已停用</small>
-          <small v-else-if="target.availableScenarioCount === 0">暂无可用场景，请联系管理员配置</small>
-          <small v-else>{{ target.availableScenarioCount }} 个可用场景</small>
+          <small v-else-if="target.availableScenarioCount === 0">暂无场景，仍可先登记为待归类</small>
+          <small v-else>{{ target.availableScenarioCount }} 个可用场景，可稍后归类</small>
         </span>
-        <span v-if="target.status === 'active' && target.availableScenarioCount > 0" class="target-choice-action">
+        <span v-if="target.status === 'active'" class="target-choice-action">
           进入登记 <span aria-hidden="true">→</span>
         </span>
       </button>

@@ -1,0 +1,3 @@
+# Target-scoped datasets and optional scenario classification
+
+QuickEval treats a Dataset as a collection owned by one Evaluation Target, not by one Scenario. Evaluation Cases and Badcases may be classified into target-scoped Scenarios, but missing classification never blocks import, publication, evaluation, or registration; the system represents this as an unclassified state instead of creating a fake default Scenario. This keeps incomplete scenario catalogs from constraining evaluation work while preserving Scenario as a useful reporting taxonomy and leaving room for reviewed automated suggestions.

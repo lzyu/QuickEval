@@ -68,7 +68,11 @@ func (repository Repository) evaluationExportQuery(
 	return repository.applyEvaluationFilters(repository.evaluationBase(ctx), filters).
 		Joins("JOIN case_results cr ON cr.evaluation_run_id = er.id").
 		Joins("JOIN version_cases vc ON vc.id = cr.version_case_id").
-		Joins("LEFT JOIN badcases b ON b.case_result_id = cr.id AND b.invalidated_at IS NULL")
+		Joins("LEFT JOIN scenarios s ON s.id = vc.scenario_id").
+		Joins("LEFT JOIN badcases b ON b.case_result_id = cr.id AND b.invalidated_at IS NULL").
+		Scopes(func(query *gorm.DB) *gorm.DB {
+			return repository.applyResultScenarioFilter(query, filters, "vc")
+		})
 }
 
 func (repository Repository) EvaluationExportCount(
@@ -87,7 +91,8 @@ func (repository Repository) StreamEvaluationExportRows(
 ) error {
 	query := repository.evaluationExportQuery(ctx, filters).Select(
 		`BIN_TO_UUID(er.id) AS run_id, d.name AS dataset_name, dv.version_no,
-			t.name AS target_name, s.name AS scenario_name, evaluator.display_name AS evaluator_name,
+			t.name AS target_name, COALESCE(s.name, '待归类') AS scenario_name,
+			evaluator.display_name AS evaluator_name,
 			er.agent_version, er.environment, er.completed_at,
 			COUNT(*) OVER (PARTITION BY er.id) AS run_total_count,
 			SUM(cr.status = 'evaluated') OVER (PARTITION BY er.id) AS run_evaluated_count,
@@ -147,7 +152,7 @@ func (repository Repository) StreamBadcaseExportRows(
 ) error {
 	query := repository.badcaseExportQuery(ctx, filters).Select(
 		`BIN_TO_UUID(b.id) AS id, b.source_type, t.name AS target_name,
-			s.name AS scenario_name, b.title, b.description, b.agent_response_text,
+			COALESCE(s.name, '待归类') AS scenario_name, b.title, b.description, b.agent_response_text,
 			b.agent_version, b.environment, b.occurred_at, b.status,
 			assignee.display_name AS assignee_name, creator.display_name AS creator_name,
 			b.business_reference, b.session_id, b.created_at, b.updated_at,

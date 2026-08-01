@@ -143,6 +143,7 @@ async function saveEdit() {
   commanding.value = true
   try {
     await apiClient.patch(`/api/v1/badcases/${item.value.id}`, {
+      scenario_id: item.value.scenario_id,
       title: editForm.title,
       description: editForm.description.trim() || null,
       agent_response_text: editForm.agent_response_text || null,
@@ -289,7 +290,7 @@ onMounted(load)
             {{ item.source_type === 'business' ? '业务登记' : '评测发现' }}
           </el-tag>
           <h1>{{ item.title }}</h1>
-          <p>{{ item.evaluation_target_name }} · {{ item.scenario_name }} · {{ formatTime(item.occurred_at) }}</p>
+          <p>{{ item.evaluation_target_name }} · {{ item.scenario_name || '待归类' }} · {{ formatTime(item.occurred_at) }}</p>
         </div>
         <div class="heading-actions">
           <el-tag :type="item.invalidated_at ? 'info' : item.status === 'resolved' ? 'success' : 'danger'">

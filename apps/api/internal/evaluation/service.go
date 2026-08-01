@@ -72,9 +72,9 @@ func (service Service) CreateRun(
 }
 
 func validateVersionAvailability(version VersionContext) error {
-	if version.TargetStatus != "active" || version.ScenarioStatus != "active" {
+	if version.TargetStatus != "active" {
 		return apperror.Conflict(
-			"VERSION_NOT_EVALUATABLE", "评测对象或场景已停用，不能开始新的评测",
+			"VERSION_NOT_EVALUATABLE", "评测对象已停用，不能开始新的评测",
 		)
 	}
 	if version.Status != "published" || version.DatasetStatus != "active" {

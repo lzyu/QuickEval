@@ -16,21 +16,32 @@ type Repository struct {
 	db *gorm.DB
 }
 
-type ScenarioInfo struct {
-	ID           id.UUID
-	Status       string
-	TargetStatus string
+type TargetInfo struct {
+	ID     id.UUID
+	Status string
 }
 
-func (repository Repository) GetScenarioInfo(
+type ScenarioInfo struct {
+	ID       id.UUID
+	TargetID id.UUID
+	Status   string
+}
+
+func (repository Repository) GetTargetInfo(
 	ctx context.Context,
-	scenarioID id.UUID,
-) (ScenarioInfo, error) {
+	targetID id.UUID,
+) (TargetInfo, error) {
+	var item TargetInfo
+	err := repository.db.WithContext(ctx).Table("evaluation_targets").
+		Select("id, status").Where("id = ?", targetID).Take(&item).Error
+	return item, err
+}
+
+func (repository Repository) GetScenarioInfo(ctx context.Context, scenarioID id.UUID) (ScenarioInfo, error) {
 	var item ScenarioInfo
 	err := repository.db.WithContext(ctx).Table("scenarios").
-		Select("scenarios.id, scenarios.status, evaluation_targets.status AS target_status").
-		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
-		Where("scenarios.id = ?", scenarioID).Take(&item).Error
+		Select("id, evaluation_target_id AS target_id, status").
+		Where("id = ?", scenarioID).Take(&item).Error
 	return item, err
 }
 
@@ -50,10 +61,14 @@ func (repository Repository) ListDatasets(
 ) ([]Dataset, int64, error) {
 	base := repository.datasetQuery(repository.db.WithContext(ctx))
 	if targetID != nil {
-		base = base.Where("scenarios.evaluation_target_id = ?", *targetID)
+		base = base.Where("datasets.evaluation_target_id = ?", *targetID)
 	}
 	if scenarioID != nil {
-		base = base.Where("datasets.scenario_id = ?", *scenarioID)
+		base = base.Where(`EXISTS (
+			SELECT 1 FROM dataset_versions dv
+			JOIN version_cases vc ON vc.dataset_version_id = dv.id
+			WHERE dv.dataset_id = datasets.id AND vc.scenario_id = ?
+		)`, *scenarioID)
 	}
 	if status != "" {
 		base = base.Where("datasets.status = ?", status)
@@ -94,13 +109,13 @@ func (repository Repository) CreateDataset(ctx context.Context, item *Dataset) e
 
 func (repository Repository) UpdateDataset(
 	ctx context.Context,
-	datasetID, scenarioID, actorID id.UUID,
+	datasetID, targetID, actorID id.UUID,
 	name string,
 	description *string,
 	expectedVersion uint32,
 ) error {
 	return updateWithLock(repository.db.WithContext(ctx), "datasets", datasetID, expectedVersion, map[string]any{
-		"scenario_id": scenarioID, "name": name, "description": description,
+		"evaluation_target_id": targetID, "name": name, "description": description,
 		"updated_by": actorID, "lock_version": gorm.Expr("lock_version + 1"),
 	})
 }
@@ -248,8 +263,10 @@ func (repository Repository) ListCases(
 		return nil, 0, err
 	}
 	var items []VersionCase
-	if err := query.Order("sort_order ASC, created_at ASC, id ASC").
-		Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
+	if err := repository.caseQuery(repository.db.WithContext(ctx)).
+		Where("version_cases.dataset_version_id = ?", versionID).
+		Order("version_cases.sort_order ASC, version_cases.created_at ASC, version_cases.id ASC").
+		Offset((page - 1) * pageSize).Limit(pageSize).Scan(&items).Error; err != nil {
 		return nil, 0, err
 	}
 	if err := repository.loadTags(ctx, items); err != nil {
@@ -260,8 +277,10 @@ func (repository Repository) ListCases(
 
 func (repository Repository) AllCases(ctx context.Context, versionID id.UUID) ([]VersionCase, error) {
 	var items []VersionCase
-	if err := repository.db.WithContext(ctx).Where("dataset_version_id = ?", versionID).
-		Order("sort_order ASC, created_at ASC, id ASC").Find(&items).Error; err != nil {
+	if err := repository.caseQuery(repository.db.WithContext(ctx)).
+		Where("version_cases.dataset_version_id = ?", versionID).
+		Order("version_cases.sort_order ASC, version_cases.created_at ASC, version_cases.id ASC").
+		Scan(&items).Error; err != nil {
 		return nil, err
 	}
 	if err := repository.loadTags(ctx, items); err != nil {
@@ -272,7 +291,8 @@ func (repository Repository) AllCases(ctx context.Context, versionID id.UUID) ([
 
 func (repository Repository) GetCase(ctx context.Context, caseID id.UUID) (VersionCase, error) {
 	var item VersionCase
-	if err := repository.db.WithContext(ctx).Where("id = ?", caseID).Take(&item).Error; err != nil {
+	if err := repository.caseQuery(repository.db.WithContext(ctx)).
+		Where("version_cases.id = ?", caseID).Take(&item).Error; err != nil {
 		return VersionCase{}, err
 	}
 	items := []VersionCase{item}
@@ -314,6 +334,7 @@ func (repository Repository) UpdateCase(
 		Updates(map[string]any{
 			"name": item.Name, "user_prompt": item.UserPrompt, "precondition": item.Precondition,
 			"expected_result": item.ExpectedResult, "judging_guide": item.JudgingGuide,
+			"scenario_id": item.ScenarioID, "scenario_assignment_status": item.AssignmentStatus,
 			"is_enabled": item.IsEnabled, "updated_by": actorID,
 			"lock_version": gorm.Expr("lock_version + 1"),
 		})
@@ -378,7 +399,7 @@ func (repository Repository) BumpVersionLock(ctx context.Context, versionID, act
 
 func (repository Repository) FindActiveTags(
 	ctx context.Context,
-	scenarioID id.UUID,
+	scenarioID *id.UUID,
 	tagIDs []id.UUID,
 ) (map[id.UUID]string, error) {
 	if len(tagIDs) == 0 {
@@ -388,14 +409,14 @@ func (repository Repository) FindActiveTags(
 		ID   id.UUID
 		Name string
 	}
-	err := repository.db.WithContext(ctx).Table("case_tags").
-		Select("id, name").
-		Where(
-			"(scope = 'global' OR scenario_id = ?) AND status = 'active' AND id IN ?",
-			scenarioID,
-			tagIDs,
-		).
-		Scan(&rows).Error
+	query := repository.db.WithContext(ctx).Table("case_tags").Select("id, name").
+		Where("status = 'active' AND id IN ?", tagIDs)
+	if scenarioID == nil {
+		query = query.Where("scope = 'global'")
+	} else {
+		query = query.Where("scope = 'global' OR scenario_id = ?", *scenarioID)
+	}
+	err := query.Scan(&rows).Error
 	result := make(map[id.UUID]string, len(rows))
 	for _, row := range rows {
 		result[row.ID] = row.Name
@@ -405,7 +426,7 @@ func (repository Repository) FindActiveTags(
 
 func (repository Repository) FindActiveTagsByNames(
 	ctx context.Context,
-	scenarioID id.UUID,
+	scenarioID *id.UUID,
 	names []string,
 ) (map[string]id.UUID, error) {
 	if len(names) == 0 {
@@ -415,14 +436,14 @@ func (repository Repository) FindActiveTagsByNames(
 		ID   id.UUID
 		Name string
 	}
-	err := repository.db.WithContext(ctx).Table("case_tags").
-		Select("id, name").
-		Where(
-			"(scope = 'global' OR scenario_id = ?) AND status = 'active' AND name IN ?",
-			scenarioID,
-			names,
-		).
-		Scan(&rows).Error
+	query := repository.db.WithContext(ctx).Table("case_tags").Select("id, name").
+		Where("status = 'active' AND name IN ?", names)
+	if scenarioID == nil {
+		query = query.Where("scope = 'global'")
+	} else {
+		query = query.Where("scope = 'global' OR scenario_id = ?", *scenarioID)
+	}
+	err := query.Scan(&rows).Error
 	result := make(map[string]id.UUID, len(rows))
 	for _, row := range rows {
 		result[row.Name] = row.ID
@@ -432,19 +453,23 @@ func (repository Repository) FindActiveTagsByNames(
 
 func (repository Repository) datasetQuery(db *gorm.DB) *gorm.DB {
 	return db.Table("datasets").
-		Joins("JOIN scenarios ON scenarios.id = datasets.scenario_id").
-		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id")
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = datasets.evaluation_target_id")
 }
 
 func (repository Repository) datasetSelect() string {
-	return "datasets.*, scenarios.name AS scenario_name, scenarios.status AS scenario_status, " +
-		"evaluation_targets.id AS evaluation_target_id, evaluation_targets.name AS evaluation_target_name, " +
+	return "datasets.*, evaluation_targets.name AS evaluation_target_name, " +
 		"evaluation_targets.status AS evaluation_target_status, " +
 		"(SELECT MAX(version_no) FROM dataset_versions WHERE dataset_id = datasets.id) AS latest_version_no, " +
 		"(SELECT COUNT(*) FROM dataset_versions WHERE dataset_id = datasets.id AND status IN ('published','archived')) AS published_version_count, " +
 		"(SELECT id FROM dataset_versions WHERE dataset_id = datasets.id AND status = 'draft' ORDER BY created_at DESC LIMIT 1) AS draft_version_id, " +
 		"(SELECT COUNT(*) FROM version_cases WHERE dataset_version_id = " +
 		"(SELECT id FROM dataset_versions WHERE dataset_id = datasets.id AND status = 'draft' ORDER BY created_at DESC LIMIT 1)) AS draft_case_count"
+}
+
+func (repository Repository) caseQuery(db *gorm.DB) *gorm.DB {
+	return db.Table("version_cases").
+		Select("version_cases.*, scenarios.name AS scenario_name, scenarios.status AS scenario_status").
+		Joins("LEFT JOIN scenarios ON scenarios.id = version_cases.scenario_id")
 }
 
 func (repository Repository) versionQuery(db *gorm.DB) *gorm.DB {

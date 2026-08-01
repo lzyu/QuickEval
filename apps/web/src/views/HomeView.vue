@@ -112,7 +112,7 @@ onMounted(load)
         >
           <div class="home-list-main">
             <strong>{{ run.dataset_name }} V{{ run.version_no }}</strong>
-            <span>{{ run.scenario_name }} · {{ run.agent_version }} · {{ run.environment }}</span>
+            <span>{{ run.evaluation_target_name }} · {{ run.agent_version }} · {{ run.environment }}</span>
             <el-progress
               :percentage="progress(run.completed_count, run.total_count)"
               :stroke-width="6"
@@ -181,7 +181,7 @@ onMounted(load)
         >
           <div class="home-list-main">
             <strong>{{ dataset.dataset_name }} V{{ dataset.version_no }}</strong>
-            <span>{{ dataset.evaluation_target_name }} · {{ dataset.scenario_name }}</span>
+            <span>{{ dataset.evaluation_target_name }}</span>
           </div>
           <span>{{ dataset.case_count }} 条用例</span>
         </button>

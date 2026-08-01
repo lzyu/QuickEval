@@ -129,13 +129,6 @@ onMounted(load)
 
 <template>
   <section class="evaluation-list-page">
-    <div class="page-heading">
-      <div>
-        <p>查看和继续你发起的独立人工评测。</p>
-      </div>
-      <el-button type="primary" :icon="Plus" @click="router.push('/datasets')">开始新评测</el-button>
-    </div>
-
     <div class="run-summary-grid">
       <article>
         <el-icon><Clock /></el-icon>
@@ -152,6 +145,9 @@ onMounted(load)
     </div>
 
     <el-card shadow="never">
+      <div class="content-primary-actions">
+        <el-button type="primary" :icon="Plus" @click="router.push('/datasets')">开始新评测</el-button>
+      </div>
       <div class="run-filter-bar">
         <el-input
           v-model="filters.keyword"
@@ -188,7 +184,7 @@ onMounted(load)
         <el-table-column label="评测集" min-width="220">
           <template #default="{ row }">
             <a class="dataset-name" @click="openRun(row)">{{ row.dataset_name }}</a>
-            <div class="table-secondary">{{ row.evaluation_target_name }} / {{ row.scenario_name }}</div>
+            <div class="table-secondary">{{ row.evaluation_target_name }}</div>
           </template>
         </el-table-column>
         <el-table-column label="版本" width="80">

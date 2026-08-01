@@ -273,9 +273,9 @@ POST /api/v1/scenarios/{scenario_id}:enable
 
 列表支持 `evaluation_target_id/status/keyword`。场景产生历史数据后，`PATCH` 不允许修改评测对象归属。
 
-评测对象和场景的状态共同构成下游资源的有效可用性。停用不级联改写子资源状态，
-但创建或调整评测集、维护草稿、发布版本、开始新评测以及登记业务 Badcase 时，
-服务端必须校验对象和场景均为启用状态。历史读取和已开始评测的继续处理不受影响。
+评测对象是评测集和 Badcase 的强归属边界；只有启用对象可以创建评测集、维护与发布草稿、
+开始新评测或登记业务 Badcase。场景是对象内的可选分类：选择场景时必须属于同一对象且处于
+启用状态，但对象没有场景或暂不选择场景都不阻塞上述流程。停用不级联改写历史数据。
 
 ### 6.3 用例标签
 
@@ -338,7 +338,9 @@ POST /api/v1/datasets/{dataset_id}/archive
 POST /api/v1/datasets/{dataset_id}/restore
 ```
 
-创建评测集时在同一事务中自动创建首个草稿，并同时返回两者摘要。列表支持 `scenario_id/status/keyword`。
+创建评测集只选择 `evaluation_target_id`，在同一事务中自动创建首个草稿，并同时返回两者摘要。
+列表支持 `evaluation_target_id/scenario_id/status/keyword`；其中 `scenario_id` 表示评测集内至少包含
+一个归入该场景的用例，不代表评测集归属于场景。
 
 ### 7.2 评测集版本
 
@@ -389,7 +391,9 @@ POST /api/v1/dataset-versions/{version_id}/cases/reorder
 
 - 只有草稿版本允许写入。
 - `case_key` 和所属版本不可修改。
-- 内容、启用状态和标签通过 `PATCH` 更新。
+- 内容、启用状态、标签和可选 `scenario_id` 通过 `PATCH` 更新。
+- 未选择场景时归类状态为 `unclassified`；人工选择场景后为 `confirmed`。
+- 选择的场景必须属于评测集的对象。未归类用例只能选择全局用例标签。
 - 用例列表分页加载，不一次返回最多 5,000 条。
 - 排序操作全有或全无。
 
@@ -405,6 +409,7 @@ GET  /api/v1/dataset-versions/{version_id}/cases.csv
 预览使用 `multipart/form-data`，返回短期 `import_token`、草稿锁版本、预览行和精确到行及字段的错误。提交时重新验证 Token、草稿状态和锁版本，使用单个数据库事务追加全部用例。
 
 Token 一次使用、短期有效，预览数据保存在 Redis。V1 只追加，不覆盖；存在错误行时不能提交。
+CSV 不包含场景字段，导入用例统一以 `unclassified` 写入，后续可在草稿编辑器逐条归类。
 
 ## 8. 人工评测
 
@@ -446,7 +451,7 @@ GET /api/v1/pages/evaluation-runs/{run_id}/workbench?page=1&page_size=50
 
 响应聚合：
 
-- 对象、场景、评测集和版本上下文。
+- 对象、评测集和版本上下文，以及每条用例各自的可选场景。
 - EvaluationRun、锁版本和允许动作。
 - 总数、待评、已评、跳过、已评分和 Badcase 数量。
 - 当前页用例、CaseResult、附件和 Badcase 摘要。
@@ -506,7 +511,8 @@ POST /api/v1/case-results/{result_id}/mark-badcase
 }
 ```
 
-`result_patch` 可省略。该事务保存结果、校验评语、创建或恢复唯一 Badcase、复制场景及 Agent 现场信息、创建标签和时间线，并返回结果、Badcase 摘要和评测进度。
+`result_patch` 可省略。该事务保存结果、校验评语、创建或恢复唯一 Badcase、复制评测对象、
+用例的可选场景、归类状态及 Agent 现场信息，创建标签和时间线，并返回结果、Badcase 摘要和评测进度。
 
 ## 9. Badcase 中心
 
@@ -527,7 +533,8 @@ PUT   /api/v1/badcases/{badcase_id}/issue-tags
 
 ```json
 {
-  "scenario_id": "019c...",
+  "evaluation_target_id": "019c...",
+  "scenario_id": null,
   "title": "采购助手未识别预算条件",
   "description": null,
   "agent_response_text": "...",
@@ -540,7 +547,9 @@ PUT   /api/v1/badcases/{badcase_id}/issue-tags
 }
 ```
 
-`PATCH` 只修改标题、描述、回答现场、Agent 版本、环境、发生时间、业务单号和会话 ID。来源、场景、状态、负责人和有效性不能通过 `PATCH` 修改。
+`evaluation_target_id` 必填，`scenario_id` 可省略或传 `null`；选择时必须属于该对象。创建后对象和来源
+不可修改；`PATCH` 可修改标题、描述、回答现场、可选场景、Agent 版本、环境、发生时间、业务单号和
+会话 ID。场景传 `null` 可恢复为待归类状态，状态、负责人和有效性仍通过专用命令修改。
 
 ### 9.2 Badcase 页面聚合
 
@@ -548,7 +557,7 @@ PUT   /api/v1/badcases/{badcase_id}/issue-tags
 GET /api/v1/pages/badcases/{badcase_id}
 ```
 
-响应包含 Badcase、对象与场景、来源评测上下文、原始回答与截图、补充截图、问题标签、处理时间线、候选负责人、候选标签和允许动作。
+响应包含 Badcase、对象与可选场景、来源评测上下文、原始回答与截图、补充截图、问题标签、处理时间线、候选负责人、候选标签和允许动作。
 
 ### 9.3 处理命令
 
