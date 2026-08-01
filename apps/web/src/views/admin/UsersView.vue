@@ -98,8 +98,6 @@ onMounted(load)
   <section class="management-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">SYSTEM</p>
-        <h1>用户管理</h1>
         <p>维护小团队本地账号、固定角色与账号状态。</p>
       </div>
       <el-button type="primary" @click="openCreate">新建用户</el-button>

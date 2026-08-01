@@ -118,7 +118,6 @@ onMounted(async () => {
   <section class="dataset-page">
     <div class="page-heading">
       <div>
-        <h1>评测集</h1>
         <p>按评测对象和场景管理稳定、可追溯的用例版本。</p>
       </div>
       <el-button v-if="auth.isAdmin" type="primary" :icon="Plus" @click="openCreate">

@@ -81,8 +81,6 @@ onMounted(load)
   <section class="management-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">BADCASE TAXONOMY</p>
-        <h1>问题标签</h1>
         <p>预设 Badcase 问题分类，用于后续分布统计与定位。</p>
       </div>
       <el-button type="primary" @click="open()">新建标签</el-button>

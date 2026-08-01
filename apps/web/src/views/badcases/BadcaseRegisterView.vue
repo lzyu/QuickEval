@@ -737,7 +737,9 @@ onBeforeUnmount(() => {
 
 .register-heading h1 {
   margin: 0 0 5px;
-  font-size: 25px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .register-heading p {
@@ -786,8 +788,8 @@ onBeforeUnmount(() => {
   border-radius: 11px;
   color: #fff;
   background: #1769e0;
-  font-size: 21px;
-  font-weight: 750;
+  font-size: 20px;
+  font-weight: 700;
   box-shadow: 0 7px 16px rgb(23 105 224 / 22%);
 }
 
@@ -803,7 +805,8 @@ onBeforeUnmount(() => {
 
 .target-context-bar strong {
   margin-bottom: 5px;
-  font-size: 17px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .target-context-bar div span {

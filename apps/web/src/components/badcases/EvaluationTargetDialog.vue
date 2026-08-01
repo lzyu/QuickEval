@@ -165,7 +165,8 @@ watch(
 .target-picker-heading h2 {
   margin: 0 0 8px;
   color: #1d2939;
-  font-size: 21px;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .target-picker-heading p {
@@ -250,7 +251,8 @@ watch(
 .target-choice-copy strong {
   margin: 2px 0 7px;
   color: #1d2939;
-  font-size: 17px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .target-choice-copy span {

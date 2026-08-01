@@ -33,7 +33,6 @@ onMounted(load)
   <section v-loading="loading" class="case-detail-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">CASE SNAPSHOT</p>
         <h1>{{ item?.name || '未命名用例' }}</h1>
         <p>搜索定位到的版本快照，只读展示当时发布的用例内容。</p>
       </div>

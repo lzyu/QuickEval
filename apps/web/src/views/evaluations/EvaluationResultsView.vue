@@ -102,7 +102,6 @@ onMounted(load)
   <section v-loading="loading" class="evaluation-results-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">EVALUATION DETAILS</p>
         <h1>评测结果明细</h1>
         <p>仅展示已完成评测，保留数据看板的筛选条件和所点击的图表分段。</p>
       </div>

@@ -145,7 +145,6 @@ onMounted(() => Promise.all([loadOptions(), load()]))
   <section class="badcase-list-page">
     <div class="page-heading">
       <div>
-        <h1>Badcase 中心</h1>
         <p>统一记录评测与真实业务问题，保留现场证据并跟踪处理闭环。</p>
       </div>
       <el-button type="primary" :icon="Plus" @click="targetPickerOpen = true">

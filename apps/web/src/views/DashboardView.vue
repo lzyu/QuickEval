@@ -162,7 +162,13 @@ function renderCharts() {
   ) => {
     if (!element) return
     const chart = echarts.init(element)
-    chart.setOption(option)
+    const fontFamily = getComputedStyle(document.documentElement)
+      .getPropertyValue('--qe-font-sans')
+      .trim()
+    chart.setOption({
+      textStyle: { color: '#475467', fontFamily, fontSize: 12 },
+      ...option,
+    })
     if (click) chart.on('click', (event) => click(event.dataIndex))
     charts.push(chart)
   }
@@ -334,7 +340,6 @@ onBeforeUnmount(() => {
   <section v-loading="loading" class="dashboard-page">
     <div class="page-heading">
       <div>
-        <h1>数据看板</h1>
         <p>只统计已完成评测与有效 Badcase；所有指标都可追溯到当前筛选口径。</p>
       </div>
       <div class="page-actions">

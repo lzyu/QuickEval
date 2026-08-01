@@ -263,7 +263,6 @@ onMounted(load)
       <el-card class="version-card" shadow="never">
         <div class="section-title">
           <div>
-            <p class="eyebrow">VERSION HISTORY</p>
             <h2>版本记录</h2>
           </div>
           <el-button

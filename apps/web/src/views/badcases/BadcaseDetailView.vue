@@ -285,7 +285,9 @@ onMounted(load)
       />
       <div class="badcase-detail-heading">
         <div>
-          <p class="eyebrow">{{ item.source_type === 'business' ? '业务 Badcase' : '评测 Badcase' }}</p>
+          <el-tag effect="plain" size="small">
+            {{ item.source_type === 'business' ? '业务登记' : '评测发现' }}
+          </el-tag>
           <h1>{{ item.title }}</h1>
           <p>{{ item.evaluation_target_name }} · {{ item.scenario_name }} · {{ formatTime(item.occurred_at) }}</p>
         </div>

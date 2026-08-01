@@ -21,8 +21,6 @@ onMounted(load)
   <section class="management-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">TRACEABILITY</p>
-        <h1>审计日志</h1>
         <p>查询管理员关键操作、请求编号及变更前后内容。</p>
       </div>
     </div>

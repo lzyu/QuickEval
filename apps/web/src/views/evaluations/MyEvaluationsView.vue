@@ -131,7 +131,6 @@ onMounted(load)
   <section class="evaluation-list-page">
     <div class="page-heading">
       <div>
-        <h1>我的评测</h1>
         <p>查看和继续你发起的独立人工评测。</p>
       </div>
       <el-button type="primary" :icon="Plus" @click="router.push('/datasets')">开始新评测</el-button>

@@ -181,7 +181,7 @@ onBeforeUnmount(() => {
 
     <div class="app-main">
       <header class="app-header">
-        <span class="header-title">{{ String(route.meta.title || 'QuickEval') }}</span>
+        <h1 class="header-title">{{ String(route.meta.title || 'QuickEval') }}</h1>
         <el-popover
           v-model:visible="searchOpen"
           placement="bottom-start"
