@@ -538,6 +538,8 @@ onBeforeUnmount(() => {
               ref="fileInput"
               class="visually-hidden"
               type="file"
+              tabindex="-1"
+              aria-hidden="true"
               accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
               multiple
               @change="selectFiles"
@@ -549,6 +551,7 @@ onBeforeUnmount(() => {
               :tabindex="recordLocked ? -1 : 0"
               @click="!recordLocked && fileInput?.click()"
               @keydown.enter="!recordLocked && fileInput?.click()"
+              @keydown.space.prevent="!recordLocked && fileInput?.click()"
               @dragover.prevent
               @drop.prevent="handleDrop"
             >
@@ -1023,6 +1026,64 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .register-workspace {
     grid-template-columns: minmax(570px, 1.55fr) minmax(330px, 0.9fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .badcase-register-page {
+    padding-bottom: 112px;
+  }
+
+  .register-heading,
+  .target-context-bar,
+  .register-footer > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .register-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .register-panel,
+  .recent-registration {
+    padding: 16px;
+  }
+
+  .target-context-bar {
+    align-items: flex-start;
+  }
+
+  .target-context-bar div span {
+    white-space: normal;
+  }
+
+  .screenshot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recent-table-head {
+    display: none;
+  }
+
+  .recent-table-row {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    padding: 10px 0;
+  }
+
+  .register-footer {
+    left: 0;
+    padding: 10px 14px;
+  }
+
+  .register-footer > div {
+    gap: 8px;
+  }
+
+  .register-footer .el-button {
+    width: 100%;
+    margin: 0;
   }
 }
 </style>

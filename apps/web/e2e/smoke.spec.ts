@@ -249,6 +249,7 @@ test('logs in, restores the shell, and exposes admin navigation', async ({ page 
 
   await expect(page.getByText('我的进行中评测')).toBeVisible()
   await expect(page.getByText('我的已完成评测')).toBeVisible()
+  await page.getByRole('button', { name: '系统管理', exact: true }).click()
   await expect(page.getByRole('button', { name: /用户管理/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /审计日志/ })).toBeVisible()
 })
@@ -1210,7 +1211,7 @@ test('registers a business Badcase and advances its processing timeline', async 
   await page.getByRole('button', { name: '添加备注' }).click()
   await page.getByRole('button', { name: '开始处理' }).click()
   await page.locator('.el-message-box textarea').fill('开始定位预算过滤逻辑')
-  await page.getByRole('button', { name: 'OK', exact: true }).click()
+  await page.getByRole('button', { name: '确定', exact: true }).click()
 
   await expect(page.getByText('处理中', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('已确认预算过滤条件未生效')).toBeVisible()

@@ -278,4 +278,31 @@ watch(
   font-size: 14px;
   font-weight: 600;
 }
+
+@media (max-width: 600px) {
+  :global(.target-picker-dialog) {
+    width: calc(100% - 24px) !important;
+    margin-top: 72px;
+  }
+
+  :global(.target-picker-dialog .el-dialog__header),
+  :global(.target-picker-dialog .el-dialog__body),
+  :global(.target-picker-dialog .el-dialog__footer) {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .target-picker-search {
+    width: 100%;
+  }
+
+  .target-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .target-choice {
+    min-height: 140px;
+    padding: 18px;
+  }
+}
 </style>

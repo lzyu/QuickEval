@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Download, Refresh, Search } from '@element-plus/icons-vue'
+import { ArrowDown, Download, Refresh, Search } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { DashboardData, DistributionItem, ResponseEnvelope } from '@/api/types'
+import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,6 +35,31 @@ const filters = reactive({
       ? [String(route.query.from).slice(0, 10), String(route.query.to).slice(0, 10)]
       : ([] as string[]),
 })
+const advancedFiltersOpen = ref(
+  Boolean(
+    filters.dataset_id ||
+      filters.dataset_version_id ||
+      filters.evaluator_id ||
+      filters.agent_version ||
+      filters.environment ||
+      filters.source_type ||
+      filters.badcase_status ||
+      filters.issue_tag_id,
+  ),
+)
+const activeFilterCount = computed(
+  () =>
+    Object.entries(filters).filter(([, value]) =>
+      Array.isArray(value) ? value.length > 0 : Boolean(value),
+    ).length,
+)
+const hasSamples = computed(
+  () =>
+    Boolean(
+      data.value &&
+        (data.value.metrics.completed_run_count > 0 || data.value.metrics.valid_badcase_count > 0),
+    ),
+)
 
 const scenarios = computed(() =>
   (data.value?.options.scenarios || []).filter(
@@ -308,7 +334,6 @@ onBeforeUnmount(() => {
   <section v-loading="loading" class="dashboard-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">QUALITY INSIGHTS</p>
         <h1>数据看板</h1>
         <p>只统计已完成评测与有效 Badcase；所有指标都可追溯到当前筛选口径。</p>
       </div>
@@ -334,38 +359,12 @@ onBeforeUnmount(() => {
     </div>
 
     <el-card v-if="data" class="dashboard-filter-card" shadow="never">
-      <div class="dashboard-filter-grid">
-        <el-select v-model="filters.evaluation_target_id" clearable placeholder="评测对象">
+      <div class="dashboard-filter-primary">
+        <el-select v-model="filters.evaluation_target_id" clearable placeholder="评测对象" aria-label="按评测对象筛选">
           <el-option v-for="item in data.options.evaluation_targets" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
-        <el-select v-model="filters.scenario_id" clearable placeholder="场景">
+        <el-select v-model="filters.scenario_id" clearable placeholder="场景" aria-label="按场景筛选">
           <el-option v-for="item in scenarios" :key="item.id" :label="item.name" :value="item.id" />
-        </el-select>
-        <el-select v-model="filters.dataset_id" clearable placeholder="评测集">
-          <el-option v-for="item in datasets" :key="item.id" :label="item.name" :value="item.id" />
-        </el-select>
-        <el-select v-model="filters.dataset_version_id" clearable placeholder="版本">
-          <el-option v-for="item in versions" :key="item.id" :label="item.name" :value="item.id" />
-        </el-select>
-        <el-select v-model="filters.evaluator_id" clearable filterable placeholder="评测人员">
-          <el-option v-for="item in data.options.evaluators" :key="item.id" :label="item.name" :value="item.id" />
-        </el-select>
-        <el-select v-model="filters.agent_version" clearable filterable allow-create placeholder="Agent 版本">
-          <el-option v-for="item in data.options.agent_versions" :key="item" :label="item" :value="item" />
-        </el-select>
-        <el-select v-model="filters.environment" clearable placeholder="运行环境">
-          <el-option label="测试" value="test" /><el-option label="预发布" value="staging" />
-          <el-option label="生产" value="production" /><el-option label="其他" value="other" />
-        </el-select>
-        <el-select v-model="filters.source_type" clearable placeholder="Badcase 来源">
-          <el-option label="评测发现" value="evaluation" /><el-option label="业务登记" value="business" />
-        </el-select>
-        <el-select v-model="filters.badcase_status" clearable placeholder="Badcase 状态">
-          <el-option label="待处理" value="pending" /><el-option label="处理中" value="processing" />
-          <el-option label="已解决" value="resolved" /><el-option label="暂不处理" value="deferred" />
-        </el-select>
-        <el-select v-model="filters.issue_tag_id" clearable placeholder="问题标签">
-          <el-option v-for="item in data.options.issue_tags" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
         <el-date-picker
           v-model="filters.dateRange"
@@ -373,11 +372,54 @@ onBeforeUnmount(() => {
           value-format="YYYY-MM-DD"
           start-placeholder="开始日期"
           end-placeholder="结束日期"
+          aria-label="按日期范围筛选"
         />
-        <div class="filter-actions">
+        <div class="filter-actions dashboard-filter-actions">
           <el-button :icon="Search" type="primary" @click="load">应用筛选</el-button>
           <el-button @click="reset">重置</el-button>
+          <el-button
+            class="advanced-filter-toggle"
+            :class="{ open: advancedFiltersOpen }"
+            :aria-expanded="advancedFiltersOpen"
+            aria-controls="dashboard-advanced-filters"
+            @click="advancedFiltersOpen = !advancedFiltersOpen"
+          >
+            更多筛选
+            <el-icon><ArrowDown /></el-icon>
+          </el-button>
         </div>
+      </div>
+      <div v-show="advancedFiltersOpen" id="dashboard-advanced-filters" class="dashboard-filter-grid">
+        <el-select v-model="filters.dataset_id" clearable placeholder="评测集" aria-label="按评测集筛选">
+          <el-option v-for="item in datasets" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+        <el-select v-model="filters.dataset_version_id" clearable placeholder="版本" aria-label="按评测集版本筛选">
+          <el-option v-for="item in versions" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+        <el-select v-model="filters.evaluator_id" clearable filterable placeholder="评测人员" aria-label="按评测人员筛选">
+          <el-option v-for="item in data.options.evaluators" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+        <el-select v-model="filters.agent_version" clearable filterable allow-create placeholder="Agent 版本" aria-label="按 Agent 版本筛选">
+          <el-option v-for="item in data.options.agent_versions" :key="item" :label="item" :value="item" />
+        </el-select>
+        <el-select v-model="filters.environment" clearable placeholder="运行环境" aria-label="按运行环境筛选">
+          <el-option label="测试" value="test" /><el-option label="预发布" value="staging" />
+          <el-option label="生产" value="production" /><el-option label="其他" value="other" />
+        </el-select>
+        <el-select v-model="filters.source_type" clearable placeholder="Badcase 来源" aria-label="按 Badcase 来源筛选">
+          <el-option label="评测发现" value="evaluation" /><el-option label="业务登记" value="business" />
+        </el-select>
+        <el-select v-model="filters.badcase_status" clearable placeholder="Badcase 状态" aria-label="按 Badcase 状态筛选">
+          <el-option label="待处理" value="pending" /><el-option label="处理中" value="processing" />
+          <el-option label="已解决" value="resolved" /><el-option label="暂不处理" value="deferred" />
+        </el-select>
+        <el-select v-model="filters.issue_tag_id" clearable placeholder="问题标签" aria-label="按问题标签筛选">
+          <el-option v-for="item in data.options.issue_tags" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+      </div>
+      <div v-if="activeFilterCount" class="active-filter-summary">
+        <span>当前口径已应用 {{ activeFilterCount }} 项筛选</span>
+        <el-button link type="primary" @click="reset">清除全部</el-button>
       </div>
     </el-card>
 
@@ -391,7 +433,16 @@ onBeforeUnmount(() => {
         <button type="button" @click="drillMetric('skipped')"><span>跳过用例</span><strong>{{ data.metrics.skipped_case_count }}</strong><small>不进入评分分母</small></button>
       </div>
 
-      <div class="dashboard-chart-grid">
+      <ActionableEmptyState
+        v-if="!hasSamples"
+        title="当前口径还没有可分析样本"
+        :description="activeFilterCount ? '当前筛选下没有已完成评测或有效 Badcase，清除筛选可查看完整数据。' : '完成一次人工评测或登记 Badcase 后，这里会生成可追溯的质量分布。'"
+        :action-label="activeFilterCount ? '清除筛选' : '开始评测'"
+        :secondary-label="activeFilterCount ? '' : '主动登记 Badcase'"
+        @action="activeFilterCount ? reset() : router.push('/datasets')"
+        @secondary="router.push('/badcases/register')"
+      />
+      <div v-else class="dashboard-chart-grid">
         <el-card shadow="never">
           <template #header><strong>1～5 分分布</strong></template>
           <el-empty v-if="data.metrics.scored_case_count === 0" description="当前筛选没有已评分样本" />

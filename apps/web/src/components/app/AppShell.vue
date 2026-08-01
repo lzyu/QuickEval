@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowDown,
   Collection,
   DataAnalysis,
   HomeFilled,
@@ -28,21 +29,34 @@ const searchOpen = ref(false)
 const searchItems = ref<SearchItem[]>([])
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const passwordForm = reactive({ current_password: '', new_password: '' })
-const navigation = computed(() => [
-  { label: '首页', icon: HomeFilled, to: '/', enabled: true },
-  { label: '评测集', icon: Collection, to: '/datasets', enabled: true },
-  { label: '我的评测', icon: List, to: '/evaluations', enabled: true },
-  { label: 'Badcase 中心', icon: Tickets, to: '/badcases', enabled: true },
-  { label: '数据看板', icon: DataAnalysis, to: '/dashboard', enabled: true },
-  ...(auth.isAdmin
-    ? [
-        { label: '基础目录', icon: Operation, to: '/admin/catalog', enabled: true },
-        { label: '问题标签', icon: Tickets, to: '/admin/issue-tags', enabled: true },
-        { label: '用户管理', icon: User, to: '/admin/users', enabled: true },
-        { label: '审计日志', icon: Setting, to: '/admin/audit-logs', enabled: true },
-      ]
-    : []),
-])
+const navigation = [
+  { section: 'home', label: '首页', icon: HomeFilled, to: '/' },
+  { section: 'datasets', label: '评测集', icon: Collection, to: '/datasets' },
+  { section: 'evaluations', label: '我的评测', icon: List, to: '/evaluations' },
+  { section: 'badcases', label: 'Badcase 中心', icon: Tickets, to: '/badcases' },
+  { section: 'dashboard', label: '数据看板', icon: DataAnalysis, to: '/dashboard' },
+]
+const adminNavigation = [
+  { label: '基础目录', icon: Operation, to: '/admin/catalog' },
+  { label: '问题标签', icon: Tickets, to: '/admin/issue-tags' },
+  { label: '用户管理', icon: User, to: '/admin/users' },
+  { label: '审计日志', icon: Setting, to: '/admin/audit-logs' },
+]
+const adminNavigationOpen = ref(false)
+const activeSection = computed(() => String(route.meta.section || ''))
+const adminStorageKey = computed(
+  () => `quickeval:admin-navigation-expanded:${auth.user?.id || 'anonymous'}`,
+)
+
+function restoreAdminNavigation() {
+  adminNavigationOpen.value =
+    activeSection.value === 'admin' || localStorage.getItem(adminStorageKey.value) === '1'
+}
+
+function toggleAdminNavigation() {
+  adminNavigationOpen.value = !adminNavigationOpen.value
+  localStorage.setItem(adminStorageKey.value, adminNavigationOpen.value ? '1' : '0')
+}
 
 async function logout() {
   await auth.logout()
@@ -105,6 +119,10 @@ watch(searchKeyword, () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(search, 350)
 })
+watch(adminStorageKey, restoreAdminNavigation, { immediate: true })
+watch(activeSection, (section) => {
+  if (section === 'admin') adminNavigationOpen.value = true
+})
 onBeforeUnmount(() => {
   if (searchTimer) clearTimeout(searchTimer)
 })
@@ -122,14 +140,42 @@ onBeforeUnmount(() => {
           v-for="item in navigation"
           :key="item.label"
           class="nav-item"
-          :class="{ active: item.to === route.path }"
-          :disabled="!item.enabled"
+          :class="{ active: item.section === activeSection }"
           type="button"
-          @click="item.to && router.push(item.to)"
+          @click="router.push(item.to)"
         >
           <el-icon :size="18"><component :is="item.icon" /></el-icon>
           <span>{{ item.label }}</span>
         </button>
+        <div v-if="auth.isAdmin" class="nav-group">
+          <button
+            class="nav-item nav-group-toggle"
+            :class="{ active: activeSection === 'admin' }"
+            type="button"
+            :aria-expanded="adminNavigationOpen"
+            aria-controls="admin-navigation"
+            @click="toggleAdminNavigation"
+          >
+            <el-icon :size="18"><Setting /></el-icon>
+            <span>系统管理</span>
+            <el-icon class="nav-group-chevron" :class="{ open: adminNavigationOpen }">
+              <ArrowDown />
+            </el-icon>
+          </button>
+          <div v-show="adminNavigationOpen" id="admin-navigation" class="nav-subitems">
+            <button
+              v-for="item in adminNavigation"
+              :key="item.to"
+              class="nav-item nav-subitem"
+              :class="{ active: item.to === route.path }"
+              type="button"
+              @click="router.push(item.to)"
+            >
+              <el-icon :size="16"><component :is="item.icon" /></el-icon>
+              <span>{{ item.label }}</span>
+            </button>
+          </div>
+        </div>
       </nav>
     </aside>
 

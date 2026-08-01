@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { Plus, Search } from '@element-plus/icons-vue'
+import { ArrowDown, Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { Badcase, PageData, ResponseEnvelope, Scenario } from '@/api/types'
 import EvaluationTargetDialog from '@/components/badcases/EvaluationTargetDialog.vue'
+import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -38,6 +39,12 @@ const query = reactive({
   occurred_from: String(route.query.occurred_from || ''),
   occurred_to: String(route.query.occurred_to || ''),
 })
+const advancedFiltersOpen = ref(Boolean(query.scenario_id || query.assignee_id || query.validity))
+const visibleFilterCount = computed(
+  () =>
+    [query.keyword, query.source_type, query.scenario_id, query.assignee_id, query.status, query.validity]
+      .filter(Boolean).length,
+)
 async function loadOptions() {
   try {
     const [scenarioResponse, optionResponse] = await Promise.all([
@@ -85,6 +92,29 @@ function search() {
   load()
 }
 
+function resetFilters() {
+  Object.assign(query, {
+    page: 1,
+    keyword: '',
+    source_type: '',
+    status: '',
+    validity: '',
+    evaluation_target_id: '',
+    scenario_id: '',
+    dataset_id: '',
+    dataset_version_id: '',
+    evaluator_id: '',
+    assignee_id: '',
+    issue_tag_id: '',
+    open: '',
+    agent_version: '',
+    environment: '',
+    occurred_from: '',
+    occurred_to: '',
+  })
+  load()
+}
+
 function formatTime(value: string) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
@@ -98,6 +128,12 @@ function statusLabel(status: Badcase['status']) {
   }[status]
 }
 
+function statusType(row: Badcase) {
+  if (row.invalidated_at) return 'info'
+  if (row.status === 'resolved') return 'success'
+  return undefined
+}
+
 function openRegistration(targetId: string) {
   router.push({ name: 'badcase-register', query: { evaluation_target_id: targetId } })
 }
@@ -109,7 +145,6 @@ onMounted(() => Promise.all([loadOptions(), load()]))
   <section class="badcase-list-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">问题沉淀</p>
         <h1>Badcase 中心</h1>
         <p>统一记录评测与真实业务问题，保留现场证据并跟踪处理闭环。</p>
       </div>
@@ -125,13 +160,36 @@ onMounted(() => Promise.all([loadOptions(), load()]))
           clearable
           placeholder="搜索标题、描述或 Agent 回答"
           :prefix-icon="Search"
+          aria-label="搜索 Badcase"
           @keyup.enter="search"
         />
-        <el-select v-model="query.source_type" clearable placeholder="全部来源" @change="search">
+        <el-select v-model="query.source_type" clearable placeholder="全部来源" aria-label="按来源筛选" @change="search">
           <el-option label="评测发现" value="evaluation" />
           <el-option label="业务登记" value="business" />
         </el-select>
-        <el-select v-model="query.scenario_id" clearable placeholder="全部场景" @change="search">
+        <el-select v-model="query.status" clearable placeholder="全部状态" aria-label="按状态筛选" @change="search">
+          <el-option label="待处理" value="pending" />
+          <el-option label="处理中" value="processing" />
+          <el-option label="已解决" value="resolved" />
+          <el-option label="暂不处理" value="deferred" />
+        </el-select>
+        <div class="filter-actions badcase-filter-actions">
+          <el-button type="primary" @click="search">查询</el-button>
+          <el-button
+            class="advanced-filter-toggle"
+            :class="{ open: advancedFiltersOpen }"
+            :aria-expanded="advancedFiltersOpen"
+            aria-controls="badcase-advanced-filters"
+            @click="advancedFiltersOpen = !advancedFiltersOpen"
+          >
+            更多筛选
+            <el-icon><ArrowDown /></el-icon>
+          </el-button>
+        </div>
+      </div>
+
+      <div v-show="advancedFiltersOpen" id="badcase-advanced-filters" class="badcase-advanced-filters">
+        <el-select v-model="query.scenario_id" clearable placeholder="全部场景" aria-label="按场景筛选" @change="search">
           <el-option
             v-for="scenario in scenarios"
             :key="scenario.id"
@@ -139,7 +197,7 @@ onMounted(() => Promise.all([loadOptions(), load()]))
             :value="scenario.id"
           />
         </el-select>
-        <el-select v-model="query.assignee_id" clearable placeholder="全部负责人" @change="search">
+        <el-select v-model="query.assignee_id" clearable placeholder="全部负责人" aria-label="按负责人筛选" @change="search">
           <el-option
             v-for="user in assignees"
             :key="user.id"
@@ -147,21 +205,28 @@ onMounted(() => Promise.all([loadOptions(), load()]))
             :value="user.id"
           />
         </el-select>
-        <el-select v-model="query.status" clearable placeholder="全部状态" @change="search">
-          <el-option label="待处理" value="pending" />
-          <el-option label="处理中" value="processing" />
-          <el-option label="已解决" value="resolved" />
-          <el-option label="暂不处理" value="deferred" />
-        </el-select>
-        <el-select v-model="query.validity" clearable placeholder="有效记录" @change="search">
+        <el-select v-model="query.validity" clearable placeholder="有效记录" aria-label="按有效性筛选" @change="search">
           <el-option label="有效记录" value="" />
           <el-option label="无效记录" value="invalid" />
           <el-option label="全部记录" value="all" />
         </el-select>
-        <el-button type="primary" @click="search">查询</el-button>
+      </div>
+
+      <div v-if="visibleFilterCount" class="active-filter-summary">
+        <span>已应用 {{ visibleFilterCount }} 项筛选</span>
+        <el-button link type="primary" @click="resetFilters">清除全部</el-button>
       </div>
 
       <el-table v-loading="loading" :data="items" row-key="id">
+        <template #empty>
+          <ActionableEmptyState
+            :title="visibleFilterCount ? '没有符合条件的 Badcase' : '还没有 Badcase'"
+            :description="visibleFilterCount ? '调整或清除筛选条件后再试。' : '主动登记真实业务问题，或在人工评测中将问题沉淀为 Badcase。'"
+            :action-label="visibleFilterCount ? '清除筛选' : '登记第一条 Badcase'"
+            compact
+            @action="visibleFilterCount ? resetFilters() : (targetPickerOpen = true)"
+          />
+        </template>
         <el-table-column label="Badcase" min-width="300">
           <template #default="{ row }">
             <button class="table-primary-link" @click="router.push(`/badcases/${row.id}`)">
@@ -180,7 +245,7 @@ onMounted(() => Promise.all([loadOptions(), load()]))
         <el-table-column prop="scenario_name" label="场景" min-width="130" />
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.invalidated_at ? 'info' : row.status === 'resolved' ? 'success' : ''">
+            <el-tag :type="statusType(row)">
               {{ row.invalidated_at ? '无效' : statusLabel(row.status) }}
             </el-tag>
           </template>

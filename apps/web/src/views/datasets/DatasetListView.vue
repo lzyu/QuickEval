@@ -13,6 +13,7 @@ import type {
   Scenario,
 } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -37,6 +38,7 @@ const visibleScenarios = computed(() =>
       )
     : scenarios.value,
 )
+const hasFilters = computed(() => Boolean(filters.evaluation_target_id || filters.scenario_id || filters.status || filters.keyword))
 
 async function loadCatalog() {
   const [targetResponse, scenarioResponse] = await Promise.all([
@@ -70,6 +72,11 @@ function openCreate() {
     description: '',
   })
   createDialog.value = true
+}
+
+function resetFilters() {
+  Object.assign(filters, { evaluation_target_id: '', scenario_id: '', status: '', keyword: '' })
+  load()
 }
 
 async function createDataset() {
@@ -111,7 +118,6 @@ onMounted(async () => {
   <section class="dataset-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">DATASETS</p>
         <h1>评测集</h1>
         <p>按评测对象和场景管理稳定、可追溯的用例版本。</p>
       </div>
@@ -126,6 +132,7 @@ onMounted(async () => {
           v-model="filters.keyword"
           :prefix-icon="Search"
           placeholder="搜索评测集"
+          aria-label="搜索评测集"
           clearable
           @keyup.enter="load"
         />
@@ -175,7 +182,7 @@ onMounted(async () => {
             <strong>{{ datasets.length }} 个评测集</strong>
             <span>草稿与已发布版本始终相互隔离</span>
           </div>
-          <el-select v-if="auth.isAdmin" v-model="filters.status" clearable placeholder="全部状态" @change="load">
+          <el-select v-if="auth.isAdmin" v-model="filters.status" clearable placeholder="全部状态" aria-label="按评测集状态筛选" @change="load">
             <el-option label="活跃" value="active" />
             <el-option label="已归档" value="archived" />
           </el-select>
@@ -183,10 +190,18 @@ onMounted(async () => {
         <el-table
           v-loading="loading"
           :data="datasets"
-          empty-text="暂无评测集"
           row-class-name="clickable-row"
           @row-click="(row: Dataset) => router.push(`/datasets/${row.id}`)"
         >
+          <template #empty>
+            <ActionableEmptyState
+              :title="hasFilters ? '没有符合条件的评测集' : auth.isAdmin ? '还没有评测集' : '暂无可开始的评测集'"
+              :description="hasFilters ? '调整对象、场景或关键词后再试。' : auth.isAdmin ? '先创建评测集，再维护并发布首个用例版本。' : '管理员发布评测集版本后，你可以从这里发起人工评测。'"
+              :action-label="hasFilters ? '清除筛选' : auth.isAdmin ? '创建首个评测集' : ''"
+              compact
+              @action="hasFilters ? resetFilters() : openCreate()"
+            />
+          </template>
           <el-table-column label="评测集名称" min-width="250">
             <template #default="{ row }">
               <a class="dataset-name" @click.stop="router.push(`/datasets/${row.id}`)">
@@ -241,7 +256,7 @@ onMounted(async () => {
   <el-dialog v-model="createDialog" title="新建评测集" width="560">
     <el-form label-position="top">
       <el-form-item label="所属场景" required>
-        <el-select v-model="form.scenario_id" filterable>
+        <el-select v-model="form.scenario_id" filterable aria-label="所属场景">
           <el-option
             v-for="scenario in scenarios"
             :key="scenario.id"

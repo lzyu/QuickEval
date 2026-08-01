@@ -12,6 +12,7 @@ import type {
   ResponseEnvelope,
   RunStatus,
 } from '@/api/types'
+import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -22,6 +23,7 @@ const filters = reactive({
   status: String(route.query.status || ''),
   environment: String(route.query.environment || ''),
 })
+const hasFilters = computed(() => Boolean(filters.keyword || filters.status || filters.environment))
 
 const counts = computed(() => ({
   in_progress: runs.value.filter((item) => item.status === 'in_progress').length,
@@ -117,6 +119,11 @@ function statusLabel(status: RunStatus) {
   return { in_progress: '进行中', completed: '已完成', voided: '已作废' }[status]
 }
 
+function resetFilters() {
+  Object.assign(filters, { keyword: '', status: '', environment: '' })
+  load()
+}
+
 onMounted(load)
 </script>
 
@@ -124,7 +131,6 @@ onMounted(load)
   <section class="evaluation-list-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">MY EVALUATIONS</p>
         <h1>我的评测</h1>
         <p>查看和继续你发起的独立人工评测。</p>
       </div>
@@ -152,15 +158,16 @@ onMounted(load)
           v-model="filters.keyword"
           :prefix-icon="Search"
           placeholder="搜索评测集或 Agent 版本"
+          aria-label="搜索评测记录"
           clearable
           @keyup.enter="load"
         />
-        <el-select v-model="filters.status" clearable placeholder="全部状态" @change="load">
+        <el-select v-model="filters.status" clearable placeholder="全部状态" aria-label="按评测状态筛选" @change="load">
           <el-option label="进行中" value="in_progress" />
           <el-option label="已完成" value="completed" />
           <el-option label="已作废" value="voided" />
         </el-select>
-        <el-select v-model="filters.environment" clearable placeholder="全部环境" @change="load">
+        <el-select v-model="filters.environment" clearable placeholder="全部环境" aria-label="按运行环境筛选" @change="load">
           <el-option label="测试" value="test" />
           <el-option label="预发布" value="staging" />
           <el-option label="生产" value="production" />
@@ -169,7 +176,16 @@ onMounted(load)
         <el-button @click="load">查询</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="runs" empty-text="暂无评测记录">
+      <el-table v-loading="loading" :data="runs">
+        <template #empty>
+          <ActionableEmptyState
+            :title="hasFilters ? '没有符合条件的评测记录' : '还没有人工评测记录'"
+            :description="hasFilters ? '调整关键词、状态或环境后再试。' : '从已发布的评测集版本发起评测，完成结果会持续保留在这里。'"
+            :action-label="hasFilters ? '清除筛选' : '选择评测集'"
+            compact
+            @action="hasFilters ? resetFilters() : router.push('/datasets')"
+          />
+        </template>
         <el-table-column label="评测集" min-width="220">
           <template #default="{ row }">
             <a class="dataset-name" @click="openRun(row)">{{ row.dataset_name }}</a>
