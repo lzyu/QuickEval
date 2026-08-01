@@ -19,8 +19,10 @@ type Dataset struct {
 	ID                    id.UUID   `gorm:"column:id;type:binary(16);primaryKey"`
 	ScenarioID            id.UUID   `gorm:"column:scenario_id;type:binary(16)"`
 	ScenarioName          string    `gorm:"column:scenario_name;->"`
+	ScenarioStatus        string    `gorm:"column:scenario_status;->"`
 	TargetID              id.UUID   `gorm:"column:evaluation_target_id;type:binary(16);->"`
 	TargetName            string    `gorm:"column:evaluation_target_name;->"`
+	TargetStatus          string    `gorm:"column:evaluation_target_status;->"`
 	Name                  string    `gorm:"column:name"`
 	Description           *string   `gorm:"column:description"`
 	Status                string    `gorm:"column:status"`
@@ -100,8 +102,10 @@ type DatasetPublic struct {
 	ID                    string    `json:"id"`
 	ScenarioID            string    `json:"scenario_id"`
 	ScenarioName          string    `json:"scenario_name"`
+	ScenarioStatus        string    `json:"scenario_status"`
 	TargetID              string    `json:"evaluation_target_id"`
 	TargetName            string    `json:"evaluation_target_name"`
+	TargetStatus          string    `json:"evaluation_target_status"`
 	Name                  string    `json:"name"`
 	Description           *string   `json:"description"`
 	Status                string    `json:"status"`
@@ -122,7 +126,8 @@ func (item Dataset) Public() DatasetPublic {
 	}
 	return DatasetPublic{
 		ID: item.ID.String(), ScenarioID: item.ScenarioID.String(), ScenarioName: item.ScenarioName,
-		TargetID: item.TargetID.String(), TargetName: item.TargetName, Name: item.Name,
+		ScenarioStatus: item.ScenarioStatus, TargetID: item.TargetID.String(),
+		TargetName: item.TargetName, TargetStatus: item.TargetStatus, Name: item.Name,
 		Description: item.Description, Status: item.Status, LockVersion: item.LockVersion,
 		CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 		LatestVersionNo: item.LatestVersionNo, PublishedVersionCount: item.PublishedVersionCount,

@@ -84,4 +84,51 @@ func TestValidateRunInput(t *testing.T) {
 	}
 }
 
+func TestValidateVersionAvailability(t *testing.T) {
+	tests := []struct {
+		name     string
+		context  VersionContext
+		wantCode string
+	}{
+		{
+			name: "active ownership chain",
+			context: VersionContext{
+				Status: "published", DatasetStatus: "active", ScenarioStatus: "active",
+				TargetStatus: "active", EnabledCount: 1,
+			},
+		},
+		{
+			name: "disabled scenario",
+			context: VersionContext{
+				Status: "published", DatasetStatus: "active", ScenarioStatus: "disabled",
+				TargetStatus: "active", EnabledCount: 1,
+			},
+			wantCode: "VERSION_NOT_EVALUATABLE",
+		},
+		{
+			name: "disabled target",
+			context: VersionContext{
+				Status: "published", DatasetStatus: "active", ScenarioStatus: "active",
+				TargetStatus: "disabled", EnabledCount: 1,
+			},
+			wantCode: "VERSION_NOT_EVALUATABLE",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateVersionAvailability(test.context)
+			if test.wantCode == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || apperror.As(err).Code != test.wantCode {
+				t.Fatalf("unexpected availability error: %v", err)
+			}
+		})
+	}
+}
+
 func scorePointer(value uint8) *uint8 { return &value }

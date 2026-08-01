@@ -43,8 +43,8 @@ func (service Service) CreateDataset(
 		if err != nil {
 			return mapNotFound(err)
 		}
-		if scenario.Status != "active" {
-			return apperror.Conflict("SCENARIO_DISABLED", "停用场景不能创建评测集")
+		if err := validateScenarioAvailability(scenario); err != nil {
+			return err
 		}
 		result.Dataset = Dataset{
 			ID: id.MustNew(), ScenarioID: input.ScenarioID, Name: name, Description: description,
@@ -87,8 +87,8 @@ func (service Service) UpdateDataset(
 	if err != nil {
 		return Dataset{}, Dataset{}, mapNotFound(err)
 	}
-	if scenario.Status != "active" {
-		return Dataset{}, Dataset{}, apperror.Conflict("SCENARIO_DISABLED", "停用场景不能接收评测集")
+	if err := validateScenarioAvailability(scenario); err != nil {
+		return Dataset{}, Dataset{}, err
 	}
 	if before.ScenarioID != input.ScenarioID && before.PublishedVersionCount > 0 {
 		return Dataset{}, Dataset{}, apperror.Conflict(
@@ -160,8 +160,8 @@ func (service Service) CreateDraft(
 		if item.LockVersion != input.ExpectedDatasetLockVersion {
 			return mapWriteError(ErrLockConflict)
 		}
-		if item.Status != DatasetActive {
-			return apperror.Conflict("DATASET_ARCHIVED", "已归档评测集不能创建草稿")
+		if err := validateDatasetAvailability(item); err != nil {
+			return err
 		}
 		count, err := repository.CountDrafts(ctx, datasetID)
 		if err != nil {
@@ -266,8 +266,8 @@ func (service Service) Publish(
 		if err != nil {
 			return err
 		}
-		if dataset.Status != DatasetActive {
-			return apperror.Conflict("DATASET_ARCHIVED", "已归档评测集不能发布版本")
+		if err := validateDatasetAvailability(dataset); err != nil {
+			return err
 		}
 		enabled, err := repository.CountEnabledCases(ctx, versionID)
 		if err != nil {
@@ -540,10 +540,37 @@ func requireDraft(
 	if err != nil {
 		return Version{}, Dataset{}, err
 	}
-	if dataset.Status != DatasetActive {
-		return Version{}, Dataset{}, apperror.Conflict("DATASET_ARCHIVED", "已归档评测集内容不可修改")
+	if err := validateDatasetAvailability(dataset); err != nil {
+		return Version{}, Dataset{}, err
 	}
 	return version, dataset, nil
+}
+
+func validateScenarioAvailability(item ScenarioInfo) error {
+	if item.TargetStatus != "active" {
+		return apperror.Conflict(
+			"EVALUATION_TARGET_DISABLED", "评测对象已停用，不能继续创建或调整评测集",
+		)
+	}
+	if item.Status != "active" {
+		return apperror.Conflict("SCENARIO_DISABLED", "停用场景不能接收评测集")
+	}
+	return nil
+}
+
+func validateDatasetAvailability(item Dataset) error {
+	if item.TargetStatus != "active" {
+		return apperror.Conflict(
+			"EVALUATION_TARGET_DISABLED", "评测对象已停用，评测集只保留历史查看",
+		)
+	}
+	if item.ScenarioStatus != "active" {
+		return apperror.Conflict("SCENARIO_DISABLED", "评测场景已停用，评测集只保留历史查看")
+	}
+	if item.Status != DatasetActive {
+		return apperror.Conflict("DATASET_ARCHIVED", "已归档评测集内容不可修改")
+	}
+	return nil
 }
 
 func newDraft(datasetID id.UUID, baseVersionID *id.UUID, actorID id.UUID) Version {

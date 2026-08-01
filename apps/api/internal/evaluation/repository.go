@@ -26,11 +26,13 @@ func (repository Repository) Transaction(ctx context.Context, fn func(Repository
 }
 
 type VersionContext struct {
-	ID            id.UUID
-	DatasetID     id.UUID
-	Status        string
-	DatasetStatus string
-	EnabledCount  int64
+	ID             id.UUID
+	DatasetID      id.UUID
+	Status         string
+	DatasetStatus  string
+	ScenarioStatus string
+	TargetStatus   string
+	EnabledCount   int64
 }
 
 func (repository Repository) GetVersionContext(
@@ -41,9 +43,13 @@ func (repository Repository) GetVersionContext(
 	err := repository.db.WithContext(ctx).Table("dataset_versions").
 		Select(`dataset_versions.id, dataset_versions.dataset_id, dataset_versions.status,
 			datasets.status AS dataset_status,
+			scenarios.status AS scenario_status,
+			evaluation_targets.status AS target_status,
 			(SELECT COUNT(*) FROM version_cases
 			 WHERE dataset_version_id = dataset_versions.id AND is_enabled = TRUE) AS enabled_count`).
 		Joins("JOIN datasets ON datasets.id = dataset_versions.dataset_id").
+		Joins("JOIN scenarios ON scenarios.id = datasets.scenario_id").
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
 		Where("dataset_versions.id = ?", versionID).Take(&item).Error
 	return item, err
 }

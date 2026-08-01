@@ -17,8 +17,9 @@ type Repository struct {
 }
 
 type ScenarioInfo struct {
-	ID     id.UUID
-	Status string
+	ID           id.UUID
+	Status       string
+	TargetStatus string
 }
 
 func (repository Repository) GetScenarioInfo(
@@ -27,7 +28,9 @@ func (repository Repository) GetScenarioInfo(
 ) (ScenarioInfo, error) {
 	var item ScenarioInfo
 	err := repository.db.WithContext(ctx).Table("scenarios").
-		Select("id, status").Where("id = ?", scenarioID).Take(&item).Error
+		Select("scenarios.id, scenarios.status, evaluation_targets.status AS target_status").
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
+		Where("scenarios.id = ?", scenarioID).Take(&item).Error
 	return item, err
 }
 
@@ -79,8 +82,9 @@ func (repository Repository) GetDataset(ctx context.Context, datasetID id.UUID) 
 
 func (repository Repository) LockDataset(ctx context.Context, datasetID id.UUID) (Dataset, error) {
 	var item Dataset
-	err := repository.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ?", datasetID).Take(&item).Error
+	err := repository.datasetQuery(repository.db.WithContext(ctx)).
+		Select(repository.datasetSelect()).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("datasets.id = ?", datasetID).Take(&item).Error
 	return item, err
 }
 
@@ -433,8 +437,9 @@ func (repository Repository) datasetQuery(db *gorm.DB) *gorm.DB {
 }
 
 func (repository Repository) datasetSelect() string {
-	return "datasets.*, scenarios.name AS scenario_name, " +
+	return "datasets.*, scenarios.name AS scenario_name, scenarios.status AS scenario_status, " +
 		"evaluation_targets.id AS evaluation_target_id, evaluation_targets.name AS evaluation_target_name, " +
+		"evaluation_targets.status AS evaluation_target_status, " +
 		"(SELECT MAX(version_no) FROM dataset_versions WHERE dataset_id = datasets.id) AS latest_version_no, " +
 		"(SELECT COUNT(*) FROM dataset_versions WHERE dataset_id = datasets.id AND status IN ('published','archived')) AS published_version_count, " +
 		"(SELECT id FROM dataset_versions WHERE dataset_id = datasets.id AND status = 'draft' ORDER BY created_at DESC LIMIT 1) AS draft_version_id, " +

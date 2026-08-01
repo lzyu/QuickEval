@@ -36,6 +36,11 @@ const draft = computed(() => versions.value.find((item) => item.status === 'draf
 const releasedVersions = computed(() =>
   versions.value.filter((item) => item.status !== 'draft'),
 )
+const ownershipActive = computed(
+  () =>
+    dataset.value?.evaluation_target_status !== 'disabled' &&
+    dataset.value?.scenario_status !== 'disabled',
+)
 
 async function load() {
   loading.value = true
@@ -54,6 +59,10 @@ async function load() {
 
 async function createDraft(base?: DatasetVersion) {
   if (!dataset.value) return
+  if (!ownershipActive.value) {
+    ElMessage.warning('评测对象或场景已停用，当前评测集只保留历史查看')
+    return
+  }
   if (draft.value) {
     await router.push(`/dataset-versions/${draft.value.id}/edit`)
     return
@@ -110,6 +119,10 @@ function exportVersion(version: DatasetVersion) {
 }
 
 function openStart(version?: DatasetVersion) {
+  if (!ownershipActive.value) {
+    ElMessage.warning('评测对象或场景已停用，不能开始新的评测')
+    return
+  }
   const selected =
     version ||
     releasedVersions.value.find((item) => item.status === 'published') ||
@@ -193,6 +206,14 @@ onMounted(load)
         <el-breadcrumb-item>{{ dataset.name }}</el-breadcrumb-item>
       </el-breadcrumb>
 
+      <el-alert
+        v-if="!ownershipActive"
+        title="评测对象或场景已停用"
+        description="当前评测集保留用于历史追溯，不能编辑草稿、发布版本或开始新的评测。"
+        type="warning"
+        :closable="false"
+      />
+
       <el-card class="dataset-hero-card" shadow="never">
         <div class="dataset-detail-heading">
           <div>
@@ -206,7 +227,7 @@ onMounted(load)
           </div>
           <div class="heading-actions">
             <el-button
-              v-if="auth.isAdmin && draft"
+              v-if="auth.isAdmin && draft && ownershipActive"
               type="primary"
               :icon="EditPen"
               @click="router.push(`/dataset-versions/${draft.id}/edit`)"
@@ -214,7 +235,7 @@ onMounted(load)
               编辑草稿
             </el-button>
             <el-button
-              v-else-if="auth.isAdmin && dataset.status === 'active'"
+              v-else-if="auth.isAdmin && dataset.status === 'active' && ownershipActive"
               type="primary"
               :icon="Plus"
               @click="createDraft(releasedVersions[0])"
@@ -222,7 +243,7 @@ onMounted(load)
               创建草稿
             </el-button>
             <el-button
-              :disabled="!releasedVersions.some((item) => item.status === 'published')"
+              :disabled="!ownershipActive || !releasedVersions.some((item) => item.status === 'published')"
               @click="openStart()"
             >
               开始评测
@@ -231,7 +252,7 @@ onMounted(load)
               <el-button>更多</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="openEdit">编辑基本信息</el-dropdown-item>
+                  <el-dropdown-item :disabled="!ownershipActive" @click="openEdit">编辑基本信息</el-dropdown-item>
                   <el-dropdown-item @click="toggleDataset">
                     {{ dataset.status === 'active' ? '归档评测集' : '恢复评测集' }}
                   </el-dropdown-item>
@@ -266,7 +287,7 @@ onMounted(load)
             <h2>版本记录</h2>
           </div>
           <el-button
-            v-if="auth.isAdmin && !draft && dataset.status === 'active'"
+            v-if="auth.isAdmin && !draft && dataset.status === 'active' && ownershipActive"
             :icon="Plus"
             @click="createDraft(releasedVersions[0])"
           >
@@ -288,7 +309,12 @@ onMounted(load)
                 {{ new Date(draft.updated_at).toLocaleString() }}
               </p>
             </div>
-            <el-button type="warning" plain @click="router.push(`/dataset-versions/${draft.id}/edit`)">
+            <el-button
+              type="warning"
+              plain
+              :disabled="!ownershipActive"
+              @click="router.push(`/dataset-versions/${draft.id}/edit`)"
+            >
               编辑草稿
             </el-button>
           </article>
@@ -318,12 +344,13 @@ onMounted(load)
                 v-if="version.status === 'published'"
                 type="primary"
                 plain
+                :disabled="!ownershipActive"
                 @click="openStart(version)"
               >
                 开始评测
               </el-button>
               <el-button
-                v-if="auth.isAdmin && !draft && dataset.status === 'active'"
+                v-if="auth.isAdmin && !draft && dataset.status === 'active' && ownershipActive"
                 @click="createDraft(version)"
               >
                 复制草稿

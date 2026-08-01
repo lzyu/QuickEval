@@ -23,6 +23,7 @@ const datasets = ref<Dataset[]>([])
 const targets = ref<CatalogItem[]>([])
 const scenarios = ref<Scenario[]>([])
 const createDialog = ref(false)
+const includeDisabledCatalog = ref(false)
 const filters = reactive({
   evaluation_target_id: '',
   scenario_id: String(route.query.scenario_id || ''),
@@ -31,14 +32,47 @@ const filters = reactive({
 })
 const form = reactive({ scenario_id: '', name: '', description: '' })
 
+const activeTargetIds = computed(
+  () => new Set(targets.value.filter((item) => item.status === 'active').map((item) => item.id)),
+)
+const selectableTargets = computed(() =>
+  targets.value.filter((item) => item.status === 'active'),
+)
+const selectableScenarios = computed(() =>
+  scenarios.value.filter(
+    (item) => item.status === 'active' && activeTargetIds.value.has(item.evaluation_target_id),
+  ),
+)
+const catalogTargets = computed(() =>
+  includeDisabledCatalog.value ? targets.value : selectableTargets.value,
+)
+const catalogScenarios = computed(() =>
+  includeDisabledCatalog.value ? scenarios.value : selectableScenarios.value,
+)
 const visibleScenarios = computed(() =>
   filters.evaluation_target_id
-    ? scenarios.value.filter(
+    ? catalogScenarios.value.filter(
         (item) => item.evaluation_target_id === filters.evaluation_target_id,
       )
-    : scenarios.value,
+    : catalogScenarios.value,
 )
-const hasFilters = computed(() => Boolean(filters.evaluation_target_id || filters.scenario_id || filters.status || filters.keyword))
+const visibleDatasets = computed(() =>
+  includeDisabledCatalog.value
+    ? datasets.value
+    : datasets.value.filter((item) => datasetOwnershipActive(item)),
+)
+const hasFilters = computed(() => Boolean(
+  filters.evaluation_target_id || filters.scenario_id || filters.status || filters.keyword ||
+  includeDisabledCatalog.value,
+))
+
+function scenarioAvailable(item: Scenario) {
+  return item.status === 'active' && activeTargetIds.value.has(item.evaluation_target_id)
+}
+
+function datasetOwnershipActive(item: Dataset) {
+  return item.evaluation_target_status !== 'disabled' && item.scenario_status !== 'disabled'
+}
 
 async function loadCatalog() {
   const [targetResponse, scenarioResponse] = await Promise.all([
@@ -49,6 +83,12 @@ async function loadCatalog() {
   ])
   targets.value = targetResponse.data.data.items
   scenarios.value = scenarioResponse.data.data.items
+  if (
+    filters.scenario_id &&
+    !selectableScenarios.value.some((item) => item.id === filters.scenario_id)
+  ) {
+    filters.scenario_id = ''
+  }
 }
 
 async function load() {
@@ -67,7 +107,10 @@ async function load() {
 
 function openCreate() {
   Object.assign(form, {
-    scenario_id: filters.scenario_id || visibleScenarios.value[0]?.id || '',
+    scenario_id:
+      selectableScenarios.value.find((item) => item.id === filters.scenario_id)?.id ||
+      selectableScenarios.value[0]?.id ||
+      '',
     name: '',
     description: '',
   })
@@ -76,6 +119,7 @@ function openCreate() {
 
 function resetFilters() {
   Object.assign(filters, { evaluation_target_id: '', scenario_id: '', status: '', keyword: '' })
+  includeDisabledCatalog.value = false
   load()
 }
 
@@ -107,6 +151,16 @@ watch(
     }
   },
 )
+
+watch(includeDisabledCatalog, (included) => {
+  if (included) return
+  if (!selectableTargets.value.some((item) => item.id === filters.evaluation_target_id)) {
+    filters.evaluation_target_id = ''
+  }
+  if (!selectableScenarios.value.some((item) => item.id === filters.scenario_id)) {
+    filters.scenario_id = ''
+  }
+})
 
 onMounted(async () => {
   await loadCatalog()
@@ -145,13 +199,15 @@ onMounted(async () => {
             全部对象
           </button>
           <button
-            v-for="target in targets"
+            v-for="target in catalogTargets"
             :key="target.id"
             class="filter-choice"
             :class="{ selected: filters.evaluation_target_id === target.id }"
             @click="filters.evaluation_target_id = target.id; load()"
           >
-            <el-icon><Collection /></el-icon>{{ target.name }}
+            <el-icon><Collection /></el-icon>
+            <span>{{ target.name }}</span>
+            <el-tag v-if="target.status === 'disabled'" type="info" size="small">停用</el-tag>
           </button>
         </div>
         <div class="filter-block">
@@ -171,14 +227,18 @@ onMounted(async () => {
             @click="filters.scenario_id = scenario.id; load()"
           >
             {{ scenario.name }}
+            <el-tag v-if="!scenarioAvailable(scenario)" type="info" size="small">停用</el-tag>
           </button>
         </div>
+        <el-checkbox v-if="auth.isAdmin" v-model="includeDisabledCatalog" class="catalog-history-toggle">
+          包含停用归属
+        </el-checkbox>
       </el-card>
 
       <el-card class="dataset-list-card" shadow="never">
         <div class="dataset-toolbar">
           <div>
-            <strong>{{ datasets.length }} 个评测集</strong>
+            <strong>{{ visibleDatasets.length }} 个评测集</strong>
             <span>草稿与已发布版本始终相互隔离</span>
           </div>
           <el-select v-if="auth.isAdmin" v-model="filters.status" clearable placeholder="全部状态" aria-label="按评测集状态筛选" @change="load">
@@ -188,7 +248,7 @@ onMounted(async () => {
         </div>
         <el-table
           v-loading="loading"
-          :data="datasets"
+          :data="visibleDatasets"
           row-class-name="clickable-row"
           @row-click="(row: Dataset) => router.push(`/datasets/${row.id}`)"
         >
@@ -208,6 +268,7 @@ onMounted(async () => {
               </a>
               <div class="table-secondary">
                 {{ row.evaluation_target_name }} / {{ row.scenario_name }}
+                <el-tag v-if="!datasetOwnershipActive(row)" type="info" size="small">归属已停用</el-tag>
               </div>
               <div class="table-description">{{ row.description || '暂无说明' }}</div>
             </template>
@@ -257,7 +318,7 @@ onMounted(async () => {
       <el-form-item label="所属场景" required>
         <el-select v-model="form.scenario_id" filterable aria-label="所属场景">
           <el-option
-            v-for="scenario in scenarios"
+            v-for="scenario in selectableScenarios"
             :key="scenario.id"
             :label="`${scenario.evaluation_target_name} / ${scenario.name}`"
             :value="scenario.id"

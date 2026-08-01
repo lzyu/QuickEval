@@ -2267,8 +2267,10 @@ components:
         - id
         - scenario_id
         - scenario_name
+        - scenario_status
         - evaluation_target_id
         - evaluation_target_name
+        - evaluation_target_status
         - name
         - status
         - lock_version
@@ -2280,8 +2282,10 @@ components:
         id: { $ref: "#/components/schemas/UUID" }
         scenario_id: { $ref: "#/components/schemas/UUID" }
         scenario_name: { type: string }
+        scenario_status: { type: string, enum: [active, disabled] }
         evaluation_target_id: { $ref: "#/components/schemas/UUID" }
         evaluation_target_name: { type: string }
+        evaluation_target_status: { type: string, enum: [active, disabled] }
         name: { type: string }
         description: { type: [string, "null"] }
         status: { type: string, enum: [active, archived] }

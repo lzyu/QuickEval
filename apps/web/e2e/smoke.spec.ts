@@ -572,6 +572,81 @@ test('admin creates a dataset and enters its initial draft', async ({ page }) =>
   await expect(page.getByText('预算追问')).toBeVisible()
 })
 
+test('disabled evaluation targets are unavailable when browsing and creating datasets', async ({ page }) => {
+  const disabledTarget = {
+    ...target,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5120',
+    name: '已停用采购 Agent',
+    status: 'disabled',
+  }
+  const disabledScenario = {
+    ...scenario,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5121',
+    name: '历史采购场景',
+    evaluation_target_id: disabledTarget.id,
+    evaluation_target_name: disabledTarget.name,
+  }
+  const disabledDataset = {
+    ...dataset,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5122',
+    name: '停用对象历史评测集',
+    scenario_id: disabledScenario.id,
+    scenario_name: disabledScenario.name,
+    scenario_status: 'active',
+    evaluation_target_id: disabledTarget.id,
+    evaluation_target_name: disabledTarget.name,
+    evaluation_target_status: 'disabled',
+  }
+
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [disabledTarget, target], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [disabledScenario, scenario], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [disabledDataset], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
+    })
+  })
+
+  await page.goto('/datasets')
+  await expect(page.locator('.dataset-filter-panel')).toContainText(target.name)
+  await expect(page.locator('.dataset-filter-panel')).not.toContainText(disabledTarget.name)
+  await expect(page.locator('.dataset-list-card')).not.toContainText(disabledDataset.name)
+
+  await page.getByText('包含停用归属', { exact: true }).click()
+  await expect(page.locator('.dataset-filter-panel')).toContainText(disabledTarget.name)
+  await expect(page.locator('.dataset-list-card')).toContainText(disabledDataset.name)
+
+  await page.getByRole('button', { name: '新建评测集' }).click()
+  await page.getByRole('combobox', { name: '所属场景' }).click()
+  await expect(page.getByRole('option', { name: `${target.name} / ${scenario.name}` })).toBeVisible()
+  await expect(
+    page.getByRole('option', { name: `${disabledTarget.name} / ${disabledScenario.name}` }),
+  ).toHaveCount(0)
+})
+
 test('draft editor previews CSV, commits it, and publishes the version', async ({ page }) => {
   await mockAdminSession(page)
   await mockDraftReads(page)

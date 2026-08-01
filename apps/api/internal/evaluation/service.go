@@ -40,14 +40,8 @@ func (service Service) CreateRun(
 		if err != nil {
 			return mapNotFound(err)
 		}
-		if version.Status != "published" || version.DatasetStatus != "active" {
-			return apperror.Conflict(
-				"VERSION_NOT_EVALUATABLE",
-				"只能基于活跃评测集的已发布版本开始评测",
-			)
-		}
-		if version.EnabledCount == 0 {
-			return apperror.Conflict("VERSION_HAS_NO_ENABLED_CASES", "版本没有可评测的启用用例")
+		if err := validateVersionAvailability(version); err != nil {
+			return err
 		}
 		caseIDs, err := repository.EnabledCaseIDs(ctx, normalized.DatasetVersionID)
 		if err != nil {
@@ -75,6 +69,23 @@ func (service Service) CreateRun(
 		return Run{}, err
 	}
 	return service.repository.GetRun(ctx, run.ID)
+}
+
+func validateVersionAvailability(version VersionContext) error {
+	if version.TargetStatus != "active" || version.ScenarioStatus != "active" {
+		return apperror.Conflict(
+			"VERSION_NOT_EVALUATABLE", "评测对象或场景已停用，不能开始新的评测",
+		)
+	}
+	if version.Status != "published" || version.DatasetStatus != "active" {
+		return apperror.Conflict(
+			"VERSION_NOT_EVALUATABLE", "只能基于活跃评测集的已发布版本开始评测",
+		)
+	}
+	if version.EnabledCount == 0 {
+		return apperror.Conflict("VERSION_HAS_NO_ENABLED_CASES", "版本没有可评测的启用用例")
+	}
+	return nil
 }
 
 func (service Service) UpdateRun(

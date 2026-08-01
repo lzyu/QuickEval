@@ -75,8 +75,10 @@ export interface Dataset {
   id: string
   scenario_id: string
   scenario_name: string
+  scenario_status: 'active' | 'disabled'
   evaluation_target_id: string
   evaluation_target_name: string
+  evaluation_target_status: 'active' | 'disabled'
   name: string
   description: string | null
   status: 'active' | 'archived'

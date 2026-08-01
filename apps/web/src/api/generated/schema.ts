@@ -1488,8 +1488,12 @@ export interface components {
             id: components["schemas"]["UUID"];
             scenario_id: components["schemas"]["UUID"];
             scenario_name: string;
+            /** @enum {string} */
+            scenario_status: "active" | "disabled";
             evaluation_target_id: components["schemas"]["UUID"];
             evaluation_target_name: string;
+            /** @enum {string} */
+            evaluation_target_status: "active" | "disabled";
             name: string;
             description?: string | null;
             /** @enum {string} */
