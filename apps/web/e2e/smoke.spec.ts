@@ -52,9 +52,19 @@ const tagId = '019fa2a2-ed09-7660-988d-38cb279d5107'
 const meta = { request_id: 'e2e-dataset' }
 const homeData = {
   metrics: [
-    { key: 'in_progress', label: '我的进行中评测', value: 1, url: '/evaluations?status=in_progress' },
+    {
+      key: 'in_progress',
+      label: '我的进行中评测',
+      value: 1,
+      url: '/evaluations?status=in_progress',
+    },
     { key: 'completed', label: '我的已完成评测', value: 2, url: '/evaluations?status=completed' },
-    { key: 'assigned_badcases', label: '分配给我的未关闭 Badcase', value: 1, url: '/badcases?assigned_to_me=1&open=1' },
+    {
+      key: 'assigned_badcases',
+      label: '分配给我的未关闭 Badcase',
+      value: 1,
+      url: '/badcases?assigned_to_me=1&open=1',
+    },
   ],
   continue_evaluations: [],
   assigned_badcases: [],
@@ -198,7 +208,10 @@ async function mockDraftReads(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+      body: JSON.stringify({
+        data: { items: [scenario], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
     })
   })
   await page.route('**/api/v1/case-tags?*', async (route) => {
@@ -206,7 +219,8 @@ async function mockDraftReads(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        data: { items: [
+        data: {
+          items: [
             {
               id: tagId,
               name: '事实准确性',
@@ -216,7 +230,8 @@ async function mockDraftReads(page: Page) {
               lock_version: 0,
               sort_order: 10,
             },
-          ] },
+          ],
+        },
         meta,
       }),
     })
@@ -324,7 +339,9 @@ test('member is redirected away from admin routes', async ({ page }) => {
   await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
 })
 
-test('actively registers badcases continuously and retries only a failed screenshot upload', async ({ page }) => {
+test('actively registers badcases continuously and retries only a failed screenshot upload', async ({
+  page,
+}) => {
   await mockAdminSession(page)
   const disabledTargetId = '019fa2a2-ed09-7660-988d-38cb279d5201'
   const issueTagId = '019fa2a2-ed09-7660-988d-38cb279d5202'
@@ -420,7 +437,9 @@ test('actively registers badcases continuously and retries only a failed screens
           creator_name: adminSession.data.user.display_name,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          issue_tags: [{ id: issueTagId, name: '事实准确性' }],
+          issue_tags: request.issue_tag_ids.includes(issueTagId)
+            ? [{ id: issueTagId, name: '事实准确性' }]
+            : [],
           evaluation: null,
           original_attachments: [],
           attachments: [],
@@ -471,8 +490,6 @@ test('actively registers badcases continuously and retries only a failed screens
     mimeType: 'image/png',
     buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
   })
-  await page.getByText('至少选择一个问题标签', { exact: true }).click()
-  await page.getByRole('option', { name: '事实准确性' }).click()
   await page.getByRole('button', { name: '登记并继续' }).click()
 
   await expect(page.getByText('Badcase 已创建，截图尚未上传')).toBeVisible()
@@ -501,34 +518,38 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+      body: JSON.stringify({
+        data: { items: [scenario], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
     })
   })
   await page.route('**/api/v1/case-tags?*', async (route) => {
     const url = new URL(route.request().url())
     const scope = url.searchParams.get('scope')
-    const item = scope === 'global'
-      ? {
-          id: tagId,
-          name: '意图识别',
-          description: null,
-          scope: 'global',
-          scenario_id: null,
-          status: 'active',
-          lock_version: 0,
-          sort_order: 10,
-        }
-      : {
-          id: scenarioTagId,
-          name: '供应商比较',
-          description: null,
-          scope: 'scenario',
-          scenario_id: scenarioId,
-          scenario_name: scenario.name,
-          status: 'active',
-          lock_version: 0,
-          sort_order: 10,
-        }
+    const item =
+      scope === 'global'
+        ? {
+            id: tagId,
+            name: '意图识别',
+            description: null,
+            scope: 'global',
+            scenario_id: null,
+            status: 'active',
+            lock_version: 0,
+            sort_order: 10,
+          }
+        : {
+            id: scenarioTagId,
+            name: '供应商比较',
+            description: null,
+            scope: 'scenario',
+            scenario_id: scenarioId,
+            scenario_name: scenario.name,
+            status: 'active',
+            lock_version: 0,
+            sort_order: 10,
+          }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -591,7 +612,10 @@ test('admin creates a dataset and enters its initial draft', async ({ page }) =>
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+      body: JSON.stringify({
+        data: { items: [scenario], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
     })
   })
   await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
@@ -624,7 +648,9 @@ test('admin creates a dataset and enters its initial draft', async ({ page }) =>
   await expect(page.getByText('预算追问')).toBeVisible()
 })
 
-test('disabled evaluation targets are unavailable when browsing and creating datasets', async ({ page }) => {
+test('disabled evaluation targets are unavailable when browsing and creating datasets', async ({
+  page,
+}) => {
   const disabledTarget = {
     ...target,
     id: '019fa2a2-ed09-7660-988d-38cb279d5120',
@@ -973,7 +999,12 @@ test('starts an independent evaluation from a published dataset version', async 
       body: JSON.stringify({
         data: {
           run: evaluationRun,
-          results: { items: [firstCaseResult, secondCaseResult], page: 1, page_size: 100, total: 2 },
+          results: {
+            items: [firstCaseResult, secondCaseResult],
+            page: 1,
+            page_size: 100,
+            total: 2,
+          },
         },
         meta,
       }),
@@ -987,17 +1018,41 @@ test('starts an independent evaluation from a published dataset version', async 
 
   await expect(page).toHaveURL(`/evaluation-runs/${runId}/workbench`)
   await expect(page.getByRole('heading', { name: `${dataset.name} V1` })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '预算追问' })).toBeVisible()
+  await expect(page.locator('.result-directory-list button.active')).toContainText('预算追问')
+
+  await page.setViewportSize({ width: 780, height: 900 })
+  await expect(page.getByRole('radiogroup', { name: '评分，1 分最低，5 分最高' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /粘贴、拖拽或选择截图/ })).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(780)
 })
 
 test('lists the current user evaluations and continues an in-progress run', async ({ page }) => {
   await mockAdminSession(page)
+  const completedRun = {
+    ...evaluationRun,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5251',
+    status: 'completed',
+    first_completed_at: '2026-07-28T01:00:00Z',
+    completed_at: '2026-07-28T01:00:00Z',
+  }
+  const voidedRun = {
+    ...evaluationRun,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5252',
+    status: 'voided',
+  }
   await page.route('**/api/v1/evaluation-runs?*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        data: { items: [evaluationRun], page: 1, page_size: 100, total: 1 },
+        data: {
+          items: [evaluationRun, completedRun, voidedRun],
+          page: 1,
+          page_size: 100,
+          total: 3,
+        },
         meta,
       }),
     })
@@ -1009,7 +1064,12 @@ test('lists the current user evaluations and continues an in-progress run', asyn
       body: JSON.stringify({
         data: {
           run: evaluationRun,
-          results: { items: [firstCaseResult, secondCaseResult], page: 1, page_size: 100, total: 2 },
+          results: {
+            items: [firstCaseResult, secondCaseResult],
+            page: 1,
+            page_size: 100,
+            total: 2,
+          },
         },
         meta,
       }),
@@ -1018,8 +1078,27 @@ test('lists the current user evaluations and continues an in-progress run', asyn
 
   await page.goto('/evaluations')
   await expect(page.getByRole('heading', { name: '我的评测' })).toBeVisible()
-  await expect(page.getByText(dataset.name)).toBeVisible()
-  await expect(page.getByText('0/2')).toBeVisible()
+  await expect(page.getByText(dataset.name).first()).toBeVisible()
+  await expect(page.getByText('0/2').first()).toBeVisible()
+  const rows = page.locator('.evaluation-list-card .el-table__row')
+  const continueButton = rows.nth(0).getByRole('button', { name: '继续评测' })
+  const moreButton = rows.nth(0).getByRole('button', { name: '更多操作' })
+  const [continueBox, moreBox] = await Promise.all([
+    continueButton.boundingBox(),
+    moreButton.boundingBox(),
+  ])
+  expect(continueBox).not.toBeNull()
+  expect(moreBox).not.toBeNull()
+  expect(Math.abs((continueBox?.y || 0) - (moreBox?.y || 0))).toBeLessThanOrEqual(1)
+  expect(Math.abs((continueBox?.height || 0) - (moreBox?.height || 0))).toBeLessThanOrEqual(1)
+  await expect(rows.nth(1).getByRole('button', { name: '查看结果' })).toBeVisible()
+  await expect(rows.nth(2).getByRole('button', { name: '更多操作' })).toHaveCount(0)
+  await page.setViewportSize({ width: 780, height: 900 })
+  await expect(page.getByRole('button', { name: '开始新评测' })).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(780)
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.getByRole('button', { name: '继续评测' }).click()
   await expect(page).toHaveURL(`/evaluation-runs/${runId}/workbench`)
 })
@@ -1092,10 +1171,14 @@ test('saves, skips, completes and renders an evaluation read-only', async ({ pag
   })
 
   await page.goto(`/evaluation-runs/${runId}/workbench`)
-  await page.getByLabel('Agent 回答').fill('这是 Agent 的完整回答')
-  await page.locator('.score-picker button').nth(3).click()
-  await page.getByRole('button', { name: '保存并下一条' }).click()
-  await expect(page.getByRole('heading', { name: '交付周期' })).toBeVisible()
+  const saveAndNext = page.getByRole('button', { name: '保存并下一条' })
+  await expect(saveAndNext).toBeDisabled()
+  await page.getByRole('radio', { name: '4 分，基本正确' }).click()
+  await expect(saveAndNext).toBeEnabled()
+  await saveAndNext.click()
+  await expect(
+    page.getByRole('region', { name: '当前用例内容' }).getByText('预计多久可以交付？'),
+  ).toBeVisible()
 
   await page.getByRole('button', { name: '跳过此用例' }).click()
   await page.getByText('当前账号无权限', { exact: true }).click()
@@ -1160,13 +1243,18 @@ test('uploads screenshot evidence and marks the same result as a Badcase', async
     const payload = route.request().postDataJSON()
     expect(payload.expected_result_lock_version).toBe(1)
     expect(payload.result_patch.answer_text).toBeNull()
-    expect(payload.badcase.issue_tag_ids).toEqual([tagId])
+    expect(payload.result_patch.score).toBe(2)
+    expect(payload.result_patch.comment).toBe('截图中的商品参数与实际约束冲突')
+    expect(payload.badcase).toEqual({
+      description: '截图中的商品参数与实际约束冲突',
+      issue_tag_ids: [],
+    })
     const badcase = {
       id: '019fa2a2-ed09-7660-988d-38cb279d5302',
-      title: payload.badcase.title,
+      title: '截图中的商品参数与实际约束冲突',
       description: payload.badcase.description,
       status: 'pending',
-      issue_tags: [{ id: tagId, name: '事实准确性' }],
+      issue_tags: [],
     }
     await route.fulfill({
       status: 201,
@@ -1178,7 +1266,7 @@ test('uploads screenshot evidence and marks the same result as a Badcase', async
             ...result,
             status: 'evaluated',
             score: 2,
-            comment: '截图中的参数与事实不符',
+            comment: payload.result_patch.comment,
             has_badcase: true,
             attachments: [attachment],
             badcase,
@@ -1201,20 +1289,54 @@ test('uploads screenshot evidence and marks the same result as a Badcase', async
   })
 
   await page.goto(`/evaluation-runs/${runId}/workbench`)
-  await page.getByRole('button', { name: /上传截图/ }).click()
-  await page.locator('input[type=file]').setInputFiles({
-    name: 'agent-proof.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('fake-png'),
+  const caseBrief = page.locator('.case-brief')
+  await expect(caseBrief).not.toContainText('预算追问')
+  await expect(caseBrief).toContainText('预算 10 万元，请推荐采购方案')
+  await expect(caseBrief).toContainText('不得虚构商品参数')
+  await expect(page.locator('.workbench-completion')).toContainText('完成 0%')
+  await expect(page.locator('.score-segments')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Agent 回答（可选）' })).toBeVisible()
+  const screenshotBox = await page
+    .locator('.result-upload-zone')
+    .evaluate((element) => {
+      const { width, height } = element.getBoundingClientRect()
+      return { width, height }
+    })
+  const answerBox = await page
+    .locator('.agent-answer-field .el-textarea__inner')
+    .evaluate((element) => {
+      const { width, height } = element.getBoundingClientRect()
+      return { width, height }
+    })
+  expect(Math.abs(screenshotBox.width - answerBox.width)).toBeLessThanOrEqual(1)
+  expect(Math.abs(screenshotBox.height - answerBox.height)).toBeLessThanOrEqual(1)
+  await expect(page.getByRole('radio', { name: '1 分，完全错误' })).toBeVisible()
+  await page.evaluate(() => {
+    const clipboard = new DataTransfer()
+    clipboard.items.add(
+      new File([new Uint8Array([137, 80, 78, 71])], 'agent-proof.png', {
+        type: 'image/png',
+      }),
+    )
+    document.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }),
+    )
   })
   await expect(page.getByText('agent-proof.png')).toBeVisible()
-  await page.locator('.score-picker button').nth(1).click()
-  await page.getByLabel('评语').fill('截图中的参数与事实不符')
-  await page.getByText('标记为 Badcase', { exact: true }).click()
-  await page.getByPlaceholder('问题标题').fill('Agent 回答事实错误')
-  await page.getByPlaceholder('描述具体问题与复现表现').fill('截图中的商品参数与实际约束冲突')
-  await page.locator('.badcase-fields .el-select').click()
-  await page.locator('.el-select-dropdown__item').filter({ hasText: '事实准确性' }).click()
+  await page.getByRole('radio', { name: '2 分，大部分错误' }).click()
+  const badcaseSwitch = page.locator('.badcase-decision input[role="switch"]')
+  await expect(badcaseSwitch).toBeChecked()
+  await expect(badcaseSwitch).toBeDisabled()
+  await expect(page.getByText('1～2 分视为 Badcase，已自动展开问题信息。')).toBeVisible()
+
+  await page.getByRole('radio', { name: '3 分，基本可用' }).click()
+  await expect(badcaseSwitch).not.toBeChecked()
+  await expect(badcaseSwitch).toBeEnabled()
+  await page.getByRole('radio', { name: '2 分，大部分错误' }).click()
+  await expect(badcaseSwitch).toBeChecked()
+  await page
+    .getByPlaceholder('说明问题表现、判断依据或定位线索')
+    .fill('截图中的商品参数与实际约束冲突')
   await page.getByRole('button', { name: '保存并下一条' }).click()
 
   await expect(page.getByText('已标记 Badcase')).toBeVisible()
@@ -1228,6 +1350,7 @@ test('registers a business Badcase and advances its processing timeline', async 
   let lockVersion = 0
   let status = 'pending'
   let assignee: string | null = null
+  let badcaseIssueTags = [{ id: tagId, name: '事实准确性' }]
   const activities: Array<Record<string, unknown>> = [
     {
       id: '019fa2a2-ed09-7660-988d-38cb279d5402',
@@ -1273,7 +1396,7 @@ test('registers a business Badcase and advances its processing timeline', async 
     creator_name: '系统管理员',
     created_at: '2026-07-28T02:00:00Z',
     updated_at: '2026-07-28T02:00:00Z',
-    issue_tags: [{ id: tagId, name: '事实准确性' }],
+    issue_tags: badcaseIssueTags,
     evaluation: null,
     original_attachments: [],
     attachments: [],
@@ -1292,7 +1415,10 @@ test('registers a business Badcase and advances its processing timeline', async 
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+      body: JSON.stringify({
+        data: { items: [scenario], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
     })
   })
   await page.route('**/api/v1/badcase-options', async (route) => {
@@ -1316,7 +1442,7 @@ test('registers a business Badcase and advances its processing timeline', async 
         scenario_id: null,
         title: '采购助手忽略预算上限',
         description: null,
-        issue_tag_ids: [tagId],
+        issue_tag_ids: [],
       })
       await route.fulfill({
         status: 201,
@@ -1332,9 +1458,31 @@ test('registers a business Badcase and advances its processing timeline', async 
     })
   })
   await page.route(`**/api/v1/pages/badcases/${badcaseId}`, async (route) => {
-    const allowedActions = status === 'pending'
-      ? ['edit', 'invalidate', 'assign', 'unassign', 'update_tags', 'add_note', 'add_attachment', 'start_processing', 'resolve', 'defer']
-      : ['edit', 'invalidate', 'assign', 'unassign', 'update_tags', 'add_note', 'add_attachment', 'resolve', 'defer']
+    const allowedActions =
+      status === 'pending'
+        ? [
+            'edit',
+            'invalidate',
+            'assign',
+            'unassign',
+            'update_tags',
+            'add_note',
+            'add_attachment',
+            'start_processing',
+            'resolve',
+            'defer',
+          ]
+        : [
+            'edit',
+            'invalidate',
+            'assign',
+            'unassign',
+            'update_tags',
+            'add_note',
+            'add_attachment',
+            'resolve',
+            'defer',
+          ]
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1415,14 +1563,27 @@ test('registers a business Badcase and advances its processing timeline', async 
       body: JSON.stringify({ data: currentBadcase(), meta }),
     })
   })
+  await page.route(`**/api/v1/badcases/${badcaseId}/issue-tags`, async (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      issue_tag_ids: [],
+      expected_lock_version: 3,
+    })
+    badcaseIssueTags = []
+    lockVersion += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: currentBadcase(), meta }),
+    })
+  })
 
   await page.goto('/badcases')
   await page.getByRole('button', { name: '主动登记 Badcase' }).click()
   await page.getByRole('button', { name: /智能采购 Agent/ }).click()
   await page.getByPlaceholder('请输入 Badcase 标题').fill('采购助手忽略预算上限')
-  await page.getByPlaceholder('请粘贴 Agent 的完整回答文本，便于复现与分析').fill('建议采购高配服务器')
-  await page.getByText('至少选择一个问题标签', { exact: true }).click()
-  await page.getByRole('option', { name: '事实准确性', exact: true }).last().click()
+  await page
+    .getByPlaceholder('请粘贴 Agent 的完整回答文本，便于复现与分析')
+    .fill('建议采购高配服务器')
   await page.getByRole('button', { name: '登记并继续' }).click()
   await page.getByRole('button', { name: '查看详情' }).click()
 
@@ -1439,6 +1600,11 @@ test('registers a business Badcase and advances its processing timeline', async 
 
   await expect(page.getByText('处理中', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('已确认预算过滤条件未生效')).toBeVisible()
+  const issueTagControl = page.locator('.badcase-sidebar .el-form-item').filter({ hasText: '问题标签' })
+  await issueTagControl.locator('.el-tag__close').click()
+  await issueTagControl.getByRole('button', { name: '保存标签' }).click()
+  await expect(issueTagControl.getByText('未分类', { exact: true })).toBeVisible()
+  await expect(issueTagControl.getByRole('button', { name: '保存标签' })).toBeDisabled()
 })
 
 test('renders personal home, dashboard metrics, charts, and global search', async ({ page }) => {
@@ -1489,39 +1655,39 @@ test('renders personal home, dashboard metrics, charts, and global search', asyn
   })
   await page.route('**/api/v1/evaluation-results*', async (route) => {
     const params = new URL(route.request().url()).searchParams
-    expect(
-      params.get('score') === '4' || params.get('result_status') === 'evaluated',
-    ).toBe(true)
+    expect(params.get('score') === '4' || params.get('result_status') === 'evaluated').toBe(true)
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          items: [{
-            id: evaluationResultId,
-            evaluation_run_id: runId,
-            evaluation_target_name: target.name,
-            scenario_name: scenario.name,
-            dataset_name: dataset.name,
-            version_no: 1,
-            evaluator_name: '系统管理员',
-            agent_version: '2026.07.28',
-            environment: 'production',
-            completed_at: '2026-07-28T02:00:00Z',
-            case_name: '预算约束',
-            user_prompt: '预算 10 万元，推荐采购方案',
-            result_status: 'evaluated',
-            answer_text: '建议采购总价 12 万元的商品',
-            score: 3,
-            comment: '超出预算',
-            skip_reason: null,
-            has_badcase: false,
-            badcase_id: null,
-            badcase_title: null,
-            case_tags: '',
-            evidence_count: 0,
-            result_detail_url: `/evaluation-runs/${runId}/result?result_id=${evaluationResultId}`,
-          }],
+          items: [
+            {
+              id: evaluationResultId,
+              evaluation_run_id: runId,
+              evaluation_target_name: target.name,
+              scenario_name: scenario.name,
+              dataset_name: dataset.name,
+              version_no: 1,
+              evaluator_name: '系统管理员',
+              agent_version: '2026.07.28',
+              environment: 'production',
+              completed_at: '2026-07-28T02:00:00Z',
+              case_name: '预算约束',
+              user_prompt: '预算 10 万元，推荐采购方案',
+              result_status: 'evaluated',
+              answer_text: '建议采购总价 12 万元的商品',
+              score: 3,
+              comment: '超出预算',
+              skip_reason: null,
+              has_badcase: false,
+              badcase_id: null,
+              badcase_title: null,
+              case_tags: '',
+              evidence_count: 0,
+              result_detail_url: `/evaluation-runs/${runId}/result?result_id=${evaluationResultId}`,
+            },
+          ],
           page: 1,
           page_size: 20,
           total: 1,
@@ -1538,14 +1704,16 @@ test('renders personal home, dashboard metrics, charts, and global search', asyn
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          items: [{
-            type: 'badcase',
-            id: searchBadcaseId,
-            title: '采购助手忽略预算',
-            subtitle: '智能采购 Agent / 采购询价',
-            snippet: '预算为 10 万元时仍推荐超预算商品',
-            url: `/badcases/${searchBadcaseId}`,
-          }],
+          items: [
+            {
+              type: 'badcase',
+              id: searchBadcaseId,
+              title: '采购助手忽略预算',
+              subtitle: '智能采购 Agent / 采购询价',
+              snippet: '预算为 10 万元时仍推荐超预算商品',
+              url: `/badcases/${searchBadcaseId}`,
+            },
+          ],
           page: 1,
           page_size: 12,
           total: 1,

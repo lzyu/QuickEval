@@ -1629,6 +1629,7 @@ export interface components {
             /** @enum {string} */
             status: "pending" | "evaluated" | "skipped";
             answer_text?: string | null;
+            /** @description 已评状态必填 1～5 分；1～2 分必须通过标记 Badcase 接口同步登记，待评或跳过状态为空。 */
             score?: number | null;
             comment?: string | null;
             skip_reason?: string | null;
@@ -1658,16 +1659,15 @@ export interface components {
             /** @enum {string} */
             status: "evaluated";
             answer_text?: string | null;
-            score?: number | null;
+            score: number;
             comment?: string | null;
         };
         MarkBadcaseRequest: {
             expected_result_lock_version: number;
             result_patch?: components["schemas"]["ResultPatch"];
             badcase: {
-                title: string;
                 description: string;
-                issue_tag_ids: components["schemas"]["UUID"][];
+                issue_tag_ids?: components["schemas"]["UUID"][];
             };
         };
         /** @enum {string} */
@@ -1685,7 +1685,7 @@ export interface components {
             occurred_at: components["schemas"]["UTCTimestamp"];
             business_reference?: string | null;
             session_id?: string | null;
-            issue_tag_ids: components["schemas"]["UUID"][];
+            issue_tag_ids?: components["schemas"]["UUID"][];
         };
         UpdateBusinessBadcaseRequest: {
             /** Format: uuid */

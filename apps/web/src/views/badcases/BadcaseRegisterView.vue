@@ -73,7 +73,6 @@ const filteredIssueTags = computed(() => availableTags(issueTags.value, form.sce
 const form = reactive(emptyRegistrationForm())
 const errors = reactive({
   title: '',
-  issue_tag_ids: '',
   environment: '',
   occurred_at: '',
 })
@@ -435,7 +434,6 @@ watch(
     if (draftReady.value && !recordLocked.value) {
       Object.assign(errors, {
         title: '',
-        issue_tag_ids: '',
         environment: '',
         occurred_at: '',
       })
@@ -619,8 +617,14 @@ onBeforeUnmount(() => {
             </el-select>
             <div class="muted">场景尚未配置完整时可留空，不影响登记。</div>
           </el-form-item>
-          <el-form-item label="问题标签" required :error="errors.issue_tag_ids">
-            <el-select v-model="form.issue_tag_ids" multiple filterable placeholder="至少选择一个问题标签">
+          <el-form-item label="问题标签（可选）">
+            <el-select
+              v-model="form.issue_tag_ids"
+              multiple
+              filterable
+              clearable
+              placeholder="用于统计，可稍后补充"
+            >
               <el-option v-for="tag in filteredIssueTags" :key="tag.id" :label="tag.name" :value="tag.id" />
             </el-select>
           </el-form-item>

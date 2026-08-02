@@ -28,15 +28,12 @@ func (repository Repository) LockResultOwner(ctx context.Context, resultID id.UU
 	var item struct {
 		ID          id.UUID
 		LockVersion uint32
-		Status      string
-		AnswerText  *string
 		RunID       id.UUID
 		EvaluatorID id.UUID
 		RunStatus   string
 	}
 	err := repository.db.WithContext(ctx).Table("case_results").
-		Select(`case_results.id, case_results.lock_version, case_results.status,
-			case_results.answer_text, evaluation_runs.id AS run_id,
+		Select(`case_results.id, case_results.lock_version, evaluation_runs.id AS run_id,
 			evaluation_runs.evaluator_id, evaluation_runs.status AS run_status`).
 		Joins("JOIN evaluation_runs ON evaluation_runs.id = case_results.evaluation_run_id").
 		Clauses(clause.Locking{Strength: "UPDATE", Table: clause.Table{Name: "case_results"}}).
@@ -45,7 +42,6 @@ func (repository Repository) LockResultOwner(ctx context.Context, resultID id.UU
 	evaluatorID := item.EvaluatorID
 	return Owner{
 		Kind: "result", ID: item.ID, LockVersion: item.LockVersion,
-		Status: item.Status, AnswerText: item.AnswerText,
 		RunID: &runID, EvaluatorID: &evaluatorID, CreatedBy: evaluatorID,
 		Invalidated: item.RunStatus != "in_progress",
 	}, err
@@ -55,17 +51,16 @@ func (repository Repository) LockBadcaseOwner(ctx context.Context, badcaseID id.
 	var item struct {
 		ID            id.UUID
 		LockVersion   uint32
-		Status        string
 		CreatedBy     id.UUID
 		InvalidatedAt *time.Time
 	}
 	err := repository.db.WithContext(ctx).Table("badcases").
-		Select("id, lock_version, status, created_by, invalidated_at").
+		Select("id, lock_version, created_by, invalidated_at").
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ?", badcaseID).Take(&item).Error
 	return Owner{
 		Kind: "badcase", ID: item.ID, LockVersion: item.LockVersion,
-		Status: item.Status, CreatedBy: item.CreatedBy,
+		CreatedBy:   item.CreatedBy,
 		Invalidated: item.InvalidatedAt != nil,
 	}, err
 }

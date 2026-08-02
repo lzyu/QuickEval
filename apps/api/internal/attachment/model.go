@@ -52,8 +52,6 @@ type Owner struct {
 	ID          id.UUID
 	LockVersion uint32
 	CreatedBy   id.UUID
-	Status      string
-	AnswerText  *string
 	RunID       *id.UUID
 	EvaluatorID *id.UUID
 	Invalidated bool

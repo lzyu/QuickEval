@@ -152,19 +152,14 @@ func (service Service) UpdateResult(
 		if run.Status != RunInProgress {
 			return apperror.Conflict("RUN_NOT_EDITABLE", "评测已完成或作废，结果不能修改")
 		}
-		if normalized.Status == ResultEvaluated && normalized.AnswerText == nil {
-			count, err := repository.CountResultAttachments(ctx, resultID)
-			if err != nil {
-				return err
-			}
-			if count == 0 {
-				return apperror.Validation(
-					apperror.FieldError{
-						Field:   "answer_text",
-						Message: "请填写 Agent 回答或上传至少一张截图",
-					},
-				)
-			}
+		if normalized.Status == ResultEvaluated && normalized.Score != nil &&
+			*normalized.Score <= 2 && !before.HasBadcase {
+			return apperror.Validation(
+				apperror.FieldError{
+					Field:   "score",
+					Message: "1～2 分必须同时标记为 Badcase",
+				},
+			)
 		}
 		if err := repository.UpdateResult(
 			ctx, resultID, actorID, normalized.Status, normalized.AnswerText,
@@ -371,6 +366,11 @@ func validateResultInput(input ResultInput) (ResultInput, error) {
 	switch input.Status {
 	case ResultEvaluated:
 		input.SkipReason = nil
+		if input.Score == nil {
+			return ResultInput{}, apperror.Validation(
+				apperror.FieldError{Field: "score", Message: "请为已评用例选择评分"},
+			)
+		}
 	case ResultSkipped:
 		if input.SkipReason == nil {
 			return ResultInput{}, apperror.Validation(
@@ -390,7 +390,7 @@ func validateResultInput(input ResultInput) (ResultInput, error) {
 	}
 	if input.Score != nil && (*input.Score < 1 || *input.Score > 5) {
 		return ResultInput{}, apperror.Validation(
-			apperror.FieldError{Field: "score", Message: "评分只能是 1～5 分或留空"},
+			apperror.FieldError{Field: "score", Message: "评分只能是 1～5 分"},
 		)
 	}
 	return input, nil

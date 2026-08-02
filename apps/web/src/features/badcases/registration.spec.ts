@@ -35,9 +35,9 @@ describe('badcase registration state', () => {
     ).toEqual([1, 1])
   })
 
-  it('does not require a scenario, answer, screenshot, or agent version', () => {
+  it('does not require a scenario, issue tag, answer, screenshot, or agent version', () => {
     const form = emptyRegistrationForm()
-    Object.assign(form, { title: '推荐结果错误', issue_tag_ids: ['tag-1'] })
+    Object.assign(form, { title: '推荐结果错误' })
     expect(isRegistrationValid(form)).toBe(true)
   })
 

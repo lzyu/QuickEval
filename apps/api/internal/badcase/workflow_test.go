@@ -37,7 +37,6 @@ func TestValidateBusinessInput(t *testing.T) {
 	input := BusinessInput{
 		TargetID: id.MustNew(), ScenarioID: &scenarioID, Title: "预算约束失效",
 		Environment: "production", OccurredAt: time.Now().UTC(),
-		IssueTagIDs: []id.UUID{id.MustNew()},
 	}
 	got, err := validateBusinessInput(input, true)
 	if err != nil {

@@ -136,11 +136,17 @@ test "$(request GET "/api/v1/pages/evaluation-runs/${run_id}/workbench?page_size
 first_result_id="$(jq -er '.data.results.items[0].id' "${smoke_dir}/workbench.json")"
 second_result_id="$(jq -er '.data.results.items[1].id' "${smoke_dir}/workbench.json")"
 
-jq -n '{status: "evaluated", answer_text: null, score: 4, comment: null,
-  skip_reason: null, expected_lock_version: 0}' > "${smoke_dir}/missing-answer-input.json"
+jq -n '{status: "evaluated", answer_text: null, score: null, comment: null,
+  skip_reason: null, expected_lock_version: 0}' > "${smoke_dir}/missing-score-input.json"
 test "$(request PATCH "/api/v1/case-results/${first_result_id}" \
-  "${member_a_cookie}" "${member_a_csrf}" "${smoke_dir}/missing-answer-input.json" \
-  "${smoke_dir}/missing-answer.json")" = "422"
+  "${member_a_cookie}" "${member_a_csrf}" "${smoke_dir}/missing-score-input.json" \
+  "${smoke_dir}/missing-score.json")" = "422"
+
+jq -n '{status: "evaluated", answer_text: null, score: 2, comment: null,
+  skip_reason: null, expected_lock_version: 0}' > "${smoke_dir}/low-score-input.json"
+test "$(request PATCH "/api/v1/case-results/${first_result_id}" \
+  "${member_a_cookie}" "${member_a_csrf}" "${smoke_dir}/low-score-input.json" \
+  "${smoke_dir}/low-score.json")" = "422"
 
 jq -n '{status: "evaluated", answer_text: "Agent 实际回答", score: 4,
   comment: "回答基本正确", skip_reason: null, expected_lock_version: 0}' \

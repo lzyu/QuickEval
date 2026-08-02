@@ -2511,7 +2511,11 @@ components:
       properties:
         status: { type: string, enum: [pending, evaluated, skipped] }
         answer_text: { type: [string, "null"] }
-        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        score:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 5
+          description: 已评状态必填 1～5 分；1～2 分必须通过标记 Badcase 接口同步登记，待评或跳过状态为空。
         comment: { type: [string, "null"] }
         skip_reason: { type: [string, "null"] }
         expected_lock_version: { type: integer, minimum: 0 }
@@ -2550,11 +2554,11 @@ components:
           items: { $ref: "#/components/schemas/CaseTagSnapshot" }
     ResultPatch:
       type: object
-      required: [status]
+      required: [status, score]
       properties:
         status: { type: string, enum: [evaluated] }
         answer_text: { type: [string, "null"] }
-        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        score: { type: integer, minimum: 1, maximum: 5 }
         comment: { type: [string, "null"] }
     MarkBadcaseRequest:
       type: object
@@ -2564,20 +2568,19 @@ components:
         result_patch: { $ref: "#/components/schemas/ResultPatch" }
         badcase:
           type: object
-          required: [title, description, issue_tag_ids]
+          required: [description]
           properties:
-            title: { type: string, minLength: 1, maxLength: 200 }
             description: { type: string, minLength: 1 }
             issue_tag_ids:
               type: array
-              minItems: 1
+              uniqueItems: true
               items: { $ref: "#/components/schemas/UUID" }
     BadcaseStatus:
       type: string
       enum: [pending, processing, resolved, deferred]
     CreateBusinessBadcaseRequest:
       type: object
-      required: [evaluation_target_id, title, environment, occurred_at, issue_tag_ids]
+      required: [evaluation_target_id, title, environment, occurred_at]
       properties:
         evaluation_target_id: { $ref: "#/components/schemas/UUID" }
         scenario_id: { type: [string, "null"], format: uuid }
@@ -2593,7 +2596,6 @@ components:
         session_id: { type: [string, "null"], maxLength: 200 }
         issue_tag_ids:
           type: array
-          minItems: 1
           uniqueItems: true
           items: { $ref: "#/components/schemas/UUID" }
     UpdateBusinessBadcaseRequest:
@@ -2618,7 +2620,6 @@ components:
       properties:
         issue_tag_ids:
           type: array
-          minItems: 1
           uniqueItems: true
           items: { $ref: "#/components/schemas/UUID" }
         expected_lock_version: { type: integer, minimum: 0 }

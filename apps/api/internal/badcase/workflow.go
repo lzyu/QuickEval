@@ -154,11 +154,6 @@ func (service Service) UpdateIssueTags(
 	tagIDs []id.UUID,
 ) (Badcase, error) {
 	tagIDs = deduplicateIDs(tagIDs)
-	if len(tagIDs) == 0 {
-		return Badcase{}, apperror.Validation(
-			apperror.FieldError{Field: "issue_tag_ids", Message: "请至少选择一个问题标签"},
-		)
-	}
 	err := service.repository.Transaction(ctx, func(repository Repository) error {
 		item, err := repository.LockBadcase(ctx, badcaseID)
 		if err != nil {
@@ -439,11 +434,6 @@ func validateBusinessInput(input BusinessInput, creating bool) (BusinessInput, e
 			Field: "occurred_at", Message: "请选择问题发生时间",
 		})
 	}
-	if creating && len(input.IssueTagIDs) == 0 {
-		fields = append(fields, apperror.FieldError{
-			Field: "issue_tag_ids", Message: "请至少选择一个问题标签",
-		})
-	}
 	if len(fields) > 0 {
 		return BusinessInput{}, apperror.Validation(fields...)
 	}
@@ -462,6 +452,9 @@ func validateActiveTags(
 	repository Repository,
 	tagIDs []id.UUID,
 ) ([]id.UUID, error) {
+	if len(tagIDs) == 0 {
+		return []id.UUID{}, nil
+	}
 	tags, err := repository.ActiveIssueTags(ctx, tagIDs)
 	if err != nil {
 		return nil, err

@@ -65,13 +65,6 @@ func (repository Repository) LockResultContext(
 	return item, err
 }
 
-func (repository Repository) CountAttachments(ctx context.Context, resultID id.UUID) (int64, error) {
-	var count int64
-	err := repository.db.WithContext(ctx).Table("attachments").
-		Where("case_result_id = ?", resultID).Count(&count).Error
-	return count, err
-}
-
 func (repository Repository) UpdateResult(
 	ctx context.Context,
 	item ResultContext,

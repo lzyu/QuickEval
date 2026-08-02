@@ -283,16 +283,6 @@ func (repository Repository) GetResult(ctx context.Context, resultID id.UUID) (R
 	return items[0], nil
 }
 
-func (repository Repository) CountResultAttachments(
-	ctx context.Context,
-	resultID id.UUID,
-) (int64, error) {
-	var count int64
-	err := repository.db.WithContext(ctx).Table("attachments").
-		Where("case_result_id = ?", resultID).Count(&count).Error
-	return count, err
-}
-
 func (repository Repository) UpdateResult(
 	ctx context.Context,
 	resultID, actorID id.UUID,

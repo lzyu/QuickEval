@@ -163,17 +163,6 @@ func (service Service) Delete(
 		if owner.LockVersion != expectedVersion {
 			return mapWriteError(ErrLockConflict)
 		}
-		count, err := repository.Count(ctx, owner)
-		if err != nil {
-			return err
-		}
-		if kind == "result" && owner.Status == "evaluated" &&
-			clean(owner.AnswerText) == nil && count <= 1 {
-			return apperror.Conflict(
-				"EVIDENCE_REQUIRED",
-				"已评结果必须保留回答文本或至少一张截图",
-			)
-		}
 		if err := repository.Delete(ctx, item.ID); err != nil {
 			return err
 		}
@@ -328,17 +317,6 @@ func attachmentOwner(item Attachment) (string, id.UUID) {
 		return "result", *item.CaseResultID
 	}
 	return "badcase", *item.BadcaseID
-}
-
-func clean(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
 }
 
 func mapNotFound(err error) error {

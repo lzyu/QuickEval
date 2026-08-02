@@ -504,15 +504,15 @@ POST /api/v1/case-results/{result_id}/mark-badcase
     "comment": "推荐了已下架商品"
   },
   "badcase": {
-    "title": "推荐已下架商品",
     "description": "推荐结果当前无法购买",
-    "issue_tag_ids": ["019c..."]
+    "issue_tag_ids": []
   }
 }
 ```
 
 `result_patch` 可省略。该事务保存结果、校验评语、创建或恢复唯一 Badcase、复制评测对象、
-用例的可选场景、归类状态及 Agent 现场信息，创建标签和时间线，并返回结果、Badcase 摘要和评测进度。
+用例的可选场景、归类状态及 Agent 现场信息，创建标签关联和时间线，并返回结果、Badcase 摘要和评测进度。
+标记时只有 `badcase.description` 必填，展示标题由具体问题自动概括；`issue_tag_ids` 可省略或为空，仅用于后续统计分类。
 
 ## 9. Badcase 中心
 
@@ -547,7 +547,7 @@ PUT   /api/v1/badcases/{badcase_id}/issue-tags
 }
 ```
 
-`evaluation_target_id` 必填，`scenario_id` 可省略或传 `null`；选择时必须属于该对象。创建后对象和来源
+`evaluation_target_id` 必填，`scenario_id` 可省略或传 `null`；选择时必须属于该对象。`issue_tag_ids` 可省略或为空，标签可在后续补充或全部清空。创建后对象和来源
 不可修改；`PATCH` 可修改标题、描述、回答现场、可选场景、Agent 版本、环境、发生时间、业务单号和
 会话 ID。场景传 `null` 可恢复为待归类状态，状态、负责人和有效性仍通过专用命令修改。
 

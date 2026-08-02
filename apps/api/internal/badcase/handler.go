@@ -473,7 +473,6 @@ type markRequest struct {
 	ExpectedResultLockVersion uint32              `json:"expected_result_lock_version"`
 	ResultPatch               *resultPatchRequest `json:"result_patch"`
 	Badcase                   struct {
-		Title       string   `json:"title"`
 		Description *string  `json:"description"`
 		IssueTagIDs []string `json:"issue_tag_ids"`
 	} `json:"badcase"`
@@ -540,8 +539,8 @@ func (handler Handler) MarkEvaluation(ctx *gin.Context) {
 		ctx.Request.Context(), principal.ID(), principal.Admin(), resultID,
 		MarkInput{
 			ExpectedResultLockVersion: request.ExpectedResultLockVersion,
-			ResultPatch:               patch, Title: request.Badcase.Title,
-			Description: request.Badcase.Description, IssueTagIDs: tagIDs,
+			ResultPatch:               patch, Description: request.Badcase.Description,
+			IssueTagIDs: tagIDs,
 		},
 	)
 	if err != nil {

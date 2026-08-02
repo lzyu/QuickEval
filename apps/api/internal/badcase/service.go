@@ -32,7 +32,6 @@ type ResultPatch struct {
 type MarkInput struct {
 	ExpectedResultLockVersion uint32
 	ResultPatch               *ResultPatch
-	Title                     string
 	Description               *string
 	IssueTagIDs               []id.UUID
 }
@@ -54,6 +53,7 @@ func (service Service) MarkEvaluation(
 	if err != nil {
 		return MarkResult{}, err
 	}
+	title := problemTitle(*normalized.Description)
 	var badcaseID id.UUID
 	err = service.repository.Transaction(ctx, func(repository Repository) error {
 		result, err := repository.LockResultContext(ctx, resultID)
@@ -79,33 +79,19 @@ func (service Service) MarkEvaluation(
 		if status != evaluation.ResultEvaluated {
 			return apperror.Conflict("BADCASE_RESULT_INVALID", "跳过或待评用例不能标记 Badcase")
 		}
+		if score == nil {
+			return apperror.Validation(
+				apperror.FieldError{Field: "score", Message: "标记 Badcase 时必须选择评分"},
+			)
+		}
 		if clean(comment) == nil {
 			return apperror.Validation(
 				apperror.FieldError{Field: "comment", Message: "标记 Badcase 时评语不能为空"},
 			)
 		}
-		if clean(answer) == nil {
-			count, err := repository.CountAttachments(ctx, resultID)
-			if err != nil {
-				return err
-			}
-			if count == 0 {
-				return apperror.Validation(
-					apperror.FieldError{
-						Field:   "answer_text",
-						Message: "请填写 Agent 回答或上传至少一张截图",
-					},
-				)
-			}
-		}
-		activeTags, err := repository.ActiveIssueTags(ctx, normalized.IssueTagIDs)
+		activeTags, err := validateActiveTags(ctx, repository, normalized.IssueTagIDs)
 		if err != nil {
 			return err
-		}
-		if len(activeTags) != len(normalized.IssueTagIDs) {
-			return apperror.Validation(
-				apperror.FieldError{Field: "issue_tag_ids", Message: "问题标签不存在或已停用"},
-			)
 		}
 		existing, findErr := repository.FindByResult(ctx, resultID, true)
 		restored := false
@@ -114,7 +100,7 @@ func (service Service) MarkEvaluation(
 				return apperror.Conflict("BADCASE_ALREADY_EXISTS", "该用例结果已经标记为 Badcase")
 			}
 			if err := repository.Restore(
-				ctx, existing, actorID, normalized.Title, normalized.Description,
+				ctx, existing, actorID, title, normalized.Description,
 				answer, result.AgentVersion, result.Environment,
 			); err != nil {
 				return err
@@ -126,7 +112,7 @@ func (service Service) MarkEvaluation(
 			item := Badcase{
 				ID: id.MustNew(), SourceType: "evaluation", TargetID: result.TargetID,
 				ScenarioID: result.ScenarioID, AssignmentStatus: result.AssignmentStatus,
-				CaseResultID: &resultID, Title: normalized.Title,
+				CaseResultID: &resultID, Title: title,
 				Description: normalized.Description, AgentResponseText: answer,
 				AgentVersion: &agentVersion, Environment: result.Environment,
 				OccurredAt: time.Now().UTC(), Status: "pending",
@@ -192,22 +178,11 @@ func (service Service) LoadMarkResult(ctx context.Context, badcaseID id.UUID) (M
 }
 
 func validateMarkInput(input MarkInput) (MarkInput, error) {
-	input.Title = strings.TrimSpace(input.Title)
 	input.Description = clean(input.Description)
 	fields := []apperror.FieldError{}
-	if input.Title == "" || len([]rune(input.Title)) > 200 {
-		fields = append(fields, apperror.FieldError{
-			Field: "title", Message: "Badcase 标题不能为空且最多 200 个字符",
-		})
-	}
 	if input.Description == nil {
 		fields = append(fields, apperror.FieldError{
 			Field: "description", Message: "请填写问题描述",
-		})
-	}
-	if len(input.IssueTagIDs) == 0 {
-		fields = append(fields, apperror.FieldError{
-			Field: "issue_tag_ids", Message: "请至少选择一个问题标签",
 		})
 	}
 	unique := make(map[id.UUID]bool, len(input.IssueTagIDs))
@@ -228,10 +203,13 @@ func validateMarkInput(input MarkInput) (MarkInput, error) {
 				Field: "result_patch.status", Message: "标记 Badcase 时结果必须为已评",
 			})
 		}
-		if input.ResultPatch.Score != nil &&
-			(*input.ResultPatch.Score < 1 || *input.ResultPatch.Score > 5) {
+		if input.ResultPatch.Score == nil {
 			fields = append(fields, apperror.FieldError{
-				Field: "result_patch.score", Message: "评分只能是 1～5 分或留空",
+				Field: "result_patch.score", Message: "标记 Badcase 时必须选择评分",
+			})
+		} else if *input.ResultPatch.Score < 1 || *input.ResultPatch.Score > 5 {
+			fields = append(fields, apperror.FieldError{
+				Field: "result_patch.score", Message: "评分只能是 1～5 分",
 			})
 		}
 	}
@@ -239,6 +217,15 @@ func validateMarkInput(input MarkInput) (MarkInput, error) {
 		return MarkInput{}, apperror.Validation(fields...)
 	}
 	return input, nil
+}
+
+func problemTitle(description string) string {
+	normalized := strings.Join(strings.Fields(description), " ")
+	runes := []rune(normalized)
+	if len(runes) <= 200 {
+		return normalized
+	}
+	return string(runes[:197]) + "..."
 }
 
 func clean(value *string) *string {

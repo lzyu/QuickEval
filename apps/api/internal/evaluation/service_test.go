@@ -16,12 +16,17 @@ func TestValidateResultInput(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name:  "evaluated answer and optional score",
+			name:  "evaluated accepts optional answer with required score",
 			input: ResultInput{Status: ResultEvaluated, AnswerText: &answer, Score: &score},
 		},
 		{
-			name:  "evaluated evidence is checked against attachments in service",
-			input: ResultInput{Status: ResultEvaluated},
+			name:  "evaluated accepts score without answer",
+			input: ResultInput{Status: ResultEvaluated, Score: &score},
+		},
+		{
+			name:      "evaluated requires score",
+			input:     ResultInput{Status: ResultEvaluated, AnswerText: &answer},
+			wantError: true,
 		},
 		{
 			name:      "skipped requires reason",

@@ -34,6 +34,11 @@ const evidence = computed(() => [
   ...(item.value?.original_attachments || []),
   ...(item.value?.attachments || []),
 ])
+const tagSelectionChanged = computed(() => {
+  const saved = (item.value?.issue_tags || []).map((tag) => tag.id).sort().join(',')
+  const selected = [...selectedTagIDs.value].sort().join(',')
+  return saved !== selected
+})
 
 async function load() {
   loading.value = true
@@ -107,7 +112,7 @@ async function addNote() {
 }
 
 async function updateTags() {
-  if (!item.value || selectedTagIDs.value.length === 0) return
+  if (!item.value || !tagSelectionChanged.value) return
   commanding.value = true
   try {
     await apiClient.put(`/api/v1/badcases/${item.value.id}/issue-tags`, {
@@ -433,7 +438,13 @@ onMounted(load)
                 </div>
               </el-form-item>
               <el-form-item label="问题标签">
-                <el-select v-model="selectedTagIDs" multiple :disabled="!can('update_tags')">
+                <el-select
+                  v-model="selectedTagIDs"
+                  multiple
+                  clearable
+                  placeholder="未分类"
+                  :disabled="!can('update_tags')"
+                >
                   <el-option
                     v-for="tag in item.candidate_issue_tags"
                     :key="tag.id"
@@ -443,7 +454,7 @@ onMounted(load)
                 </el-select>
                 <el-button
                   class="full-control-button"
-                  :disabled="!can('update_tags') || selectedTagIDs.length === 0"
+                  :disabled="!can('update_tags') || !tagSelectionChanged"
                   @click="updateTags"
                 >
                   保存标签

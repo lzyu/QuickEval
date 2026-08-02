@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleCheck, Clock, CloseBold, Plus, Search } from '@element-plus/icons-vue'
+import { ArrowDown, CircleCheck, Clock, CloseBold, Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -119,6 +119,10 @@ function statusLabel(status: RunStatus) {
   return { in_progress: '进行中', completed: '已完成', voided: '已作废' }[status]
 }
 
+function formatTime(value: string) {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+}
+
 function resetFilters() {
   Object.assign(filters, { keyword: '', status: '', environment: '' })
   load()
@@ -144,8 +148,8 @@ onMounted(load)
       </article>
     </div>
 
-    <el-card shadow="never">
-      <div class="content-primary-actions">
+    <el-card class="evaluation-list-card" shadow="never">
+      <div class="evaluation-list-toolbar">
         <el-button type="primary" :icon="Plus" @click="router.push('/datasets')">开始新评测</el-button>
       </div>
       <div class="run-filter-bar">
@@ -168,10 +172,16 @@ onMounted(load)
           <el-option label="生产" value="production" />
           <el-option label="其他" value="other" />
         </el-select>
-        <el-button @click="load">查询</el-button>
+        <div
+          class="filter-actions evaluation-filter-actions"
+          :class="{ 'has-reset': hasFilters }"
+        >
+          <el-button type="primary" @click="load">查询</el-button>
+          <el-button v-if="hasFilters" @click="resetFilters">重置</el-button>
+        </div>
       </div>
 
-      <el-table v-loading="loading" :data="runs">
+      <el-table v-loading="loading" :data="runs" row-key="id">
         <template #empty>
           <ActionableEmptyState
             :title="hasFilters ? '没有符合条件的评测记录' : '还没有人工评测记录'"
@@ -183,7 +193,9 @@ onMounted(load)
         </template>
         <el-table-column label="评测集" min-width="220">
           <template #default="{ row }">
-            <a class="dataset-name" @click="openRun(row)">{{ row.dataset_name }}</a>
+            <button class="table-primary-link" @click="openRun(row)">
+              {{ row.dataset_name }}
+            </button>
             <div class="table-secondary">{{ row.evaluation_target_name }}</div>
           </template>
         </el-table-column>
@@ -196,12 +208,19 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="评测进度" min-width="190">
           <template #default="{ row }">
-            <span>{{ row.progress.evaluated_count + row.progress.skipped_count }}/{{ row.progress.total_count }}</span>
-            <el-progress
-              :percentage="Math.round(row.progress.completion_rate * 100)"
-              :show-text="false"
-              :stroke-width="7"
-            />
+            <div class="run-progress-cell">
+              <div>
+                <span>
+                  {{ row.progress.evaluated_count + row.progress.skipped_count }}/{{ row.progress.total_count }}
+                </span>
+                <small>{{ Math.round(row.progress.completion_rate * 100) }}%</small>
+              </div>
+              <el-progress
+                :percentage="Math.round(row.progress.completion_rate * 100)"
+                :show-text="false"
+                :stroke-width="6"
+              />
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -214,41 +233,40 @@ onMounted(load)
           </template>
         </el-table-column>
         <el-table-column label="更新时间" min-width="170">
-          <template #default="{ row }">{{ new Date(row.updated_at).toLocaleString() }}</template>
+          <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="190" align="right">
+        <el-table-column label="操作" width="220" align="right">
           <template #default="{ row }">
-            <el-button
-              v-if="row.status === 'in_progress'"
-              type="primary"
-              @click="openRun(row)"
-            >
-              继续评测
-            </el-button>
-            <el-button v-else link type="primary" @click="openRun(row)">查看结果</el-button>
-            <el-dropdown>
-              <el-button link>更多</el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item v-if="row.status === 'completed'" @click="reopen(row)">
-                    重开评测
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    v-if="row.status === 'in_progress' && !row.first_completed_at"
-                    @click="deleteRun(row)"
-                  >
-                    删除
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    v-if="row.status !== 'voided'"
-                    class="danger-menu-item"
-                    @click="voidRun(row)"
-                  >
-                    作废
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <div class="evaluation-row-actions">
+              <el-button
+                :type="row.status === 'in_progress' ? 'primary' : 'default'"
+                :plain="row.status !== 'in_progress'"
+                @click="openRun(row)"
+              >
+                {{ row.status === 'in_progress' ? '继续评测' : '查看结果' }}
+              </el-button>
+              <el-dropdown v-if="row.status !== 'voided'" trigger="click">
+                <el-button class="evaluation-more-action" aria-label="更多操作">
+                  更多<el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="row.status === 'completed'" @click="reopen(row)">
+                      重开评测
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="row.status === 'in_progress' && !row.first_completed_at"
+                      @click="deleteRun(row)"
+                    >
+                      删除
+                    </el-dropdown-item>
+                    <el-dropdown-item class="danger-menu-item" @click="voidRun(row)">
+                      作废
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>

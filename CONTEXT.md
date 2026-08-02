@@ -53,12 +53,20 @@ _Avoid_: Missing result, incomplete result
 ## Quality Issues
 
 **Badcase**:
-A traceable record of an observed Agent quality problem and the sole source of truth for whether a Case Result is a Badcase. It originates either from a Case Result or from real business usage, may be classified into a Scenario later, and can be invalidated independently of its processing status.
+A traceable record of an observed Agent quality problem and the sole source of truth for whether a Case Result is a Badcase. Its Concrete Problem is the primary business fact; it may originate from a Case Result or real business usage, be classified into a Scenario later, and be invalidated independently of its processing status.
 _Avoid_: Bug, failure record
 
+**Concrete Problem（具体问题）**:
+A concrete account of the observed behavior, judgment basis, or location clue. It is required when a Case Result is marked as a Badcase.
+_Avoid_: Badcase title, comment
+
+**Badcase Title（Badcase 标题）**:
+A concise display summary used to identify a Badcase in lists and links. It is entered for a standalone business registration and may be derived from the Concrete Problem for an evaluation-origin Badcase.
+_Avoid_: Concrete problem
+
 **Issue Tag（问题标签）**:
-A globally managed classification that can be attached to multiple Badcases. Disabled tags remain attached to historical Badcases, while renaming a tag intentionally updates the current classification shown across history.
-_Avoid_: Case tag, category
+An optional, globally managed classification for aggregation and trend analysis across Badcases. A Badcase may remain unclassified or be classified later; disabled tags remain attached to history, while renaming intentionally updates the current classification shown across history.
+_Avoid_: Case tag, required problem type
 
 **Badcase Activity（处理记录）**:
 An immutable timeline entry recording a Badcase status change, assignee change, or processing note together with its actor and time.
