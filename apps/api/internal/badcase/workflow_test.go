@@ -33,10 +33,10 @@ func TestValidTransition(t *testing.T) {
 }
 
 func TestValidateBusinessInput(t *testing.T) {
+	scenarioID := id.MustNew()
 	input := BusinessInput{
-		ScenarioID: id.MustNew(), Title: "预算约束失效",
+		TargetID: id.MustNew(), ScenarioID: &scenarioID, Title: "预算约束失效",
 		Environment: "production", OccurredAt: time.Now().UTC(),
-		IssueTagIDs: []id.UUID{id.MustNew()},
 	}
 	got, err := validateBusinessInput(input, true)
 	if err != nil {
@@ -49,8 +49,10 @@ func TestValidateBusinessInput(t *testing.T) {
 
 func TestValidateBusinessInputNormalizesBlankDescription(t *testing.T) {
 	description := "   "
+	scenarioID := id.MustNew()
 	input := BusinessInput{
-		ScenarioID: id.MustNew(), Title: "预算约束失效", Description: &description,
+		TargetID: id.MustNew(), ScenarioID: &scenarioID,
+		Title: "预算约束失效", Description: &description,
 		Environment: "production", OccurredAt: time.Now().UTC(),
 		IssueTagIDs: []id.UUID{id.MustNew()},
 	}

@@ -75,15 +75,15 @@ test "$(request POST /api/v1/scenarios "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/scenario-input.json" "${smoke_dir}/scenario.json")" = "201"
 scenario_id="$(jq -er '.data.id' "${smoke_dir}/scenario.json")"
 
-jq -n --arg id "${scenario_id}" --arg name "M3 基础评测集 ${timestamp}" \
-  '{scenario_id: $id, name: $name, description: "M3 smoke"}' > "${smoke_dir}/dataset-input.json"
+jq -n --arg id "${target_id}" --arg name "M3 基础评测集 ${timestamp}" \
+  '{evaluation_target_id: $id, name: $name, description: "M3 smoke"}' > "${smoke_dir}/dataset-input.json"
 test "$(request POST /api/v1/datasets "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/dataset-input.json" "${smoke_dir}/dataset.json")" = "201"
 draft_id="$(jq -er '.data.draft.id' "${smoke_dir}/dataset.json")"
 
 for position in 1 2; do
-  jq -n --arg name "用例 ${position}" --arg prompt "请回答采购问题 ${position}" \
-    '{name: $name, user_prompt: $prompt, precondition: null, expected_result: null,
+  jq -n --arg scenario "${scenario_id}" --arg name "用例 ${position}" --arg prompt "请回答采购问题 ${position}" \
+    '{scenario_id: $scenario, name: $name, user_prompt: $prompt, precondition: null, expected_result: null,
       judging_guide: "回答准确", is_enabled: true, tag_ids: []}' \
     > "${smoke_dir}/case-${position}-input.json"
   test "$(request POST "/api/v1/dataset-versions/${draft_id}/cases" \
@@ -136,11 +136,17 @@ test "$(request GET "/api/v1/pages/evaluation-runs/${run_id}/workbench?page_size
 first_result_id="$(jq -er '.data.results.items[0].id' "${smoke_dir}/workbench.json")"
 second_result_id="$(jq -er '.data.results.items[1].id' "${smoke_dir}/workbench.json")"
 
-jq -n '{status: "evaluated", answer_text: null, score: 4, comment: null,
-  skip_reason: null, expected_lock_version: 0}' > "${smoke_dir}/missing-answer-input.json"
+jq -n '{status: "evaluated", answer_text: null, score: null, comment: null,
+  skip_reason: null, expected_lock_version: 0}' > "${smoke_dir}/missing-score-input.json"
 test "$(request PATCH "/api/v1/case-results/${first_result_id}" \
-  "${member_a_cookie}" "${member_a_csrf}" "${smoke_dir}/missing-answer-input.json" \
-  "${smoke_dir}/missing-answer.json")" = "422"
+  "${member_a_cookie}" "${member_a_csrf}" "${smoke_dir}/missing-score-input.json" \
+  "${smoke_dir}/missing-score.json")" = "422"
+
+jq -n '{status: "evaluated", answer_text: null, score: 2, comment: null,
+  skip_reason: null, expected_lock_version: 0}' > "${smoke_dir}/low-score-input.json"
+test "$(request PATCH "/api/v1/case-results/${first_result_id}" \
+  "${member_a_cookie}" "${member_a_csrf}" "${smoke_dir}/low-score-input.json" \
+  "${smoke_dir}/low-score.json")" = "422"
 
 jq -n '{status: "evaluated", answer_text: "Agent 实际回答", score: 4,
   comment: "回答基本正确", skip_reason: null, expected_lock_version: 0}' \

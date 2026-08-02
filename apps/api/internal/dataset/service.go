@@ -17,7 +17,7 @@ type Service struct {
 func NewService(repository Repository) Service { return Service{repository: repository} }
 
 type DatasetInput struct {
-	ScenarioID          id.UUID
+	TargetID            id.UUID
 	Name                string
 	Description         *string
 	ExpectedLockVersion uint32
@@ -39,15 +39,15 @@ func (service Service) CreateDataset(
 	}
 	var result CreateResult
 	err = service.repository.Transaction(ctx, func(repository Repository) error {
-		scenario, err := repository.GetScenarioInfo(ctx, input.ScenarioID)
+		target, err := repository.GetTargetInfo(ctx, input.TargetID)
 		if err != nil {
 			return mapNotFound(err)
 		}
-		if scenario.Status != "active" {
-			return apperror.Conflict("SCENARIO_DISABLED", "停用场景不能创建评测集")
+		if err := validateTargetAvailability(target); err != nil {
+			return err
 		}
 		result.Dataset = Dataset{
-			ID: id.MustNew(), ScenarioID: input.ScenarioID, Name: name, Description: description,
+			ID: id.MustNew(), TargetID: input.TargetID, Name: name, Description: description,
 			Status: DatasetActive, CreatedBy: actorID, UpdatedBy: actorID,
 		}
 		if err := repository.CreateDataset(ctx, &result.Dataset); err != nil {
@@ -83,21 +83,21 @@ func (service Service) UpdateDataset(
 	if err != nil {
 		return Dataset{}, Dataset{}, err
 	}
-	scenario, err := service.repository.GetScenarioInfo(ctx, input.ScenarioID)
+	target, err := service.repository.GetTargetInfo(ctx, input.TargetID)
 	if err != nil {
 		return Dataset{}, Dataset{}, mapNotFound(err)
 	}
-	if scenario.Status != "active" {
-		return Dataset{}, Dataset{}, apperror.Conflict("SCENARIO_DISABLED", "停用场景不能接收评测集")
+	if err := validateTargetAvailability(target); err != nil {
+		return Dataset{}, Dataset{}, err
 	}
-	if before.ScenarioID != input.ScenarioID && before.PublishedVersionCount > 0 {
+	if before.TargetID != input.TargetID && (before.PublishedVersionCount > 0 || before.DraftCaseCount > 0) {
 		return Dataset{}, Dataset{}, apperror.Conflict(
-			"DATASET_SCENARIO_LOCKED",
-			"评测集已有发布版本，不能更换所属场景",
+			"DATASET_TARGET_LOCKED",
+			"评测集已有用例或发布版本，不能更换评测对象",
 		)
 	}
 	if err := service.repository.UpdateDataset(
-		ctx, datasetID, input.ScenarioID, actorID, name, description, input.ExpectedLockVersion,
+		ctx, datasetID, input.TargetID, actorID, name, description, input.ExpectedLockVersion,
 	); err != nil {
 		return Dataset{}, Dataset{}, mapWriteError(err)
 	}
@@ -160,8 +160,8 @@ func (service Service) CreateDraft(
 		if item.LockVersion != input.ExpectedDatasetLockVersion {
 			return mapWriteError(ErrLockConflict)
 		}
-		if item.Status != DatasetActive {
-			return apperror.Conflict("DATASET_ARCHIVED", "已归档评测集不能创建草稿")
+		if err := validateDatasetAvailability(item); err != nil {
+			return err
 		}
 		count, err := repository.CountDrafts(ctx, datasetID)
 		if err != nil {
@@ -266,8 +266,8 @@ func (service Service) Publish(
 		if err != nil {
 			return err
 		}
-		if dataset.Status != DatasetActive {
-			return apperror.Conflict("DATASET_ARCHIVED", "已归档评测集不能发布版本")
+		if err := validateDatasetAvailability(dataset); err != nil {
+			return err
 		}
 		enabled, err := repository.CountEnabledCases(ctx, versionID)
 		if err != nil {
@@ -312,6 +312,7 @@ func (service Service) ArchiveVersion(
 }
 
 type CaseInput struct {
+	ScenarioID          *id.UUID
 	Name                *string
 	UserPrompt          string
 	Precondition        *string
@@ -343,7 +344,10 @@ func (service Service) CreateCase(
 		if err != nil {
 			return err
 		}
-		tags, err := service.caseTagRecords(ctx, repository, dataset.ScenarioID, id.UUID{}, actorID, normalized.TagIDs)
+		if err := service.validateCaseScenario(ctx, repository, dataset.TargetID, normalized.ScenarioID); err != nil {
+			return err
+		}
+		tags, err := service.caseTagRecords(ctx, repository, normalized.ScenarioID, id.UUID{}, actorID, normalized.TagIDs)
 		if err != nil {
 			return err
 		}
@@ -353,6 +357,7 @@ func (service Service) CreateCase(
 		}
 		item = VersionCase{
 			ID: id.MustNew(), DatasetVersionID: versionID, CaseKey: id.MustNew(),
+			ScenarioID: normalized.ScenarioID, AssignmentStatus: assignmentStatus(normalized.ScenarioID),
 			Name: normalized.Name, UserPrompt: normalized.UserPrompt, Precondition: normalized.Precondition,
 			ExpectedResult: normalized.ExpectedResult, JudgingGuide: normalized.JudgingGuide,
 			SortOrder: sortOrder, IsEnabled: normalized.IsEnabled, CreatedBy: actorID, UpdatedBy: actorID,
@@ -390,11 +395,16 @@ func (service Service) UpdateCase(
 		if err != nil {
 			return err
 		}
-		tags, err := service.caseTagRecords(ctx, repository, dataset.ScenarioID, caseID, actorID, normalized.TagIDs)
+		if err := service.validateCaseScenario(ctx, repository, dataset.TargetID, normalized.ScenarioID); err != nil {
+			return err
+		}
+		tags, err := service.caseTagRecords(ctx, repository, normalized.ScenarioID, caseID, actorID, normalized.TagIDs)
 		if err != nil {
 			return err
 		}
 		updated := before
+		updated.ScenarioID = normalized.ScenarioID
+		updated.AssignmentStatus = assignmentStatus(normalized.ScenarioID)
 		updated.Name = normalized.Name
 		updated.UserPrompt = normalized.UserPrompt
 		updated.Precondition = normalized.Precondition
@@ -480,11 +490,15 @@ func (service Service) AppendCases(
 			}
 			item := VersionCase{
 				ID: id.MustNew(), DatasetVersionID: versionID, CaseKey: id.MustNew(),
+				ScenarioID: normalized.ScenarioID, AssignmentStatus: assignmentStatus(normalized.ScenarioID),
 				Name: normalized.Name, UserPrompt: normalized.UserPrompt, Precondition: normalized.Precondition,
 				ExpectedResult: normalized.ExpectedResult, JudgingGuide: normalized.JudgingGuide,
 				SortOrder: sortOrder, IsEnabled: normalized.IsEnabled, CreatedBy: actorID, UpdatedBy: actorID,
 			}
-			tags, err := service.caseTagRecords(ctx, repository, dataset.ScenarioID, item.ID, actorID, normalized.TagIDs)
+			if err := service.validateCaseScenario(ctx, repository, dataset.TargetID, normalized.ScenarioID); err != nil {
+				return err
+			}
+			tags, err := service.caseTagRecords(ctx, repository, normalized.ScenarioID, item.ID, actorID, normalized.TagIDs)
 			if err != nil {
 				return err
 			}
@@ -502,7 +516,8 @@ func (service Service) AppendCases(
 func (service Service) caseTagRecords(
 	ctx context.Context,
 	repository Repository,
-	scenarioID, caseID, actorID id.UUID,
+	scenarioID *id.UUID,
+	caseID, actorID id.UUID,
 	tagIDs []id.UUID,
 ) ([]VersionCaseTag, error) {
 	names, err := repository.FindActiveTags(ctx, scenarioID, tagIDs)
@@ -524,6 +539,39 @@ func (service Service) caseTagRecords(
 	return tags, nil
 }
 
+func (service Service) validateCaseScenario(
+	ctx context.Context,
+	repository Repository,
+	targetID id.UUID,
+	scenarioID *id.UUID,
+) error {
+	if scenarioID == nil {
+		return nil
+	}
+	scenario, err := repository.GetScenarioInfo(ctx, *scenarioID)
+	if err != nil {
+		return mapNotFound(err)
+	}
+	if scenario.TargetID != targetID {
+		return apperror.Validation(
+			apperror.FieldError{Field: "scenario_id", Message: "场景不属于当前评测对象"},
+		)
+	}
+	if scenario.Status != "active" {
+		return apperror.Validation(
+			apperror.FieldError{Field: "scenario_id", Message: "停用场景不能用于新的用例归类"},
+		)
+	}
+	return nil
+}
+
+func assignmentStatus(scenarioID *id.UUID) string {
+	if scenarioID == nil {
+		return "unclassified"
+	}
+	return "confirmed"
+}
+
 func requireDraft(
 	ctx context.Context,
 	repository Repository,
@@ -540,10 +588,31 @@ func requireDraft(
 	if err != nil {
 		return Version{}, Dataset{}, err
 	}
-	if dataset.Status != DatasetActive {
-		return Version{}, Dataset{}, apperror.Conflict("DATASET_ARCHIVED", "已归档评测集内容不可修改")
+	if err := validateDatasetAvailability(dataset); err != nil {
+		return Version{}, Dataset{}, err
 	}
 	return version, dataset, nil
+}
+
+func validateTargetAvailability(item TargetInfo) error {
+	if item.Status != "active" {
+		return apperror.Conflict(
+			"EVALUATION_TARGET_DISABLED", "评测对象已停用，不能继续创建或调整评测集",
+		)
+	}
+	return nil
+}
+
+func validateDatasetAvailability(item Dataset) error {
+	if item.TargetStatus != "active" {
+		return apperror.Conflict(
+			"EVALUATION_TARGET_DISABLED", "评测对象已停用，评测集只保留历史查看",
+		)
+	}
+	if item.Status != DatasetActive {
+		return apperror.Conflict("DATASET_ARCHIVED", "已归档评测集内容不可修改")
+	}
+	return nil
 }
 
 func newDraft(datasetID id.UUID, baseVersionID *id.UUID, actorID id.UUID) Version {

@@ -73,10 +73,9 @@ export interface AuditLog {
 
 export interface Dataset {
   id: string
-  scenario_id: string
-  scenario_name: string
   evaluation_target_id: string
   evaluation_target_name: string
+  evaluation_target_status: 'active' | 'disabled'
   name: string
   description: string | null
   status: 'active' | 'archived'
@@ -114,6 +113,10 @@ export interface VersionCase {
   id: string
   dataset_version_id: string
   case_key: string
+  scenario_id: string | null
+  scenario_name: string | null
+  scenario_status: 'active' | 'disabled' | null
+  scenario_assignment_status: 'unclassified' | 'suggested' | 'confirmed'
   name: string | null
   user_prompt: string
   precondition: string | null
@@ -169,8 +172,6 @@ export interface EvaluationRun {
   dataset_id: string
   dataset_name: string
   version_no: number
-  scenario_id: string
-  scenario_name: string
   evaluation_target_id: string
   evaluation_target_name: string
   evaluator_id: string
@@ -195,6 +196,9 @@ export interface CaseResult {
   evaluation_run_id: string
   version_case_id: string
   case_key: string
+  scenario_id: string | null
+  scenario_name: string | null
+  scenario_assignment_status: 'unclassified' | 'suggested' | 'confirmed'
   name: string | null
   user_prompt: string
   precondition: string | null
@@ -244,8 +248,9 @@ export interface BadcaseSummary {
 export interface Badcase {
   id: string
   source_type: 'evaluation' | 'business'
-  scenario_id: string
-  scenario_name: string
+  scenario_id: string | null
+  scenario_name: string | null
+  scenario_assignment_status: 'unclassified' | 'suggested' | 'confirmed'
   evaluation_target_id: string
   evaluation_target_name: string
   title: string
@@ -315,7 +320,7 @@ export interface HomePageData {
     id: string
     dataset_name: string
     version_no: number
-    scenario_name: string
+    evaluation_target_name: string
     agent_version: string
     environment: string
     completed_count: number
@@ -334,7 +339,6 @@ export interface HomePageData {
     dataset_id: string
     version_id: string
     dataset_name: string
-    scenario_name: string
     evaluation_target_name: string
     version_no: number
     case_count: number

@@ -16,12 +16,17 @@ func TestValidateResultInput(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name:  "evaluated answer and optional score",
+			name:  "evaluated accepts optional answer with required score",
 			input: ResultInput{Status: ResultEvaluated, AnswerText: &answer, Score: &score},
 		},
 		{
-			name:  "evaluated evidence is checked against attachments in service",
-			input: ResultInput{Status: ResultEvaluated},
+			name:  "evaluated accepts score without answer",
+			input: ResultInput{Status: ResultEvaluated, Score: &score},
+		},
+		{
+			name:      "evaluated requires score",
+			input:     ResultInput{Status: ResultEvaluated, AnswerText: &answer},
+			wantError: true,
 		},
 		{
 			name:      "skipped requires reason",
@@ -81,6 +86,45 @@ func TestValidateRunInput(t *testing.T) {
 		Environment:  "local",
 	}); err == nil {
 		t.Fatal("unexpected environment should be rejected")
+	}
+}
+
+func TestValidateVersionAvailability(t *testing.T) {
+	tests := []struct {
+		name     string
+		context  VersionContext
+		wantCode string
+	}{
+		{
+			name: "active target and dataset",
+			context: VersionContext{
+				Status: "published", DatasetStatus: "active",
+				TargetStatus: "active", EnabledCount: 1,
+			},
+		},
+		{
+			name: "disabled target",
+			context: VersionContext{
+				Status: "published", DatasetStatus: "active",
+				TargetStatus: "disabled", EnabledCount: 1,
+			},
+			wantCode: "VERSION_NOT_EVALUATABLE",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateVersionAvailability(test.context)
+			if test.wantCode == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || apperror.As(err).Code != test.wantCode {
+				t.Fatalf("unexpected availability error: %v", err)
+			}
+		})
 	}
 }
 

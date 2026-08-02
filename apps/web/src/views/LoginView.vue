@@ -36,7 +36,6 @@ async function submit() {
         <span>QuickEval</span>
       </div>
       <div>
-        <p class="eyebrow light">QUICK, FOCUSED, TRACEABLE</p>
         <h1>让每一次 Agent 评测<br />都更快、更清晰。</h1>
         <p>面向云市场智慧助手与智能采购 Agent 的轻量黑盒评测平台。</p>
       </div>

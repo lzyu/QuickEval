@@ -72,10 +72,6 @@ func (service Service) PreviewImport(
 	if version.Status != VersionDraft {
 		return PreviewResult{}, apperror.Conflict("VERSION_IMMUTABLE", "只能向草稿版本导入用例")
 	}
-	dataset, err := service.repository.GetDataset(ctx, version.DatasetID)
-	if err != nil {
-		return PreviewResult{}, err
-	}
 	rows, err := parseCaseCSV(reader)
 	if err != nil {
 		return PreviewResult{}, err
@@ -91,7 +87,7 @@ func (service Service) PreviewImport(
 			}
 		}
 	}
-	tagIDs, err := service.repository.FindActiveTagsByNames(ctx, dataset.ScenarioID, allNames)
+	tagIDs, err := service.repository.FindActiveTagsByNames(ctx, nil, allNames)
 	if err != nil {
 		return PreviewResult{}, err
 	}
@@ -102,7 +98,7 @@ func (service Service) PreviewImport(
 			tagID, exists := tagIDs[name]
 			if !exists {
 				rows[index].Errors = append(rows[index].Errors, CSVFieldError{
-					Field: "tags", Message: "标签“" + name + "”不存在、已停用或不适用于当前场景",
+					Field: "tags", Message: "全局标签“" + name + "”不存在或已停用",
 				})
 				continue
 			}

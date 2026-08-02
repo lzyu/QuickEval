@@ -19,20 +19,15 @@ onMounted(load)
 
 <template>
   <section class="management-page">
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">TRACEABILITY</p>
-        <h1>审计日志</h1>
-        <p>查询管理员关键操作、请求编号及变更前后内容。</p>
-      </div>
-    </div>
     <el-card shadow="never">
       <el-form inline class="filter-row" @submit.prevent="load">
         <el-form-item label="动作"><el-input v-model="filters.action" clearable /></el-form-item>
         <el-form-item label="资源类型">
           <el-input v-model="filters.entity_type" clearable />
         </el-form-item>
-        <el-button type="primary" @click="load">查询</el-button>
+        <el-form-item>
+          <el-button type="primary" native-type="submit">查询</el-button>
+        </el-form-item>
       </el-form>
       <el-table :data="items" empty-text="暂无审计记录">
         <el-table-column prop="created_at" label="时间" width="190" />

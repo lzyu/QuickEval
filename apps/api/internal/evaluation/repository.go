@@ -30,6 +30,7 @@ type VersionContext struct {
 	DatasetID     id.UUID
 	Status        string
 	DatasetStatus string
+	TargetStatus  string
 	EnabledCount  int64
 }
 
@@ -41,9 +42,11 @@ func (repository Repository) GetVersionContext(
 	err := repository.db.WithContext(ctx).Table("dataset_versions").
 		Select(`dataset_versions.id, dataset_versions.dataset_id, dataset_versions.status,
 			datasets.status AS dataset_status,
+			evaluation_targets.status AS target_status,
 			(SELECT COUNT(*) FROM version_cases
 			 WHERE dataset_version_id = dataset_versions.id AND is_enabled = TRUE) AS enabled_count`).
 		Joins("JOIN datasets ON datasets.id = dataset_versions.dataset_id").
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = datasets.evaluation_target_id").
 		Where("dataset_versions.id = ?", versionID).Take(&item).Error
 	return item, err
 }
@@ -98,7 +101,11 @@ func (repository Repository) ListRuns(
 		query = query.Where("datasets.id = ?", *filters.DatasetID)
 	}
 	if filters.ScenarioID != nil {
-		query = query.Where("scenarios.id = ?", *filters.ScenarioID)
+		query = query.Where(`EXISTS (
+			SELECT 1 FROM case_results cr
+			JOIN version_cases vc ON vc.id = cr.version_case_id
+			WHERE cr.evaluation_run_id = evaluation_runs.id AND vc.scenario_id = ?
+		)`, *filters.ScenarioID)
 	}
 	if filters.Keyword != "" {
 		value := "%" + filters.Keyword + "%"
@@ -276,16 +283,6 @@ func (repository Repository) GetResult(ctx context.Context, resultID id.UUID) (R
 	return items[0], nil
 }
 
-func (repository Repository) CountResultAttachments(
-	ctx context.Context,
-	resultID id.UUID,
-) (int64, error) {
-	var count int64
-	err := repository.db.WithContext(ctx).Table("attachments").
-		Where("case_result_id = ?", resultID).Count(&count).Error
-	return count, err
-}
-
 func (repository Repository) UpdateResult(
 	ctx context.Context,
 	resultID, actorID id.UUID,
@@ -306,8 +303,7 @@ func (repository Repository) runQuery(db *gorm.DB) *gorm.DB {
 	return db.Table("evaluation_runs").
 		Joins("JOIN dataset_versions ON dataset_versions.id = evaluation_runs.dataset_version_id").
 		Joins("JOIN datasets ON datasets.id = dataset_versions.dataset_id").
-		Joins("JOIN scenarios ON scenarios.id = datasets.scenario_id").
-		Joins("JOIN evaluation_targets ON evaluation_targets.id = scenarios.evaluation_target_id").
+		Joins("JOIN evaluation_targets ON evaluation_targets.id = datasets.evaluation_target_id").
 		Joins("JOIN users ON users.id = evaluation_runs.evaluator_id")
 }
 
@@ -315,7 +311,6 @@ func (repository Repository) runSelect() string {
 	return `evaluation_runs.*,
 		datasets.id AS dataset_id, datasets.name AS dataset_name,
 		dataset_versions.version_no AS version_no,
-		scenarios.id AS scenario_id, scenarios.name AS scenario_name,
 		evaluation_targets.id AS evaluation_target_id,
 		evaluation_targets.name AS evaluation_target_name,
 		users.display_name AS evaluator_name,
@@ -332,13 +327,16 @@ func (repository Repository) runSelect() string {
 
 func (repository Repository) resultQuery(db *gorm.DB) *gorm.DB {
 	return db.Table("case_results").
-		Joins("JOIN version_cases ON version_cases.id = case_results.version_case_id")
+		Joins("JOIN version_cases ON version_cases.id = case_results.version_case_id").
+		Joins("LEFT JOIN scenarios ON scenarios.id = version_cases.scenario_id")
 }
 
 func (repository Repository) resultSelect() string {
 	return `case_results.*, version_cases.case_key, version_cases.name AS case_name,
 		version_cases.user_prompt, version_cases.precondition, version_cases.expected_result,
 		version_cases.judging_guide, version_cases.sort_order,
+		version_cases.scenario_id, version_cases.scenario_assignment_status,
+		scenarios.name AS scenario_name,
 		EXISTS(SELECT 1 FROM badcases
 		 WHERE badcases.case_result_id = case_results.id AND badcases.invalidated_at IS NULL) AS has_badcase`
 }

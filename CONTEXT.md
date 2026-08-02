@@ -9,11 +9,11 @@ A business Agent product whose quality is evaluated, such as the cloud marketpla
 _Avoid_: Agent type, application
 
 **Scenario（评测场景）**:
-A coherent business capability evaluated for exactly one Evaluation Target. It is the required classification boundary for Datasets and Badcases, and its target ownership becomes immutable once historical evaluation or Badcase data exists.
+A target-scoped classification used to organize and analyze Evaluation Cases and Badcases. Scenario coverage may be incomplete, and classification is optional rather than an ownership boundary.
 _Avoid_: Category, project
 
 **Dataset（评测集）**:
-A named, evolving collection of Evaluation Cases within one Scenario. A Dataset is the stable identity across its versions, and its Scenario ownership becomes immutable once a version is published.
+A named, evolving collection of Evaluation Cases for exactly one Evaluation Target. A Dataset may contain unclassified cases and cases classified into multiple Scenarios.
 _Avoid_: Task set, question bank
 
 **Dataset Version（评测集版本）**:
@@ -21,8 +21,12 @@ An immutable published snapshot of a Dataset's Evaluation Cases. A Dataset has a
 _Avoid_: Dataset snapshot, copy
 
 **Evaluation Case（评测用例）**:
-A single user question or task instruction to be exercised against an Agent. It retains its logical identity across Dataset Versions while each version preserves its own content snapshot; reference answers, operating steps, and judging guidance are optional context.
+A single user question or task instruction to be exercised against an Agent. It inherits its Evaluation Target from its Dataset, may be classified into a Scenario later, and retains its logical identity across Dataset Versions.
 _Avoid_: Question, test point
+
+**Scenario Classification（场景归类）**:
+The optional, reviewable assignment of an Evaluation Case or Badcase to a Scenario. Unclassified work remains valid, while automated suggestions are distinct from human-confirmed assignments.
+_Avoid_: Scenario ownership, default scenario
 
 **Case Tag（用例标签）**:
 A classification used to organize and filter Evaluation Cases by the capability being exercised. A Global Case Tag is available in every Scenario, while a Scenario Case Tag is available only in its owning Scenario. It is distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
@@ -49,12 +53,20 @@ _Avoid_: Missing result, incomplete result
 ## Quality Issues
 
 **Badcase**:
-A traceable record of an observed Agent quality problem and the sole source of truth for whether a Case Result is a Badcase. It originates either from a Case Result or from real business usage, always belongs to a Scenario, and can be invalidated independently of its processing status; one Case Result can originate at most one Badcase.
+A traceable record of an observed Agent quality problem and the sole source of truth for whether a Case Result is a Badcase. Its Concrete Problem is the primary business fact; it may originate from a Case Result or real business usage, be classified into a Scenario later, and be invalidated independently of its processing status.
 _Avoid_: Bug, failure record
 
+**Concrete Problem（具体问题）**:
+A concrete account of the observed behavior, judgment basis, or location clue. It is required when a Case Result is marked as a Badcase.
+_Avoid_: Badcase title, comment
+
+**Badcase Title（Badcase 标题）**:
+A concise display summary used to identify a Badcase in lists and links. It is entered for a standalone business registration and may be derived from the Concrete Problem for an evaluation-origin Badcase.
+_Avoid_: Concrete problem
+
 **Issue Tag（问题标签）**:
-A globally managed classification that can be attached to multiple Badcases. Disabled tags remain attached to historical Badcases, while renaming a tag intentionally updates the current classification shown across history.
-_Avoid_: Case tag, category
+An optional, globally managed classification for aggregation and trend analysis across Badcases. A Badcase may remain unclassified or be classified later; disabled tags remain attached to history, while renaming intentionally updates the current classification shown across history.
+_Avoid_: Case tag, required problem type
 
 **Badcase Activity（处理记录）**:
 An immutable timeline entry recording a Badcase status change, assignee change, or processing note together with its actor and time.

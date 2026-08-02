@@ -160,15 +160,10 @@ watch([activeTab, tagScope, selectedScenario], ([tab]) => {
 
 <template>
   <section class="management-page">
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">CATALOG</p>
-        <h1>基础目录</h1>
-        <p>维护评测对象、场景及场景内用例标签。</p>
-      </div>
-      <el-button type="primary" @click="openCreate">新建目录项</el-button>
-    </div>
     <el-card shadow="never">
+      <div class="content-primary-actions">
+        <el-button type="primary" @click="openCreate">新建目录项</el-button>
+      </div>
       <el-tabs v-model="activeTab">
         <el-tab-pane label="评测对象" name="target" />
         <el-tab-pane label="评测场景" name="scenario" />

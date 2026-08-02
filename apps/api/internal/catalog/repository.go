@@ -159,7 +159,7 @@ func (repository Repository) SetScenarioStatus(
 func (repository Repository) ScenarioHasHistory(ctx context.Context, scenarioID id.UUID) (bool, error) {
 	var count int64
 	err := repository.db.WithContext(ctx).Raw(
-		"SELECT (SELECT COUNT(*) FROM datasets WHERE scenario_id = ?) + "+
+		"SELECT (SELECT COUNT(*) FROM version_cases WHERE scenario_id = ?) + "+
 			"(SELECT COUNT(*) FROM badcases WHERE scenario_id = ?)",
 		scenarioID,
 		scenarioID,

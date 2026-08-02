@@ -13,6 +13,7 @@ import type {
   Scenario,
 } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -22,21 +23,56 @@ const datasets = ref<Dataset[]>([])
 const targets = ref<CatalogItem[]>([])
 const scenarios = ref<Scenario[]>([])
 const createDialog = ref(false)
+const includeDisabledCatalog = ref(false)
 const filters = reactive({
   evaluation_target_id: '',
   scenario_id: String(route.query.scenario_id || ''),
   status: '',
   keyword: '',
 })
-const form = reactive({ scenario_id: '', name: '', description: '' })
+const form = reactive({ evaluation_target_id: '', name: '', description: '' })
 
+const activeTargetIds = computed(
+  () => new Set(targets.value.filter((item) => item.status === 'active').map((item) => item.id)),
+)
+const selectableTargets = computed(() =>
+  targets.value.filter((item) => item.status === 'active'),
+)
+const selectableScenarios = computed(() =>
+  scenarios.value.filter(
+    (item) => item.status === 'active' && activeTargetIds.value.has(item.evaluation_target_id),
+  ),
+)
+const catalogTargets = computed(() =>
+  includeDisabledCatalog.value ? targets.value : selectableTargets.value,
+)
+const catalogScenarios = computed(() =>
+  includeDisabledCatalog.value ? scenarios.value : selectableScenarios.value,
+)
 const visibleScenarios = computed(() =>
   filters.evaluation_target_id
-    ? scenarios.value.filter(
+    ? catalogScenarios.value.filter(
         (item) => item.evaluation_target_id === filters.evaluation_target_id,
       )
-    : scenarios.value,
+    : catalogScenarios.value,
 )
+const visibleDatasets = computed(() =>
+  includeDisabledCatalog.value
+    ? datasets.value
+    : datasets.value.filter((item) => datasetOwnershipActive(item)),
+)
+const hasFilters = computed(() => Boolean(
+  filters.evaluation_target_id || filters.scenario_id || filters.status || filters.keyword ||
+  includeDisabledCatalog.value,
+))
+
+function scenarioAvailable(item: Scenario) {
+  return item.status === 'active' && activeTargetIds.value.has(item.evaluation_target_id)
+}
+
+function datasetOwnershipActive(item: Dataset) {
+  return item.evaluation_target_status !== 'disabled'
+}
 
 async function loadCatalog() {
   const [targetResponse, scenarioResponse] = await Promise.all([
@@ -47,6 +83,12 @@ async function loadCatalog() {
   ])
   targets.value = targetResponse.data.data.items
   scenarios.value = scenarioResponse.data.data.items
+  if (
+    filters.scenario_id &&
+    !selectableScenarios.value.some((item) => item.id === filters.scenario_id)
+  ) {
+    filters.scenario_id = ''
+  }
 }
 
 async function load() {
@@ -65,11 +107,20 @@ async function load() {
 
 function openCreate() {
   Object.assign(form, {
-    scenario_id: filters.scenario_id || visibleScenarios.value[0]?.id || '',
+    evaluation_target_id:
+      selectableTargets.value.find((item) => item.id === filters.evaluation_target_id)?.id ||
+      selectableTargets.value[0]?.id ||
+      '',
     name: '',
     description: '',
   })
   createDialog.value = true
+}
+
+function resetFilters() {
+  Object.assign(filters, { evaluation_target_id: '', scenario_id: '', status: '', keyword: '' })
+  includeDisabledCatalog.value = false
+  load()
 }
 
 async function createDataset() {
@@ -77,7 +128,7 @@ async function createDataset() {
     const response = await apiClient.post<
       ResponseEnvelope<{ dataset: Dataset; draft: { id: string } }>
     >('/api/v1/datasets', {
-      scenario_id: form.scenario_id,
+      evaluation_target_id: form.evaluation_target_id,
       name: form.name,
       description: form.description || null,
     })
@@ -101,6 +152,16 @@ watch(
   },
 )
 
+watch(includeDisabledCatalog, (included) => {
+  if (included) return
+  if (!selectableTargets.value.some((item) => item.id === filters.evaluation_target_id)) {
+    filters.evaluation_target_id = ''
+  }
+  if (!selectableScenarios.value.some((item) => item.id === filters.scenario_id)) {
+    filters.scenario_id = ''
+  }
+})
+
 onMounted(async () => {
   await loadCatalog()
   await load()
@@ -109,23 +170,13 @@ onMounted(async () => {
 
 <template>
   <section class="dataset-page">
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">DATASETS</p>
-        <h1>评测集</h1>
-        <p>按评测对象和场景管理稳定、可追溯的用例版本。</p>
-      </div>
-      <el-button v-if="auth.isAdmin" type="primary" :icon="Plus" @click="openCreate">
-        新建评测集
-      </el-button>
-    </div>
-
     <div class="dataset-layout">
       <el-card class="dataset-filter-panel" shadow="never">
         <el-input
           v-model="filters.keyword"
           :prefix-icon="Search"
           placeholder="搜索评测集"
+          aria-label="搜索评测集"
           clearable
           @keyup.enter="load"
         />
@@ -139,17 +190,19 @@ onMounted(async () => {
             全部对象
           </button>
           <button
-            v-for="target in targets"
+            v-for="target in catalogTargets"
             :key="target.id"
             class="filter-choice"
             :class="{ selected: filters.evaluation_target_id === target.id }"
             @click="filters.evaluation_target_id = target.id; load()"
           >
-            <el-icon><Collection /></el-icon>{{ target.name }}
+            <el-icon><Collection /></el-icon>
+            <span>{{ target.name }}</span>
+            <el-tag v-if="target.status === 'disabled'" type="info" size="small">停用</el-tag>
           </button>
         </div>
         <div class="filter-block">
-          <span class="filter-label">评测场景</span>
+          <span class="filter-label">用例场景</span>
           <button
             class="filter-choice"
             :class="{ selected: !filters.scenario_id }"
@@ -165,35 +218,51 @@ onMounted(async () => {
             @click="filters.scenario_id = scenario.id; load()"
           >
             {{ scenario.name }}
+            <el-tag v-if="!scenarioAvailable(scenario)" type="info" size="small">停用</el-tag>
           </button>
         </div>
+        <el-checkbox v-if="auth.isAdmin" v-model="includeDisabledCatalog" class="catalog-history-toggle">
+          包含停用归属
+        </el-checkbox>
       </el-card>
 
       <el-card class="dataset-list-card" shadow="never">
+        <div v-if="auth.isAdmin" class="content-primary-actions">
+          <el-button type="primary" :icon="Plus" @click="openCreate">新建评测集</el-button>
+        </div>
         <div class="dataset-toolbar">
           <div>
-            <strong>{{ datasets.length }} 个评测集</strong>
+            <strong>{{ visibleDatasets.length }} 个评测集</strong>
             <span>草稿与已发布版本始终相互隔离</span>
           </div>
-          <el-select v-if="auth.isAdmin" v-model="filters.status" clearable placeholder="全部状态" @change="load">
+          <el-select v-if="auth.isAdmin" v-model="filters.status" clearable placeholder="全部状态" aria-label="按评测集状态筛选" @change="load">
             <el-option label="活跃" value="active" />
             <el-option label="已归档" value="archived" />
           </el-select>
         </div>
         <el-table
           v-loading="loading"
-          :data="datasets"
-          empty-text="暂无评测集"
+          :data="visibleDatasets"
           row-class-name="clickable-row"
           @row-click="(row: Dataset) => router.push(`/datasets/${row.id}`)"
         >
+          <template #empty>
+            <ActionableEmptyState
+              :title="hasFilters ? '没有符合条件的评测集' : auth.isAdmin ? '还没有评测集' : '暂无可开始的评测集'"
+              :description="hasFilters ? '调整对象、场景或关键词后再试。' : auth.isAdmin ? '先创建评测集，再维护并发布首个用例版本。' : '管理员发布评测集版本后，你可以从这里发起人工评测。'"
+              :action-label="hasFilters ? '清除筛选' : auth.isAdmin ? '创建首个评测集' : ''"
+              compact
+              @action="hasFilters ? resetFilters() : openCreate()"
+            />
+          </template>
           <el-table-column label="评测集名称" min-width="250">
             <template #default="{ row }">
               <a class="dataset-name" @click.stop="router.push(`/datasets/${row.id}`)">
                 {{ row.name }}
               </a>
               <div class="table-secondary">
-                {{ row.evaluation_target_name }} / {{ row.scenario_name }}
+                {{ row.evaluation_target_name }}
+                <el-tag v-if="!datasetOwnershipActive(row)" type="info" size="small">归属已停用</el-tag>
               </div>
               <div class="table-description">{{ row.description || '暂无说明' }}</div>
             </template>
@@ -240,13 +309,13 @@ onMounted(async () => {
 
   <el-dialog v-model="createDialog" title="新建评测集" width="560">
     <el-form label-position="top">
-      <el-form-item label="所属场景" required>
-        <el-select v-model="form.scenario_id" filterable>
+      <el-form-item label="所属评测对象" required>
+        <el-select v-model="form.evaluation_target_id" filterable aria-label="所属评测对象">
           <el-option
-            v-for="scenario in scenarios"
-            :key="scenario.id"
-            :label="`${scenario.evaluation_target_name} / ${scenario.name}`"
-            :value="scenario.id"
+            v-for="target in selectableTargets"
+            :key="target.id"
+            :label="target.name"
+            :value="target.id"
           />
         </el-select>
       </el-form-item>
@@ -266,7 +335,7 @@ onMounted(async () => {
       <el-button @click="createDialog = false">取消</el-button>
       <el-button
         type="primary"
-        :disabled="!form.scenario_id || !form.name.trim()"
+        :disabled="!form.evaluation_target_id || !form.name.trim()"
         @click="createDataset"
       >
         创建并编辑草稿

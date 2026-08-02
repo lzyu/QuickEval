@@ -2209,9 +2209,9 @@ components:
         created_at: { $ref: "#/components/schemas/UTCTimestamp" }
     DatasetRequest:
       type: object
-      required: [scenario_id, name]
+      required: [evaluation_target_id, name]
       properties:
-        scenario_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_target_id: { $ref: "#/components/schemas/UUID" }
         name: { type: string, minLength: 1, maxLength: 200 }
         description: { type: [string, "null"] }
         expected_lock_version: { type: integer, minimum: 0, default: 0 }
@@ -2231,6 +2231,7 @@ components:
       type: object
       required: [user_prompt]
       properties:
+        scenario_id: { type: [string, "null"], format: uuid }
         name: { type: [string, "null"], maxLength: 200 }
         user_prompt: { type: string, minLength: 1 }
         precondition: { type: [string, "null"] }
@@ -2265,10 +2266,9 @@ components:
       type: object
       required:
         - id
-        - scenario_id
-        - scenario_name
         - evaluation_target_id
         - evaluation_target_name
+        - evaluation_target_status
         - name
         - status
         - lock_version
@@ -2278,10 +2278,9 @@ components:
         - draft_case_count
       properties:
         id: { $ref: "#/components/schemas/UUID" }
-        scenario_id: { $ref: "#/components/schemas/UUID" }
-        scenario_name: { type: string }
         evaluation_target_id: { $ref: "#/components/schemas/UUID" }
         evaluation_target_name: { type: string }
+        evaluation_target_status: { type: string, enum: [active, disabled] }
         name: { type: string }
         description: { type: [string, "null"] }
         status: { type: string, enum: [active, archived] }
@@ -2329,6 +2328,10 @@ components:
         - id
         - dataset_version_id
         - case_key
+        - scenario_id
+        - scenario_name
+        - scenario_status
+        - scenario_assignment_status
         - user_prompt
         - sort_order
         - is_enabled
@@ -2340,6 +2343,12 @@ components:
         id: { $ref: "#/components/schemas/UUID" }
         dataset_version_id: { $ref: "#/components/schemas/UUID" }
         case_key: { $ref: "#/components/schemas/UUID" }
+        scenario_id: { type: [string, "null"], format: uuid }
+        scenario_name: { type: [string, "null"] }
+        scenario_status: { type: [string, "null"], enum: [active, disabled, null] }
+        scenario_assignment_status:
+          type: string
+          enum: [unclassified, suggested, confirmed]
         name: { type: [string, "null"] }
         user_prompt: { type: string }
         precondition: { type: [string, "null"] }
@@ -2502,7 +2511,11 @@ components:
       properties:
         status: { type: string, enum: [pending, evaluated, skipped] }
         answer_text: { type: [string, "null"] }
-        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        score:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 5
+          description: 已评状态必填 1～5 分；1～2 分必须通过标记 Badcase 接口同步登记，待评或跳过状态为空。
         comment: { type: [string, "null"] }
         skip_reason: { type: [string, "null"] }
         expected_lock_version: { type: integer, minimum: 0 }
@@ -2541,11 +2554,11 @@ components:
           items: { $ref: "#/components/schemas/CaseTagSnapshot" }
     ResultPatch:
       type: object
-      required: [status]
+      required: [status, score]
       properties:
         status: { type: string, enum: [evaluated] }
         answer_text: { type: [string, "null"] }
-        score: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        score: { type: integer, minimum: 1, maximum: 5 }
         comment: { type: [string, "null"] }
     MarkBadcaseRequest:
       type: object
@@ -2555,22 +2568,22 @@ components:
         result_patch: { $ref: "#/components/schemas/ResultPatch" }
         badcase:
           type: object
-          required: [title, description, issue_tag_ids]
+          required: [description]
           properties:
-            title: { type: string, minLength: 1, maxLength: 200 }
             description: { type: string, minLength: 1 }
             issue_tag_ids:
               type: array
-              minItems: 1
+              uniqueItems: true
               items: { $ref: "#/components/schemas/UUID" }
     BadcaseStatus:
       type: string
       enum: [pending, processing, resolved, deferred]
     CreateBusinessBadcaseRequest:
       type: object
-      required: [scenario_id, title, environment, occurred_at, issue_tag_ids]
+      required: [evaluation_target_id, title, environment, occurred_at]
       properties:
-        scenario_id: { $ref: "#/components/schemas/UUID" }
+        evaluation_target_id: { $ref: "#/components/schemas/UUID" }
+        scenario_id: { type: [string, "null"], format: uuid }
         title: { type: string, minLength: 1, maxLength: 200 }
         description:
           type: [string, "null"]
@@ -2583,13 +2596,13 @@ components:
         session_id: { type: [string, "null"], maxLength: 200 }
         issue_tag_ids:
           type: array
-          minItems: 1
           uniqueItems: true
           items: { $ref: "#/components/schemas/UUID" }
     UpdateBusinessBadcaseRequest:
       type: object
       required: [title, environment, occurred_at, expected_lock_version]
       properties:
+        scenario_id: { type: [string, "null"], format: uuid }
         title: { type: string, minLength: 1, maxLength: 200 }
         description:
           type: [string, "null"]
@@ -2607,7 +2620,6 @@ components:
       properties:
         issue_tag_ids:
           type: array
-          minItems: 1
           uniqueItems: true
           items: { $ref: "#/components/schemas/UUID" }
         expected_lock_version: { type: integer, minimum: 0 }
@@ -2678,8 +2690,6 @@ components:
         - dataset_id
         - dataset_name
         - version_no
-        - scenario_id
-        - scenario_name
         - evaluation_target_id
         - evaluation_target_name
         - evaluator_id
@@ -2697,8 +2707,6 @@ components:
         dataset_id: { $ref: "#/components/schemas/UUID" }
         dataset_name: { type: string }
         version_no: { type: integer, minimum: 1 }
-        scenario_id: { $ref: "#/components/schemas/UUID" }
-        scenario_name: { type: string }
         evaluation_target_id: { $ref: "#/components/schemas/UUID" }
         evaluation_target_name: { type: string }
         evaluator_id: { $ref: "#/components/schemas/UUID" }
@@ -2723,6 +2731,9 @@ components:
         - evaluation_run_id
         - version_case_id
         - case_key
+        - scenario_id
+        - scenario_name
+        - scenario_assignment_status
         - user_prompt
         - sort_order
         - tags
@@ -2738,6 +2749,11 @@ components:
         evaluation_run_id: { $ref: "#/components/schemas/UUID" }
         version_case_id: { $ref: "#/components/schemas/UUID" }
         case_key: { $ref: "#/components/schemas/UUID" }
+        scenario_id: { type: [string, "null"], format: uuid }
+        scenario_name: { type: [string, "null"] }
+        scenario_assignment_status:
+          type: string
+          enum: [unclassified, suggested, confirmed]
         name: { type: [string, "null"] }
         user_prompt: { type: string }
         precondition: { type: [string, "null"] }
@@ -2873,6 +2889,7 @@ components:
         - source_type
         - scenario_id
         - scenario_name
+        - scenario_assignment_status
         - evaluation_target_id
         - evaluation_target_name
         - title
@@ -2891,8 +2908,11 @@ components:
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         source_type: { type: string, enum: [evaluation, business] }
-        scenario_id: { $ref: "#/components/schemas/UUID" }
-        scenario_name: { type: string }
+        scenario_id: { type: [string, "null"], format: uuid }
+        scenario_name: { type: [string, "null"] }
+        scenario_assignment_status:
+          type: string
+          enum: [unclassified, suggested, confirmed]
         evaluation_target_id: { $ref: "#/components/schemas/UUID" }
         evaluation_target_name: { type: string }
         title: { type: string }
@@ -3275,13 +3295,13 @@ components:
     HomeEvaluation:
       type: object
       required:
-        [id, dataset_name, version_no, scenario_name, agent_version, environment,
+        [id, dataset_name, version_no, evaluation_target_name, agent_version, environment,
          completed_count, total_count, updated_at]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         dataset_name: { type: string }
         version_no: { type: integer, minimum: 1 }
-        scenario_name: { type: string }
+        evaluation_target_name: { type: string }
         agent_version: { type: string }
         environment: { $ref: "#/components/schemas/EvaluationEnvironment" }
         completed_count: { type: integer, minimum: 0 }
@@ -3300,13 +3320,12 @@ components:
     HomeDataset:
       type: object
       required:
-        [dataset_id, version_id, dataset_name, scenario_name, evaluation_target_name,
+        [dataset_id, version_id, dataset_name, evaluation_target_name,
          version_no, case_count, published_at]
       properties:
         dataset_id: { $ref: "#/components/schemas/UUID" }
         version_id: { $ref: "#/components/schemas/UUID" }
         dataset_name: { type: string }
-        scenario_name: { type: string }
         evaluation_target_name: { type: string }
         version_no: { type: integer, minimum: 1 }
         case_count: { type: integer, minimum: 0 }

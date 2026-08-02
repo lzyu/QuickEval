@@ -97,7 +97,7 @@ func (handler Handler) GetDataset(ctx *gin.Context) {
 }
 
 type datasetRequest struct {
-	ScenarioID          string  `json:"scenario_id"`
+	TargetID            string  `json:"evaluation_target_id"`
 	Name                string  `json:"name"`
 	Description         *string `json:"description"`
 	ExpectedLockVersion uint32  `json:"expected_lock_version"`
@@ -109,12 +109,12 @@ func (handler Handler) CreateDataset(ctx *gin.Context) {
 	if !bindDatasetJSON(ctx, &request) {
 		return
 	}
-	scenarioID, ok := requestID(ctx, request.ScenarioID, "scenario_id")
+	targetID, ok := requestID(ctx, request.TargetID, "evaluation_target_id")
 	if !ok {
 		return
 	}
 	result, err := handler.service.CreateDataset(ctx.Request.Context(), principal.ID(), DatasetInput{
-		ScenarioID: scenarioID, Name: request.Name, Description: request.Description,
+		TargetID: targetID, Name: request.Name, Description: request.Description,
 	})
 	if err != nil {
 		response.ApplicationError(ctx, err)
@@ -136,14 +136,14 @@ func (handler Handler) UpdateDataset(ctx *gin.Context) {
 	if !bindDatasetJSON(ctx, &request) {
 		return
 	}
-	scenarioID, ok := requestID(ctx, request.ScenarioID, "scenario_id")
+	targetID, ok := requestID(ctx, request.TargetID, "evaluation_target_id")
 	if !ok {
 		return
 	}
 	before, after, err := handler.service.UpdateDataset(
 		ctx.Request.Context(), principal.ID(), datasetID,
 		DatasetInput{
-			ScenarioID: scenarioID, Name: request.Name, Description: request.Description,
+			TargetID: targetID, Name: request.Name, Description: request.Description,
 			ExpectedLockVersion: request.ExpectedLockVersion,
 		},
 	)
@@ -369,6 +369,7 @@ func (handler Handler) GetCase(ctx *gin.Context) {
 }
 
 type caseRequest struct {
+	ScenarioID          *string  `json:"scenario_id"`
 	Name                *string  `json:"name"`
 	UserPrompt          string   `json:"user_prompt"`
 	Precondition        *string  `json:"precondition"`
@@ -626,12 +627,20 @@ func bindCaseInput(ctx *gin.Context) (CaseInput, bool) {
 		}
 		tagIDs = append(tagIDs, parsed)
 	}
+	var scenarioID *id.UUID
+	if request.ScenarioID != nil && strings.TrimSpace(*request.ScenarioID) != "" {
+		parsed, ok := requestID(ctx, *request.ScenarioID, "scenario_id")
+		if !ok {
+			return CaseInput{}, false
+		}
+		scenarioID = &parsed
+	}
 	enabled := true
 	if request.IsEnabled != nil {
 		enabled = *request.IsEnabled
 	}
 	return CaseInput{
-		Name: request.Name, UserPrompt: request.UserPrompt, Precondition: request.Precondition,
+		ScenarioID: scenarioID, Name: request.Name, UserPrompt: request.UserPrompt, Precondition: request.Precondition,
 		ExpectedResult: request.ExpectedResult, JudgingGuide: request.JudgingGuide,
 		IsEnabled: enabled, TagIDs: tagIDs, ExpectedLockVersion: request.ExpectedLockVersion,
 	}, true

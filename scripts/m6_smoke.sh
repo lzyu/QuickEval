@@ -61,8 +61,8 @@ test "$(request POST /api/v1/issue-tags "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/tag-input.json" "${smoke_dir}/tag.json")" = "201"
 tag_id="$(jq -er '.data.id' "${smoke_dir}/tag.json")"
 
-jq -n --arg scenario "${scenario_id}" --arg name "M6 版本对比 ${timestamp}" \
-  '{scenario_id:$scenario,name:$name,description:"M6 search and comparison"}' \
+jq -n --arg target "${target_id}" --arg name "M6 版本对比 ${timestamp}" \
+  '{evaluation_target_id:$target,name:$name,description:"M6 search and comparison"}' \
   > "${smoke_dir}/dataset-input.json"
 test "$(request POST /api/v1/datasets "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/dataset-input.json" "${smoke_dir}/dataset.json")" = "201"
@@ -70,8 +70,8 @@ dataset_id="$(jq -er '.data.dataset.id' "${smoke_dir}/dataset.json")"
 v1_id="$(jq -er '.data.draft.id' "${smoke_dir}/dataset.json")"
 
 for position in 1 2; do
-  jq -n --arg name "M6 用例 ${position} ${timestamp}" --arg prompt "M6 采购问题 ${position} ${timestamp}" \
-    '{name:$name,user_prompt:$prompt,precondition:null,expected_result:null,
+  jq -n --arg scenario "${scenario_id}" --arg name "M6 用例 ${position} ${timestamp}" --arg prompt "M6 采购问题 ${position} ${timestamp}" \
+    '{scenario_id:$scenario,name:$name,user_prompt:$prompt,precondition:null,expected_result:null,
       judging_guide:"按事实评分",is_enabled:true,tag_ids:[]}' \
     > "${smoke_dir}/case-${position}-input.json"
   test "$(request POST "/api/v1/dataset-versions/${v1_id}/cases" \
@@ -172,9 +172,9 @@ open_run_id="$(jq -er '.data.id' "${smoke_dir}/run-open.json")"
 occurred_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 create_business() {
   local suffix="$1" title="$2"
-  jq -n --arg scenario "${scenario_id}" --arg tag "${tag_id}" \
+  jq -n --arg target "${target_id}" --arg scenario "${scenario_id}" --arg tag "${tag_id}" \
     --arg occurred "${occurred_at}" --arg title "${title}" \
-    '{scenario_id:$scenario,title:$title,description:"M6 业务问题",
+    '{evaluation_target_id:$target,scenario_id:$scenario,title:$title,description:"M6 业务问题",
       agent_response_text:"M6 业务回答",agent_version:"m6-business",
       environment:"production",occurred_at:$occurred,business_reference:"M6-ORDER",
       session_id:"M6-SESSION",issue_tag_ids:[$tag]}' > "${smoke_dir}/business-${suffix}-input.json"

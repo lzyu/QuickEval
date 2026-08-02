@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { HomePageData, ResponseEnvelope } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -62,7 +63,6 @@ onMounted(load)
   <section v-loading="loading" class="home-page m6-home">
     <div class="page-heading home-welcome">
       <div>
-        <p class="eyebrow">个人工作台</p>
         <h1>{{ greeting }}</h1>
         <p>继续最近的评测，处理分配给你的问题，并快速进入最新评测集。</p>
       </div>
@@ -94,10 +94,13 @@ onMounted(load)
             <el-button text type="primary" @click="router.push('/evaluations')">全部评测</el-button>
           </div>
         </template>
-        <el-empty
+        <ActionableEmptyState
           v-if="data.continue_evaluations.length === 0"
-          description="没有进行中的评测"
-          :image-size="72"
+          title="没有进行中的评测"
+          description="从已发布的评测集开始一次人工评测，进度会自动出现在这里。"
+          action-label="选择评测集"
+          compact
+          @action="router.push('/datasets')"
         />
         <button
           v-for="run in data.continue_evaluations"
@@ -109,7 +112,7 @@ onMounted(load)
         >
           <div class="home-list-main">
             <strong>{{ run.dataset_name }} V{{ run.version_no }}</strong>
-            <span>{{ run.scenario_name }} · {{ run.agent_version }} · {{ run.environment }}</span>
+            <span>{{ run.evaluation_target_name }} · {{ run.agent_version }} · {{ run.environment }}</span>
             <el-progress
               :percentage="progress(run.completed_count, run.total_count)"
               :stroke-width="6"
@@ -127,10 +130,13 @@ onMounted(load)
             <el-button text type="primary" @click="router.push('/badcases?assigned_to_me=1&open=1')">查看全部</el-button>
           </div>
         </template>
-        <el-empty
+        <ActionableEmptyState
           v-if="data.assigned_badcases.length === 0"
-          description="当前没有待处理问题"
-          :image-size="72"
+          title="当前没有待处理问题"
+          description="没有分配给你的有效 Badcase；遇到线上问题时也可以主动登记。"
+          action-label="主动登记 Badcase"
+          compact
+          @action="router.push('/badcases/register')"
         />
         <button
           v-for="item in data.assigned_badcases"
@@ -157,10 +163,13 @@ onMounted(load)
             <el-button text type="primary" @click="router.push('/datasets')">浏览评测集</el-button>
           </div>
         </template>
-        <el-empty
+        <ActionableEmptyState
           v-if="data.recent_datasets.length === 0"
-          description="暂无已发布评测集"
-          :image-size="72"
+          :title="auth.isAdmin ? '还没有已发布的评测集' : '暂无可用的评测集'"
+          :description="auth.isAdmin ? '创建评测集并发布首个版本后，团队即可开始人工评测。' : '管理员发布评测集版本后，最新内容会出现在这里。'"
+          :action-label="auth.isAdmin ? '前往创建' : ''"
+          compact
+          @action="router.push('/datasets')"
         />
         <button
           v-for="dataset in data.recent_datasets"
@@ -172,7 +181,7 @@ onMounted(load)
         >
           <div class="home-list-main">
             <strong>{{ dataset.dataset_name }} V{{ dataset.version_no }}</strong>
-            <span>{{ dataset.evaluation_target_name }} · {{ dataset.scenario_name }}</span>
+            <span>{{ dataset.evaluation_target_name }}</span>
           </div>
           <span>{{ dataset.case_count }} 条用例</span>
         </button>
@@ -180,10 +189,11 @@ onMounted(load)
 
       <el-card shadow="never">
         <template #header><strong>近期活动</strong></template>
-        <el-empty
+        <ActionableEmptyState
           v-if="data.recent_activities.length === 0"
-          description="暂无与你相关的活动"
-          :image-size="72"
+          title="暂无与你相关的活动"
+          description="Badcase 的分配、状态和处理备注更新会汇总在这里。"
+          compact
         />
         <button
           v-for="activity in data.recent_activities"

@@ -160,7 +160,8 @@ func (handler Handler) Page(ctx *gin.Context) {
 }
 
 type businessRequest struct {
-	ScenarioID          string   `json:"scenario_id"`
+	EvaluationTargetID  string   `json:"evaluation_target_id"`
+	ScenarioID          *string  `json:"scenario_id"`
 	Title               string   `json:"title"`
 	Description         *string  `json:"description"`
 	AgentResponseText   *string  `json:"agent_response_text"`
@@ -178,7 +179,11 @@ func (handler Handler) CreateBusiness(ctx *gin.Context) {
 	if !bindJSON(ctx, &request) {
 		return
 	}
-	scenarioID, ok := parseID(ctx, request.ScenarioID, "scenario_id")
+	targetID, ok := parseID(ctx, request.EvaluationTargetID, "evaluation_target_id")
+	if !ok {
+		return
+	}
+	scenarioID, ok := parseBodyOptionalID(ctx, request.ScenarioID, "scenario_id")
 	if !ok {
 		return
 	}
@@ -208,7 +213,8 @@ func (handler Handler) CreateBusiness(ctx *gin.Context) {
 	item, err := handler.service.CreateBusiness(
 		ctx.Request.Context(), principal.ID(),
 		BusinessInput{
-			ScenarioID: scenarioID, Title: request.Title, Description: request.Description,
+			TargetID: targetID, ScenarioID: scenarioID, Title: request.Title,
+			Description:       request.Description,
 			AgentResponseText: request.AgentResponseText, AgentVersion: request.AgentVersion,
 			Environment: request.Environment, OccurredAt: occurredAt,
 			BusinessReference: request.BusinessReference, SessionID: request.SessionID,
@@ -236,6 +242,10 @@ func (handler Handler) UpdateBusiness(ctx *gin.Context) {
 	if !bindJSON(ctx, &request) {
 		return
 	}
+	scenarioID, ok := parseBodyOptionalID(ctx, request.ScenarioID, "scenario_id")
+	if !ok {
+		return
+	}
 	occurredAt, ok := parseTime(ctx, request.OccurredAt, "occurred_at")
 	if !ok {
 		return
@@ -246,10 +256,13 @@ func (handler Handler) UpdateBusiness(ctx *gin.Context) {
 		response.ApplicationError(ctx, mapNotFound(err))
 		return
 	}
+	if request.ScenarioID == nil {
+		scenarioID = before.ScenarioID
+	}
 	item, err := handler.service.UpdateBusiness(
 		ctx.Request.Context(), principal.ID(), principal.Admin(), badcaseID,
 		BusinessInput{
-			Title: request.Title, Description: request.Description,
+			ScenarioID: scenarioID, Title: request.Title, Description: request.Description,
 			AgentResponseText: request.AgentResponseText, AgentVersion: request.AgentVersion,
 			Environment: request.Environment, OccurredAt: occurredAt,
 			BusinessReference: request.BusinessReference, SessionID: request.SessionID,
@@ -460,7 +473,6 @@ type markRequest struct {
 	ExpectedResultLockVersion uint32              `json:"expected_result_lock_version"`
 	ResultPatch               *resultPatchRequest `json:"result_patch"`
 	Badcase                   struct {
-		Title       string   `json:"title"`
 		Description *string  `json:"description"`
 		IssueTagIDs []string `json:"issue_tag_ids"`
 	} `json:"badcase"`
@@ -527,8 +539,8 @@ func (handler Handler) MarkEvaluation(ctx *gin.Context) {
 		ctx.Request.Context(), principal.ID(), principal.Admin(), resultID,
 		MarkInput{
 			ExpectedResultLockVersion: request.ExpectedResultLockVersion,
-			ResultPatch:               patch, Title: request.Badcase.Title,
-			Description: request.Badcase.Description, IssueTagIDs: tagIDs,
+			ResultPatch:               patch, Description: request.Badcase.Description,
+			IssueTagIDs: tagIDs,
 		},
 	)
 	if err != nil {
@@ -706,6 +718,17 @@ func optionalID(ctx *gin.Context, key string) (*id.UUID, bool) {
 		return nil, false
 	}
 	return &value, true
+}
+
+func parseBodyOptionalID(ctx *gin.Context, value *string, field string) (*id.UUID, bool) {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return nil, true
+	}
+	parsed, ok := parseID(ctx, strings.TrimSpace(*value), field)
+	if !ok {
+		return nil, false
+	}
+	return &parsed, true
 }
 
 func pathID(ctx *gin.Context, key string) (id.UUID, bool) {

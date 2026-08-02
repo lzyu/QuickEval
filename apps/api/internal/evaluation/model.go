@@ -40,8 +40,6 @@ type Run struct {
 	DatasetID      id.UUID  `gorm:"column:dataset_id;type:binary(16);->"`
 	DatasetName    string   `gorm:"column:dataset_name;->"`
 	VersionNo      uint32   `gorm:"column:version_no;->"`
-	ScenarioID     id.UUID  `gorm:"column:scenario_id;type:binary(16);->"`
-	ScenarioName   string   `gorm:"column:scenario_name;->"`
 	TargetID       id.UUID  `gorm:"column:evaluation_target_id;type:binary(16);->"`
 	TargetName     string   `gorm:"column:evaluation_target_name;->"`
 	EvaluatorName  string   `gorm:"column:evaluator_name;->"`
@@ -70,17 +68,20 @@ type Result struct {
 	CreatedAt       time.Time `gorm:"column:created_at"`
 	UpdatedAt       time.Time `gorm:"column:updated_at"`
 
-	CaseKey        id.UUID             `gorm:"column:case_key;type:binary(16);->"`
-	Name           *string             `gorm:"column:case_name;->"`
-	UserPrompt     string              `gorm:"column:user_prompt;->"`
-	Precondition   *string             `gorm:"column:precondition;->"`
-	ExpectedResult *string             `gorm:"column:expected_result;->"`
-	JudgingGuide   *string             `gorm:"column:judging_guide;->"`
-	SortOrder      uint32              `gorm:"column:sort_order;->"`
-	Tags           []dataset.CaseTag   `gorm:"-"`
-	HasBadcase     bool                `gorm:"column:has_badcase;->"`
-	Attachments    []attachment.Public `gorm:"-"`
-	Badcase        *BadcaseSummary     `gorm:"-"`
+	CaseKey          id.UUID             `gorm:"column:case_key;type:binary(16);->"`
+	Name             *string             `gorm:"column:case_name;->"`
+	UserPrompt       string              `gorm:"column:user_prompt;->"`
+	Precondition     *string             `gorm:"column:precondition;->"`
+	ExpectedResult   *string             `gorm:"column:expected_result;->"`
+	JudgingGuide     *string             `gorm:"column:judging_guide;->"`
+	SortOrder        uint32              `gorm:"column:sort_order;->"`
+	ScenarioID       *id.UUID            `gorm:"column:scenario_id;type:binary(16);->"`
+	ScenarioName     *string             `gorm:"column:scenario_name;->"`
+	AssignmentStatus string              `gorm:"column:scenario_assignment_status;->"`
+	Tags             []dataset.CaseTag   `gorm:"-"`
+	HasBadcase       bool                `gorm:"column:has_badcase;->"`
+	Attachments      []attachment.Public `gorm:"-"`
+	Badcase          *BadcaseSummary     `gorm:"-"`
 }
 
 func (Result) TableName() string { return "case_results" }
@@ -91,8 +92,6 @@ type RunPublic struct {
 	DatasetID        string     `json:"dataset_id"`
 	DatasetName      string     `json:"dataset_name"`
 	VersionNo        uint32     `json:"version_no"`
-	ScenarioID       string     `json:"scenario_id"`
-	ScenarioName     string     `json:"scenario_name"`
 	TargetID         string     `json:"evaluation_target_id"`
 	TargetName       string     `json:"evaluation_target_name"`
 	EvaluatorID      string     `json:"evaluator_id"`
@@ -131,7 +130,6 @@ func (item Run) Public() RunPublic {
 	return RunPublic{
 		ID: item.ID.String(), DatasetVersionID: item.DatasetVersionID.String(),
 		DatasetID: item.DatasetID.String(), DatasetName: item.DatasetName, VersionNo: item.VersionNo,
-		ScenarioID: item.ScenarioID.String(), ScenarioName: item.ScenarioName,
 		TargetID: item.TargetID.String(), TargetName: item.TargetName,
 		EvaluatorID: item.EvaluatorID.String(), EvaluatorName: item.EvaluatorName,
 		AgentVersion: item.AgentVersion, Environment: item.Environment,
@@ -150,40 +148,49 @@ func (item Run) Public() RunPublic {
 }
 
 type ResultPublic struct {
-	ID              string              `json:"id"`
-	EvaluationRunID string              `json:"evaluation_run_id"`
-	VersionCaseID   string              `json:"version_case_id"`
-	CaseKey         string              `json:"case_key"`
-	Name            *string             `json:"name"`
-	UserPrompt      string              `json:"user_prompt"`
-	Precondition    *string             `json:"precondition"`
-	ExpectedResult  *string             `json:"expected_result"`
-	JudgingGuide    *string             `json:"judging_guide"`
-	SortOrder       uint32              `json:"sort_order"`
-	Tags            []dataset.CaseTag   `json:"tags"`
-	Status          string              `json:"status"`
-	AnswerText      *string             `json:"answer_text"`
-	Score           *uint8              `json:"score"`
-	Comment         *string             `json:"comment"`
-	SkipReason      *string             `json:"skip_reason"`
-	HasBadcase      bool                `json:"has_badcase"`
-	Attachments     []attachment.Public `json:"attachments"`
-	Badcase         *BadcaseSummary     `json:"badcase"`
-	LockVersion     uint32              `json:"lock_version"`
-	CreatedAt       time.Time           `json:"created_at"`
-	UpdatedAt       time.Time           `json:"updated_at"`
+	ID               string              `json:"id"`
+	EvaluationRunID  string              `json:"evaluation_run_id"`
+	VersionCaseID    string              `json:"version_case_id"`
+	CaseKey          string              `json:"case_key"`
+	Name             *string             `json:"name"`
+	UserPrompt       string              `json:"user_prompt"`
+	Precondition     *string             `json:"precondition"`
+	ExpectedResult   *string             `json:"expected_result"`
+	JudgingGuide     *string             `json:"judging_guide"`
+	SortOrder        uint32              `json:"sort_order"`
+	ScenarioID       *string             `json:"scenario_id"`
+	ScenarioName     *string             `json:"scenario_name"`
+	AssignmentStatus string              `json:"scenario_assignment_status"`
+	Tags             []dataset.CaseTag   `json:"tags"`
+	Status           string              `json:"status"`
+	AnswerText       *string             `json:"answer_text"`
+	Score            *uint8              `json:"score"`
+	Comment          *string             `json:"comment"`
+	SkipReason       *string             `json:"skip_reason"`
+	HasBadcase       bool                `json:"has_badcase"`
+	Attachments      []attachment.Public `json:"attachments"`
+	Badcase          *BadcaseSummary     `json:"badcase"`
+	LockVersion      uint32              `json:"lock_version"`
+	CreatedAt        time.Time           `json:"created_at"`
+	UpdatedAt        time.Time           `json:"updated_at"`
 }
 
 func (item Result) Public() ResultPublic {
 	if item.Tags == nil {
 		item.Tags = []dataset.CaseTag{}
 	}
+	var scenarioID *string
+	if item.ScenarioID != nil {
+		value := item.ScenarioID.String()
+		scenarioID = &value
+	}
 	return ResultPublic{
 		ID: item.ID.String(), EvaluationRunID: item.EvaluationRunID.String(),
 		VersionCaseID: item.VersionCaseID.String(), CaseKey: item.CaseKey.String(),
 		Name: item.Name, UserPrompt: item.UserPrompt, Precondition: item.Precondition,
 		ExpectedResult: item.ExpectedResult, JudgingGuide: item.JudgingGuide,
-		SortOrder: item.SortOrder, Tags: item.Tags, Status: item.Status,
+		SortOrder: item.SortOrder, ScenarioID: scenarioID, ScenarioName: item.ScenarioName,
+		AssignmentStatus: item.AssignmentStatus, Tags: item.Tags, Status: item.Status,
 		AnswerText: item.AnswerText, Score: item.Score, Comment: item.Comment,
 		SkipReason: item.SkipReason, HasBadcase: item.HasBadcase,
 		Attachments: item.Attachments, Badcase: item.Badcase,

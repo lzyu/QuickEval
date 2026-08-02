@@ -17,7 +17,8 @@ const (
 )
 
 type BusinessInput struct {
-	ScenarioID          id.UUID
+	TargetID            id.UUID
+	ScenarioID          *id.UUID
 	Title               string
 	Description         *string
 	AgentResponseText   *string
@@ -39,14 +40,27 @@ func (service Service) CreateBusiness(
 	if err != nil {
 		return Badcase{}, err
 	}
-	active, err := service.repository.ScenarioActive(ctx, normalized.ScenarioID)
+	active, err := service.repository.TargetActive(ctx, normalized.TargetID)
 	if err != nil {
 		return Badcase{}, err
 	}
 	if !active {
 		return Badcase{}, apperror.Conflict(
-			"RESOURCE_DISABLED", "只能在启用的对象和场景下登记 Badcase",
+			"RESOURCE_DISABLED", "只能在启用的评测对象下登记 Badcase",
 		)
+	}
+	if normalized.ScenarioID != nil {
+		active, err = service.repository.ScenarioForTargetActive(
+			ctx, *normalized.ScenarioID, normalized.TargetID,
+		)
+		if err != nil {
+			return Badcase{}, err
+		}
+		if !active {
+			return Badcase{}, apperror.Conflict(
+				"RESOURCE_DISABLED", "所选场景不存在、已停用或不属于当前评测对象",
+			)
+		}
 	}
 	var badcaseID id.UUID
 	err = service.repository.Transaction(ctx, func(repository Repository) error {
@@ -55,8 +69,10 @@ func (service Service) CreateBusiness(
 			return err
 		}
 		item := Badcase{
-			ID: id.MustNew(), SourceType: "business", ScenarioID: normalized.ScenarioID,
-			Title: normalized.Title, Description: normalized.Description,
+			ID: id.MustNew(), SourceType: "business", TargetID: normalized.TargetID,
+			ScenarioID:       normalized.ScenarioID,
+			AssignmentStatus: scenarioAssignmentStatus(normalized.ScenarioID),
+			Title:            normalized.Title, Description: normalized.Description,
 			AgentResponseText: normalized.AgentResponseText, AgentVersion: normalized.AgentVersion,
 			Environment: normalized.Environment, OccurredAt: normalized.OccurredAt,
 			BusinessReference: normalized.BusinessReference, SessionID: normalized.SessionID,
@@ -109,6 +125,19 @@ func (service Service) UpdateBusiness(
 		if item.LockVersion != normalized.ExpectedLockVersion {
 			return mapWriteError(ErrLockConflict)
 		}
+		if normalized.ScenarioID != nil {
+			active, err := repository.ScenarioForTargetActive(
+				ctx, *normalized.ScenarioID, item.TargetID,
+			)
+			if err != nil {
+				return err
+			}
+			if !active {
+				return apperror.Conflict(
+					"RESOURCE_DISABLED", "所选场景不存在、已停用或不属于当前评测对象",
+				)
+			}
+		}
 		return mapWriteError(repository.UpdateBusiness(ctx, item, actorID, normalized))
 	})
 	if err != nil {
@@ -125,11 +154,6 @@ func (service Service) UpdateIssueTags(
 	tagIDs []id.UUID,
 ) (Badcase, error) {
 	tagIDs = deduplicateIDs(tagIDs)
-	if len(tagIDs) == 0 {
-		return Badcase{}, apperror.Validation(
-			apperror.FieldError{Field: "issue_tag_ids", Message: "请至少选择一个问题标签"},
-		)
-	}
 	err := service.repository.Transaction(ctx, func(repository Repository) error {
 		item, err := repository.LockBadcase(ctx, badcaseID)
 		if err != nil {
@@ -375,6 +399,11 @@ func validateBusinessInput(input BusinessInput, creating bool) (BusinessInput, e
 	input.Environment = strings.TrimSpace(input.Environment)
 	input.IssueTagIDs = deduplicateIDs(input.IssueTagIDs)
 	fields := []apperror.FieldError{}
+	if creating && input.TargetID == (id.UUID{}) {
+		fields = append(fields, apperror.FieldError{
+			Field: "evaluation_target_id", Message: "请选择评测对象",
+		})
+	}
 	if input.Title == "" || len([]rune(input.Title)) > 200 {
 		fields = append(fields, apperror.FieldError{
 			Field: "title", Message: "标题不能为空且最多 200 个字符",
@@ -405,15 +434,17 @@ func validateBusinessInput(input BusinessInput, creating bool) (BusinessInput, e
 			Field: "occurred_at", Message: "请选择问题发生时间",
 		})
 	}
-	if creating && len(input.IssueTagIDs) == 0 {
-		fields = append(fields, apperror.FieldError{
-			Field: "issue_tag_ids", Message: "请至少选择一个问题标签",
-		})
-	}
 	if len(fields) > 0 {
 		return BusinessInput{}, apperror.Validation(fields...)
 	}
 	return input, nil
+}
+
+func scenarioAssignmentStatus(scenarioID *id.UUID) string {
+	if scenarioID == nil {
+		return "unclassified"
+	}
+	return "confirmed"
 }
 
 func validateActiveTags(
@@ -421,6 +452,9 @@ func validateActiveTags(
 	repository Repository,
 	tagIDs []id.UUID,
 ) ([]id.UUID, error) {
+	if len(tagIDs) == 0 {
+		return []id.UUID{}, nil
+	}
 	tags, err := repository.ActiveIssueTags(ctx, tagIDs)
 	if err != nil {
 		return nil, err

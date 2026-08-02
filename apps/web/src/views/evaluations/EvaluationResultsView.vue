@@ -10,6 +10,7 @@ import type {
   PageData,
   ResponseEnvelope,
 } from '@/api/types'
+import { caseDisplayName } from '@/features/datasets/case-display'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,7 +103,6 @@ onMounted(load)
   <section v-loading="loading" class="evaluation-results-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">EVALUATION DETAILS</p>
         <h1>评测结果明细</h1>
         <p>仅展示已完成评测，保留数据看板的筛选条件和所点击的图表分段。</p>
       </div>
@@ -153,7 +153,7 @@ onMounted(load)
         <el-table-column label="用例 / 问题" min-width="280">
           <template #default="{ row }">
             <button class="table-primary-link" type="button" @click="router.push(row.result_detail_url)">
-              {{ row.case_name || '未命名用例' }}
+              {{ caseDisplayName(row.case_name, row.user_prompt) }}
             </button>
             <p class="table-secondary-text">{{ row.user_prompt }}</p>
           </template>

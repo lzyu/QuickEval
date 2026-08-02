@@ -4,9 +4,9 @@
 >
 > 数据库：MySQL 8.4 LTS
 >
-> 更新日期：2026-07-23
+> 更新日期：2026-08-01
 >
-> 配套 DDL：[000001_initial_schema.up.sql](../migrations/000001_initial_schema.up.sql)
+> 配套 DDL：[000001_initial_schema.up.sql](../migrations/000001_initial_schema.up.sql)、[000005_target_scoped_datasets.up.sql](../migrations/000005_target_scoped_datasets.up.sql)
 
 ## 1. 设计目标
 
@@ -45,13 +45,14 @@ User
 └── UserIdentity
 
 EvaluationTarget
-└── Scenario
-    ├── CaseTag
-    ├── Dataset
-    │   └── DatasetVersion
-    │       └── VersionCase
-    │           └── VersionCaseTag
-    └── Badcase (business source)
+├── Scenario
+│   └── CaseTag
+├── Dataset
+│   └── DatasetVersion
+│       └── VersionCase
+│           ├── Scenario (optional classification)
+│           └── VersionCaseTag
+└── Badcase (business source, optional Scenario classification)
 
 DatasetVersion
 └── EvaluationRun
@@ -128,7 +129,7 @@ lock_version INT UNSIGNED NOT NULL DEFAULT 0
 | 账号 | `users` | QuickEval 内部用户与角色 |
 | 账号 | `user_identities` | 本地或 OA 登录身份 |
 | 评测结构 | `evaluation_targets` | 被评测的 Agent 产品 |
-| 评测结构 | `scenarios` | 评测与 Badcase 的业务分类边界 |
+| 评测结构 | `scenarios` | 对象内可选的用例与 Badcase 分类 |
 | 评测结构 | `case_tags` | 全局或场景级用例能力分类 |
 | 评测集 | `datasets` | 跨版本稳定的评测集 |
 | 评测集 | `dataset_versions` | 草稿、发布及归档版本 |
@@ -192,7 +193,9 @@ pending ──> processing ──> resolved
 - `source_type` 为 `evaluation/business`。
 - 评测来源必须唯一关联一个 `case_result`；业务来源不关联结果。
 - `badcases` 是用例结果是否为 Badcase 的唯一事实来源，`case_results` 不保存重复布尔值。
-- `scenario_id` 直接保存在 Badcase 中；评测来源必须与结果所属场景一致。
+- `evaluation_target_id` 直接保存在 Badcase 中；`scenario_id` 是可空的弱分类。
+- 场景归类状态为 `unclassified/suggested/confirmed`；当前人工选择写入 `confirmed`，`suggested` 为后续模型建议预留。
+- 评测来源 Badcase 继承 CaseResult 对应用例的对象、场景和归类状态。
 - Agent 版本和环境保存为 Badcase 发现时的现场快照。
 - 无效化独立于处理状态；无效 Badcase 不计入任何正式统计。
 - 当前状态保存在 `badcases`，变化历史追加到 `badcase_activities`。
@@ -214,15 +217,16 @@ pending ──> processing ──> resolved
 ### 7.2 Go Service 事务保证
 
 - 场景产生历史数据后不能更换评测对象。
-- 评测集产生已发布版本后不能更换场景。
+- 评测集始终且只属于一个评测对象，产生已发布版本后不能更换对象。
 - 同一评测集最多存在一个草稿。
 - 发布版本号连续且不复用。
 - 发布版本至少包含一条启用用例。
 - 已发布版本内容不可修改。
-- 用例标签必须是启用的全局标签，或属于评测集所在场景的启用场景标签。
+- 未归类用例只能使用启用的全局标签；已归类用例还可以使用所属场景的启用场景标签。
 - 全局用例标签不绑定场景；场景用例标签必须绑定且只能用于一个场景。
 - 全局标签不能与任一场景标签重名，场景标签不能与同场景或全局标签重名。
-- 评测来源 Badcase 的场景与 CaseResult 一致。
+- 用例或 Badcase 选择的场景必须属于其评测对象；不选择场景不阻塞导入、发布、评测或登记。
+- 评测来源 Badcase 的对象、场景和归类状态与 CaseResult 一致。
 - `evaluated` 结果具备回答文本或截图。
 - 标记 Badcase 时用例结果评语非空。
 - 所有结果处理完成后才能完成 EvaluationRun。
@@ -238,7 +242,7 @@ pending ──> processing ──> resolved
 - 业务单号和会话 ID 使用等值或前缀查询。
 - 问题、回答和 Badcase 描述使用 `%关键词%`。
 - V1 不使用 `FULLTEXT`，所有列表强制分页。
-- 查询先通过场景、版本或时间缩小范围，再搜索长文本。
+- 查询先通过对象、场景、版本或时间缩小范围，再搜索长文本。
 
 ### 8.2 汇总
 
@@ -276,9 +280,10 @@ user_identities:        UNIQUE(provider, provider_subject), UNIQUE(user_id, prov
 evaluation_targets:     UNIQUE(name), (status, updated_at)
 scenarios:              UNIQUE(evaluation_target_id, name), (evaluation_target_id, status, updated_at)
 case_tags:              UNIQUE(scope_owner_id, name), (scope, status, sort_order), (scenario_id, status, sort_order)
-datasets:               UNIQUE(scenario_id, name), (scenario_id, status, updated_at)
+datasets:               UNIQUE(evaluation_target_id, name), (evaluation_target_id, status, updated_at)
 dataset_versions:       UNIQUE(dataset_id, version_no), (dataset_id, status, created_at)
-version_cases:          UNIQUE(dataset_version_id, case_key), (dataset_version_id, is_enabled, sort_order), (case_key, dataset_version_id)
+version_cases:          UNIQUE(dataset_version_id, case_key), (dataset_version_id, is_enabled, sort_order),
+                        (case_key, dataset_version_id), (scenario_id, scenario_assignment_status)
 version_case_tags:      UNIQUE(version_case_id, case_tag_id), (case_tag_id, version_case_id)
 ```
 
@@ -296,6 +301,7 @@ case_results:           UNIQUE(evaluation_run_id, version_case_id)
                         (version_case_id, status)
 
 badcases:               UNIQUE(case_result_id)
+                        (evaluation_target_id, invalidated_at, status, occurred_at)
                         (scenario_id, invalidated_at, status, occurred_at)
                         (assignee_id, invalidated_at, status, updated_at)
                         (source_type, invalidated_at, occurred_at)

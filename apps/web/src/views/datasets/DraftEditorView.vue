@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Download, Plus, Upload } from '@element-plus/icons-vue'
+import { Download, Minus, Plus, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
@@ -12,9 +12,12 @@ import type {
   ImportPreview,
   PageData,
   ResponseEnvelope,
+  Scenario,
   Tag,
   VersionCase,
 } from '@/api/types'
+import CaseInlineForm from '@/components/datasets/CaseInlineForm.vue'
+import { caseDisplayName } from '@/features/datasets/case-display'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,11 +26,15 @@ const loading = ref(false)
 const dataset = ref<Dataset | null>(null)
 const version = ref<DatasetVersion | null>(null)
 const cases = ref<VersionCase[]>([])
-const availableGlobalTags = ref<Tag[]>([])
-const availableScenarioTags = ref<Tag[]>([])
-const editorOpen = ref(false)
+const scenarios = ref<Scenario[]>([])
+const caseTags = ref<Tag[]>([])
+const createOpen = ref(false)
 const editing = ref<VersionCase | null>(null)
 const dirty = ref(false)
+const savingCase = ref(false)
+const savingMode = ref<'close' | 'continue' | null>(null)
+const createTrigger = ref<HTMLButtonElement | null>(null)
+const trackFormChanges = ref(false)
 const importOpen = ref(false)
 const importFile = ref<File | null>(null)
 const importPreview = ref<ImportPreview | null>(null)
@@ -35,6 +42,7 @@ const importLoading = ref(false)
 const publishOpen = ref(false)
 const releaseNote = ref('')
 const form = reactive({
+  scenario_id: '',
   name: '',
   user_prompt: '',
   precondition: '',
@@ -47,6 +55,20 @@ const form = reactive({
 const enabledCount = computed(() => cases.value.filter((item) => item.is_enabled).length)
 const disabledCount = computed(() => cases.value.length - enabledCount.value)
 const nextVersionNo = computed(() => (dataset.value?.latest_version_no || 0) + 1)
+const availableGlobalTags = computed(() =>
+  caseTags.value.filter((tag) => tag.status === 'active' && tag.scope === 'global'),
+)
+const availableScenarioTags = computed(() =>
+  caseTags.value.filter(
+    (tag) => tag.status === 'active' && tag.scope === 'scenario' && tag.scenario_id === form.scenario_id,
+  ),
+)
+const targetScenarios = computed(() =>
+  scenarios.value.filter(
+    (item) => item.status === 'active' && item.evaluation_target_id === dataset.value?.evaluation_target_id,
+  ),
+)
+let caseTagRequestID = 0
 
 async function load() {
   loading.value = true
@@ -70,13 +92,12 @@ async function load() {
     ])
     dataset.value = datasetResponse.data.data.dataset
     cases.value = caseResponse.data.data.items
-    const tagResponse = await apiClient.get<
-      ResponseEnvelope<{ global: Tag[]; scenario: Tag[] }>
-    >(
-      `/api/v1/scenarios/${dataset.value.scenario_id}/available-case-tags`,
-    )
-    availableGlobalTags.value = tagResponse.data.data.global
-    availableScenarioTags.value = tagResponse.data.data.scenario
+    const [scenarioResponse, tagResponse] = await Promise.all([
+      apiClient.get<ResponseEnvelope<PageData<Scenario>>>('/api/v1/scenarios?page_size=100'),
+      apiClient.get<ResponseEnvelope<{ items: Tag[] }>>('/api/v1/case-tags?scope=global'),
+    ])
+    scenarios.value = scenarioResponse.data.data.items
+    caseTags.value = tagResponse.data.data.items
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   } finally {
@@ -84,46 +105,163 @@ async function load() {
   }
 }
 
-function openEditor(item?: VersionCase) {
-  editing.value = item || null
-  Object.assign(form, {
-    name: item?.name || '',
-    user_prompt: item?.user_prompt || '',
-    precondition: item?.precondition || '',
-    expected_result: item?.expected_result || '',
-    judging_guide: item?.judging_guide || '',
-    tag_ids: item?.tags.map((tag) => tag.id) || [],
-    is_enabled: item?.is_enabled ?? true,
-  })
-  dirty.value = false
-  editorOpen.value = true
-}
-
-function closeEditor() {
-  editorOpen.value = false
-}
-
-function confirmEditorClose(done: () => void) {
-  if (!dirty.value) {
-    done()
+async function loadCaseTags(scenarioID: string) {
+  const requestID = ++caseTagRequestID
+  if (!scenarioID) {
+    const response = await apiClient.get<ResponseEnvelope<{ items: Tag[] }>>(
+      '/api/v1/case-tags?scope=global',
+    )
+    if (requestID !== caseTagRequestID) return
+    caseTags.value = response.data.data.items
     return
   }
-  void ElMessageBox.confirm('当前表单尚未保存，确定关闭吗？', '放弃修改', {
-    type: 'warning',
-  }).then(() => {
-    dirty.value = false
-    done()
+  const response = await apiClient.get<ResponseEnvelope<{ global: Tag[]; scenario: Tag[] }>>(
+    `/api/v1/scenarios/${scenarioID}/available-case-tags`,
+  )
+  if (requestID !== caseTagRequestID) return
+  caseTags.value = [...response.data.data.global, ...response.data.data.scenario]
+}
+
+async function refreshVersionSnapshot() {
+  try {
+    const response = await apiClient.get<ResponseEnvelope<DatasetVersion>>(
+      `/api/v1/dataset-versions/${versionId}`,
+    )
+    version.value = response.data.data
+    if (dataset.value) dataset.value.draft_case_count = response.data.data.case_count
+  } catch {
+    ElMessage.warning('用例已保存，但版本状态刷新失败；发布前请刷新页面')
+  }
+}
+
+function resetCaseForm(options: { preserveClassification?: boolean } = {}) {
+  const scenarioID = options.preserveClassification ? form.scenario_id : ''
+  const tagIDs = options.preserveClassification ? [...form.tag_ids] : []
+  const isEnabled = options.preserveClassification ? form.is_enabled : true
+  Object.assign(form, {
+    scenario_id: scenarioID,
+    name: '',
+    user_prompt: '',
+    precondition: '',
+    expected_result: '',
+    judging_guide: '',
+    tag_ids: tagIDs,
+    is_enabled: isEnabled,
   })
+}
+
+async function confirmDiscardCreate() {
+  if (!createOpen.value || !dirty.value) return true
+  try {
+    await ElMessageBox.confirm('当前新增用例尚未保存，确定放弃吗？', '放弃新增', {
+      type: 'warning',
+      confirmButtonText: '放弃新增',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function confirmDiscardEdit() {
+  if (!editing.value || !dirty.value) return true
+  try {
+    await ElMessageBox.confirm('当前用例修改尚未保存，确定放弃吗？', '放弃修改', {
+      type: 'warning',
+      confirmButtonText: '放弃修改',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function focusInlineEditor(editorID: string) {
+  const editor = document.getElementById(editorID)
+  editor?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  editor?.querySelector<HTMLTextAreaElement>('textarea')?.focus()
+}
+
+async function openCreateEditor() {
+  if (createOpen.value) {
+    await nextTick()
+    focusInlineEditor('create-case-editor')
+    return
+  }
+  if (!(await confirmDiscardEdit())) return
+  editing.value = null
+  trackFormChanges.value = false
+  resetCaseForm()
+  dirty.value = false
+  createOpen.value = true
+  await nextTick()
+  focusInlineEditor('create-case-editor')
+  trackFormChanges.value = true
+}
+
+async function closeCreateEditor() {
+  if (!(await confirmDiscardCreate())) return
+  trackFormChanges.value = false
+  createOpen.value = false
+  dirty.value = false
+  resetCaseForm()
+  await nextTick()
+  createTrigger.value?.focus()
+}
+
+async function openEditor(item: VersionCase) {
+  if (editing.value?.id === item.id) {
+    await nextTick()
+    focusInlineEditor(`edit-case-editor-${item.id}`)
+    return
+  }
+  if (!(await confirmDiscardCreate())) return
+  if (!(await confirmDiscardEdit())) return
+  createOpen.value = false
+  trackFormChanges.value = false
+  editing.value = item
+  Object.assign(form, {
+    scenario_id: item.scenario_id || '',
+    name: item.name || '',
+    user_prompt: item.user_prompt,
+    precondition: item.precondition || '',
+    expected_result: item.expected_result || '',
+    judging_guide: item.judging_guide || '',
+    tag_ids: item.tags.map((tag) => tag.id),
+    is_enabled: item.is_enabled,
+  })
+  dirty.value = false
+  await nextTick()
+  focusInlineEditor(`edit-case-editor-${item.id}`)
+  trackFormChanges.value = true
+}
+
+async function closeEditor() {
+  if (!(await confirmDiscardEdit())) return
+  const editingID = editing.value?.id
+  trackFormChanges.value = false
+  dirty.value = false
+  editing.value = null
+  resetCaseForm()
+  await nextTick()
+  if (editingID) document.getElementById(`edit-case-trigger-${editingID}`)?.focus()
 }
 
 function downloadTemplate() {
   window.open('/api/v1/case-import-template.csv', '_blank')
 }
 
-async function saveCase() {
+async function saveCase(continueCreating = false) {
+  if (!form.user_prompt.trim()) {
+    ElMessage.warning('请输入用户问题或任务指令')
+    return
+  }
+  const wasEditing = Boolean(editing.value)
+  const editingID = editing.value?.id
   const payload = {
-    name: form.name || null,
-    user_prompt: form.user_prompt,
+    scenario_id: form.scenario_id || null,
+    name: form.name.trim() || null,
+    user_prompt: form.user_prompt.trim(),
     precondition: form.precondition || null,
     expected_result: form.expected_result || null,
     judging_guide: form.judging_guide || null,
@@ -131,24 +269,63 @@ async function saveCase() {
     is_enabled: form.is_enabled,
     expected_lock_version: editing.value?.lock_version || 0,
   }
+  savingCase.value = true
+  savingMode.value = continueCreating ? 'continue' : 'close'
   try {
+    let savedCase: VersionCase
     if (editing.value) {
-      await apiClient.patch(`/api/v1/version-cases/${editing.value.id}`, payload)
+      const response = await apiClient.patch<ResponseEnvelope<VersionCase>>(
+        `/api/v1/version-cases/${editing.value.id}`,
+        payload,
+      )
+      savedCase = response.data.data
+      const index = cases.value.findIndex((item) => item.id === savedCase.id)
+      if (index >= 0) cases.value[index] = savedCase
     } else {
-      await apiClient.post(`/api/v1/dataset-versions/${versionId}/cases`, payload)
+      const response = await apiClient.post<ResponseEnvelope<VersionCase>>(
+        `/api/v1/dataset-versions/${versionId}/cases`,
+        payload,
+      )
+      savedCase = response.data.data
+      cases.value.push(savedCase)
+      if (version.value) {
+        version.value.case_count += 1
+        if (savedCase.is_enabled) version.value.enabled_count += 1
+      }
+      if (dataset.value) dataset.value.draft_case_count += 1
     }
+    ElMessage.success(wasEditing ? '用例已保存' : '用例已添加')
+    await refreshVersionSnapshot()
+    if (!wasEditing && continueCreating) {
+      trackFormChanges.value = false
+      resetCaseForm({ preserveClassification: true })
+      createOpen.value = true
+      dirty.value = false
+      await nextTick()
+      focusInlineEditor('create-case-editor')
+      trackFormChanges.value = true
+      return
+    }
+    trackFormChanges.value = false
     dirty.value = false
-    editorOpen.value = false
-    ElMessage.success('用例已保存')
-    await load()
+    createOpen.value = false
+    editing.value = null
+    resetCaseForm()
+    await nextTick()
+    if (wasEditing && editingID) {
+      document.getElementById(`edit-case-trigger-${editingID}`)?.focus()
+    } else createTrigger.value?.focus()
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
+  } finally {
+    savingCase.value = false
+    savingMode.value = null
   }
 }
 
 async function deleteCase(item: VersionCase) {
   try {
-    await ElMessageBox.confirm(`确定删除“${item.name || item.user_prompt.slice(0, 20)}”吗？`, '删除用例', {
+    await ElMessageBox.confirm(`确定删除“${caseDisplayName(item.name, item.user_prompt, 20)}”吗？`, '删除用例', {
       type: 'warning',
     })
     await apiClient.delete(`/api/v1/version-cases/${item.id}`, {
@@ -158,28 +335,6 @@ async function deleteCase(item: VersionCase) {
     await load()
   } catch (error) {
     if (error === 'cancel') return
-    ElMessage.error(apiErrorMessage(error))
-  }
-}
-
-async function moveCase(index: number, offset: number) {
-  const target = index + offset
-  const current = cases.value[index]
-  const neighbor = cases.value[target]
-  if (!current || !neighbor) return
-  const reordered = [...cases.value]
-  reordered[index] = neighbor
-  reordered[target] = current
-  try {
-    await apiClient.post(`/api/v1/dataset-versions/${versionId}/cases/reorder`, {
-      items: reordered.map((item, order) => ({
-        id: item.id,
-        sort_order: (order + 1) * 10,
-        expected_lock_version: item.lock_version,
-      })),
-    })
-    await load()
-  } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   }
 }
@@ -261,6 +416,37 @@ onBeforeRouteLeave(() => {
   return window.confirm('当前用例存在未保存修改，确定离开吗？')
 })
 
+watch(
+  () => form.scenario_id,
+  async (scenarioID) => {
+    try {
+      await loadCaseTags(scenarioID)
+    } catch (error) {
+      ElMessage.error(apiErrorMessage(error))
+      return
+    }
+    const allowed = new Set([
+      ...availableGlobalTags.value.map((tag) => tag.id),
+      ...availableScenarioTags.value.map((tag) => tag.id),
+    ])
+    const filteredTagIDs = form.tag_ids.filter((tagID) => allowed.has(tagID))
+    if (
+      filteredTagIDs.length !== form.tag_ids.length ||
+      filteredTagIDs.some((tagID, index) => tagID !== form.tag_ids[index])
+    ) {
+      form.tag_ids = filteredTagIDs
+    }
+  },
+)
+
+watch(
+  form,
+  () => {
+    if (trackFormChanges.value) dirty.value = true
+  },
+  { deep: true },
+)
+
 onMounted(load)
 </script>
 
@@ -280,17 +466,20 @@ onMounted(load)
           <h1>编辑草稿</h1>
           <el-tag type="warning">未发布</el-tag>
         </div>
-        <p>{{ dataset?.evaluation_target_name }} / {{ dataset?.scenario_name }} / {{ dataset?.name }}</p>
+        <p>{{ dataset?.evaluation_target_name }} / {{ dataset?.name }}</p>
       </div>
       <div class="heading-actions">
-        <span class="saved-hint">✓ 所有更改已保存</span>
+        <span :class="dirty ? 'unsaved-hint' : 'saved-hint'" role="status">
+          {{ dirty ? '有未保存的用例' : '✓ 所有更改已保存' }}
+        </span>
         <el-button :icon="Download" @click="downloadTemplate">
           下载模板
         </el-button>
         <el-button :icon="Upload" @click="importOpen = true">导入 CSV</el-button>
         <el-button
           type="primary"
-          :disabled="enabledCount === 0"
+          :disabled="enabledCount === 0 || dirty"
+          :title="dirty ? '请先保存或放弃正在编辑的用例' : ''"
           @click="publishOpen = true"
         >
           发布版本
@@ -304,20 +493,70 @@ onMounted(load)
           <strong>用例列表</strong>
           <span>共 {{ cases.length }} 条，{{ enabledCount }} 条启用</span>
         </div>
-        <el-button type="primary" :icon="Plus" @click="openEditor()">新建用例</el-button>
       </div>
-      <el-table :data="cases" empty-text="暂无用例，请新建或导入 CSV">
-        <el-table-column label="排序" width="105">
-          <template #default="{ $index }">
-            <el-button link :disabled="$index === 0" @click="moveCase($index, -1)">↑</el-button>
-            <el-button link :disabled="$index === cases.length - 1" @click="moveCase($index, 1)">↓</el-button>
+      <el-table
+        :data="cases"
+        row-key="id"
+        :expand-row-keys="editing ? [editing.id] : []"
+        empty-text="暂无用例，可在下方添加第一条或导入 CSV"
+      >
+        <el-table-column type="expand" width="1">
+          <template #default="{ row }">
+            <section
+              v-if="editing?.id === row.id"
+              :id="`edit-case-editor-${row.id}`"
+              class="inline-case-editor inline-case-editor--edit"
+              role="region"
+              :aria-labelledby="`edit-case-heading-${row.id}`"
+              :aria-busy="savingCase"
+            >
+              <div class="inline-case-edit-heading">
+                <div>
+                  <strong :id="`edit-case-heading-${row.id}`">编辑评测用例</strong>
+                  <span>{{ caseDisplayName(row.name, row.user_prompt) }}</span>
+                </div>
+                <el-button link :disabled="savingCase" @click="closeEditor">收起</el-button>
+              </div>
+              <CaseInlineForm
+                v-model:scenario-id="form.scenario_id"
+                v-model:name="form.name"
+                v-model:user-prompt="form.user_prompt"
+                v-model:precondition="form.precondition"
+                v-model:expected-result="form.expected_result"
+                v-model:judging-guide="form.judging_guide"
+                v-model:tag-ids="form.tag_ids"
+                v-model:is-enabled="form.is_enabled"
+                mode="edit"
+                :target-scenarios="targetScenarios"
+                :available-global-tags="availableGlobalTags"
+                :available-scenario-tags="availableScenarioTags"
+                :saving-case="savingCase"
+                :saving-mode="savingMode"
+                @cancel="closeEditor"
+                @save="saveCase()"
+              />
+            </section>
           </template>
         </el-table-column>
-        <el-table-column label="用例名称" min-width="180">
-          <template #default="{ row }"><strong>{{ row.name || '未命名用例' }}</strong></template>
+        <el-table-column label="序号" width="72" align="center">
+          <template #default="{ $index }">
+            <span class="case-sequence">{{ $index + 1 }}</span>
+          </template>
         </el-table-column>
-        <el-table-column label="用户问题摘要" min-width="280" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.user_prompt }}</template>
+        <el-table-column label="评测用例" min-width="360">
+          <template #default="{ row }">
+            <div class="case-content-cell">
+              <strong>{{ caseDisplayName(row.name, row.user_prompt) }}</strong>
+              <span v-if="row.name">{{ row.user_prompt }}</span>
+              <span v-else>未设置名称，使用用户输入作为识别文本</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="场景归类" min-width="150">
+          <template #default="{ row }">
+            <el-tag v-if="row.scenario_name" type="info">{{ row.scenario_name }}</el-tag>
+            <span v-else class="classification-pending">待归类</span>
+          </template>
         </el-table-column>
         <el-table-column label="用例标签" min-width="170">
           <template #default="{ row }">
@@ -334,75 +573,75 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="操作" width="150" align="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEditor(row)">编辑</el-button>
+            <el-button
+              :id="`edit-case-trigger-${row.id}`"
+              link
+              type="primary"
+              :aria-expanded="editing?.id === row.id"
+              :aria-controls="`edit-case-editor-${row.id}`"
+              @click="openEditor(row)"
+            >
+              {{ editing?.id === row.id ? '正在编辑' : '编辑' }}
+            </el-button>
             <el-button link type="danger" @click="deleteCase(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div class="case-create-area">
+        <button
+          id="create-case-trigger"
+          ref="createTrigger"
+          type="button"
+          class="case-create-trigger"
+          :aria-expanded="createOpen"
+          aria-controls="create-case-editor"
+          @click="createOpen ? closeCreateEditor() : openCreateEditor()"
+        >
+          <el-icon>
+            <Minus v-if="createOpen" />
+            <Plus v-else />
+          </el-icon>
+          <span>
+            <strong>{{ createOpen ? '收起新增区域' : '添加评测用例' }}</strong>
+            <small>只需填写用户输入即可保存，其他信息可以稍后补充</small>
+          </span>
+        </button>
+        <el-collapse-transition>
+          <section
+            v-if="createOpen"
+            id="create-case-editor"
+            class="inline-case-editor"
+            role="region"
+            aria-labelledby="create-case-trigger"
+            :aria-busy="savingCase"
+          >
+            <CaseInlineForm
+              v-model:scenario-id="form.scenario_id"
+              v-model:name="form.name"
+              v-model:user-prompt="form.user_prompt"
+              v-model:precondition="form.precondition"
+              v-model:expected-result="form.expected_result"
+              v-model:judging-guide="form.judging_guide"
+              v-model:tag-ids="form.tag_ids"
+              v-model:is-enabled="form.is_enabled"
+              mode="create"
+              :target-scenarios="targetScenarios"
+              :available-global-tags="availableGlobalTags"
+              :available-scenario-tags="availableScenarioTags"
+              :saving-case="savingCase"
+              :saving-mode="savingMode"
+              @cancel="closeCreateEditor"
+              @save="saveCase()"
+              @save-continue="saveCase(true)"
+            />
+          </section>
+        </el-collapse-transition>
+      </div>
       <div class="danger-zone">
         <el-button link type="danger" @click="deleteDraft">删除当前草稿</el-button>
       </div>
     </el-card>
   </section>
-
-  <el-drawer
-    v-model="editorOpen"
-    :before-close="confirmEditorClose"
-    :title="editing ? '编辑评测用例' : '新建评测用例'"
-    size="520"
-  >
-    <el-form label-position="top" @input="dirty = true">
-      <el-form-item label="用例名称">
-        <el-input v-model="form.name" maxlength="200" show-word-limit />
-      </el-form-item>
-      <el-form-item label="用户问题或任务指令" required>
-        <el-input v-model="form.user_prompt" type="textarea" :rows="5" />
-      </el-form-item>
-      <el-collapse>
-        <el-collapse-item title="补充评测信息" name="extra">
-          <el-form-item label="前置条件">
-            <el-input v-model="form.precondition" type="textarea" :rows="3" />
-          </el-form-item>
-          <el-form-item label="期望结果（可选）">
-            <el-input v-model="form.expected_result" type="textarea" :rows="3" />
-          </el-form-item>
-          <el-form-item label="评判要点">
-            <el-input v-model="form.judging_guide" type="textarea" :rows="4" />
-          </el-form-item>
-        </el-collapse-item>
-      </el-collapse>
-      <el-form-item label="用例标签">
-        <el-select v-model="form.tag_ids" multiple clearable>
-          <el-option-group v-if="availableGlobalTags.length" label="通用能力 · 全部场景">
-            <el-option
-              v-for="tag in availableGlobalTags"
-              :key="tag.id"
-              :label="tag.name"
-              :value="tag.id"
-            />
-          </el-option-group>
-          <el-option-group
-            v-if="availableScenarioTags.length"
-            :label="`当前场景 · ${dataset?.scenario_name || ''}`"
-          >
-            <el-option
-              v-for="tag in availableScenarioTags"
-              :key="tag.id"
-              :label="tag.name"
-              :value="tag.id"
-            />
-          </el-option-group>
-        </el-select>
-      </el-form-item>
-      <el-form-item label="启用状态">
-        <el-switch v-model="form.is_enabled" active-text="启用" inactive-text="停用" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="closeEditor">取消</el-button>
-      <el-button type="primary" :disabled="!form.user_prompt.trim()" @click="saveCase">保存</el-button>
-    </template>
-  </el-drawer>
 
   <el-dialog v-model="importOpen" title="批量导入评测用例" width="860">
     <el-steps :active="importPreview ? 1 : 0" align-center>
@@ -422,6 +661,12 @@ onMounted(load)
       <div>将 CSV 文件拖到此处，或点击选择</div>
       <template #tip>仅接受 UTF-8 CSV；导入只会追加到当前草稿。</template>
     </el-upload>
+    <el-alert
+      title="导入的用例将先进入“待归类”，后续可逐条补充场景。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
     <div v-if="importPreview" class="import-summary">
       <el-statistic title="总行数" :value="importPreview.rows.length" />
       <el-statistic title="有效数据" :value="importPreview.valid_row_count" />

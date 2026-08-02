@@ -90,13 +90,13 @@ test "$(request POST /api/v1/issue-tags "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/tag-input.json" "${smoke_dir}/tag.json")" = "201"
 tag_id="$(jq -er '.data.id' "${smoke_dir}/tag.json")"
 
-jq -n --arg id "${scenario_id}" --arg name "M4 评测集 ${timestamp}" \
-  '{scenario_id: $id, name: $name, description: "M4 smoke"}' > "${smoke_dir}/dataset-input.json"
+jq -n --arg id "${target_id}" --arg name "M4 评测集 ${timestamp}" \
+  '{evaluation_target_id: $id, name: $name, description: "M4 smoke"}' > "${smoke_dir}/dataset-input.json"
 test "$(request POST /api/v1/datasets "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/dataset-input.json" "${smoke_dir}/dataset.json")" = "201"
 draft_id="$(jq -er '.data.draft.id' "${smoke_dir}/dataset.json")"
 
-jq -n '{name: "截图证据用例", user_prompt: "请给出采购建议", precondition: null,
+jq -n --arg scenario "${scenario_id}" '{scenario_id: $scenario, name: "截图证据用例", user_prompt: "请给出采购建议", precondition: null,
   expected_result: null, judging_guide: "证据完整", is_enabled: true, tag_ids: []}' \
   > "${smoke_dir}/case-input.json"
 test "$(request POST "/api/v1/dataset-versions/${draft_id}/cases" \
@@ -140,7 +140,7 @@ jq -e --arg id "${attachment_id}" \
 test "$(request GET "/api/v1/attachments/${attachment_id}/content" \
   "${member_b_cookie}" "" "" "${smoke_dir}/member-b-before-badcase.json")" = "403"
 
-jq -n '{status: "evaluated", answer_text: null, score: 2, comment: "截图展示回答错误",
+jq -n '{status: "evaluated", answer_text: null, score: 3, comment: "截图展示回答错误",
   skip_reason: null, expected_lock_version: 1}' > "${smoke_dir}/evaluate-input.json"
 test "$(request PATCH "/api/v1/case-results/${result_id}" "${member_a_cookie}" \
   "${member_a_csrf}" "${smoke_dir}/evaluate-input.json" "${smoke_dir}/evaluated.json")" = "200"
@@ -148,11 +148,16 @@ jq -e '.data.result.status == "evaluated" and .data.result.answer_text == null a
   (.data.result.attachments | length) == 1' "${smoke_dir}/evaluated.json" >/dev/null
 
 test "$(request DELETE "/api/v1/attachments/${attachment_id}?expected_owner_lock_version=2" \
-  "${member_a_cookie}" "${member_a_csrf}" "" "${smoke_dir}/delete-evidence.json")" = "409"
-jq -e '.error.code == "EVIDENCE_REQUIRED"' "${smoke_dir}/delete-evidence.json" >/dev/null
+  "${member_a_cookie}" "${member_a_csrf}" "" "${smoke_dir}/delete-evidence.json")" = "200"
+jq -e '.data.owner_lock_version == 3' "${smoke_dir}/delete-evidence.json" >/dev/null
+
+test "$(upload "/api/v1/case-results/${result_id}/attachments" "${member_a_cookie}" \
+  "${member_a_csrf}" 3 "${valid_image}" "${smoke_dir}/reupload.json" \
+  "m4-reupload-${timestamp}")" = "201"
+attachment_id="$(jq -er '.data.items[0].id' "${smoke_dir}/reupload.json")"
 
 jq -n --arg tag "${tag_id}" \
-  '{expected_result_lock_version: 2,
+  '{expected_result_lock_version: 4,
     result_patch: {status: "evaluated", answer_text: null, score: 2, comment: null},
     badcase: {title: "Agent 给出错误采购建议", description: "截图中建议与约束冲突",
       issue_tag_ids: [$tag]}}' > "${smoke_dir}/mark-missing-comment.json"
@@ -161,7 +166,9 @@ test "$(request POST "/api/v1/case-results/${result_id}/mark-badcase" \
   "${smoke_dir}/mark-missing-comment-response.json" "m4-mark-invalid-${timestamp}")" = "422"
 
 jq -n --arg tag "${tag_id}" \
-  '{expected_result_lock_version: 2,
+  '{expected_result_lock_version: 4,
+    result_patch: {status: "evaluated", answer_text: null, score: 2,
+      comment: "截图中建议与约束冲突"},
     badcase: {title: "Agent 给出错误采购建议", description: "截图中建议与约束冲突",
       issue_tag_ids: [$tag]}}' > "${smoke_dir}/mark-input.json"
 mark_key="m4-mark-${timestamp}"
@@ -193,7 +200,7 @@ test "$(request GET "/api/v1/attachments/${attachment_id}/content" \
   "${member_b_cookie}" "" "" "${smoke_dir}/member-b-content.png")" = "200"
 test "$(curl -sS -o "${smoke_dir}/anonymous-content.json" -w "%{http_code}" \
   "${api_base}/api/v1/attachments/${attachment_id}/content")" = "401"
-test "$(request DELETE "/api/v1/attachments/${attachment_id}?expected_owner_lock_version=3" \
+test "$(request DELETE "/api/v1/attachments/${attachment_id}?expected_owner_lock_version=5" \
   "${member_b_cookie}" "${member_b_csrf}" "" "${smoke_dir}/member-b-delete.json")" = "403"
 
 jq -n --argjson lock "${run_lock}" '{expected_lock_version: $lock}' \
@@ -208,4 +215,4 @@ storage_file="${repo_dir}/uploads/evaluations/${run_id}/${result_id}/${attachmen
 test -f "${storage_file}"
 cmp -s "${valid_image}" "${storage_file}"
 
-echo "M4 smoke passed: validated private screenshots, idempotency, screenshot-only evidence, deletion guard, atomic Badcase, traceability and authorization"
+echo "M4 smoke passed: validated private screenshots, idempotency, optional evidence, atomic Badcase, traceability and authorization"

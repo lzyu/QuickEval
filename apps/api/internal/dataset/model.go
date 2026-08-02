@@ -17,10 +17,9 @@ const (
 
 type Dataset struct {
 	ID                    id.UUID   `gorm:"column:id;type:binary(16);primaryKey"`
-	ScenarioID            id.UUID   `gorm:"column:scenario_id;type:binary(16)"`
-	ScenarioName          string    `gorm:"column:scenario_name;->"`
-	TargetID              id.UUID   `gorm:"column:evaluation_target_id;type:binary(16);->"`
+	TargetID              id.UUID   `gorm:"column:evaluation_target_id;type:binary(16)"`
 	TargetName            string    `gorm:"column:evaluation_target_name;->"`
+	TargetStatus          string    `gorm:"column:evaluation_target_status;->"`
 	Name                  string    `gorm:"column:name"`
 	Description           *string   `gorm:"column:description"`
 	Status                string    `gorm:"column:status"`
@@ -63,6 +62,10 @@ type VersionCase struct {
 	ID               id.UUID   `gorm:"column:id;type:binary(16);primaryKey"`
 	DatasetVersionID id.UUID   `gorm:"column:dataset_version_id;type:binary(16)"`
 	CaseKey          id.UUID   `gorm:"column:case_key;type:binary(16)"`
+	ScenarioID       *id.UUID  `gorm:"column:scenario_id;type:binary(16)"`
+	ScenarioName     *string   `gorm:"column:scenario_name;->"`
+	ScenarioStatus   *string   `gorm:"column:scenario_status;->"`
+	AssignmentStatus string    `gorm:"column:scenario_assignment_status"`
 	Name             *string   `gorm:"column:name"`
 	UserPrompt       string    `gorm:"column:user_prompt"`
 	Precondition     *string   `gorm:"column:precondition"`
@@ -98,10 +101,9 @@ type CaseTag struct {
 
 type DatasetPublic struct {
 	ID                    string    `json:"id"`
-	ScenarioID            string    `json:"scenario_id"`
-	ScenarioName          string    `json:"scenario_name"`
 	TargetID              string    `json:"evaluation_target_id"`
 	TargetName            string    `json:"evaluation_target_name"`
+	TargetStatus          string    `json:"evaluation_target_status"`
 	Name                  string    `json:"name"`
 	Description           *string   `json:"description"`
 	Status                string    `json:"status"`
@@ -121,8 +123,8 @@ func (item Dataset) Public() DatasetPublic {
 		draftID = &value
 	}
 	return DatasetPublic{
-		ID: item.ID.String(), ScenarioID: item.ScenarioID.String(), ScenarioName: item.ScenarioName,
-		TargetID: item.TargetID.String(), TargetName: item.TargetName, Name: item.Name,
+		ID: item.ID.String(), TargetID: item.TargetID.String(),
+		TargetName: item.TargetName, TargetStatus: item.TargetStatus, Name: item.Name,
 		Description: item.Description, Status: item.Status, LockVersion: item.LockVersion,
 		CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 		LatestVersionNo: item.LatestVersionNo, PublishedVersionCount: item.PublishedVersionCount,
@@ -162,25 +164,36 @@ func (item Version) Public() VersionPublic {
 }
 
 type CasePublic struct {
-	ID             string    `json:"id"`
-	VersionID      string    `json:"dataset_version_id"`
-	CaseKey        string    `json:"case_key"`
-	Name           *string   `json:"name"`
-	UserPrompt     string    `json:"user_prompt"`
-	Precondition   *string   `json:"precondition"`
-	ExpectedResult *string   `json:"expected_result"`
-	JudgingGuide   *string   `json:"judging_guide"`
-	SortOrder      uint32    `json:"sort_order"`
-	IsEnabled      bool      `json:"is_enabled"`
-	LockVersion    uint32    `json:"lock_version"`
-	Tags           []CaseTag `json:"tags"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	VersionID        string    `json:"dataset_version_id"`
+	CaseKey          string    `json:"case_key"`
+	ScenarioID       *string   `json:"scenario_id"`
+	ScenarioName     *string   `json:"scenario_name"`
+	ScenarioStatus   *string   `json:"scenario_status"`
+	AssignmentStatus string    `json:"scenario_assignment_status"`
+	Name             *string   `json:"name"`
+	UserPrompt       string    `json:"user_prompt"`
+	Precondition     *string   `json:"precondition"`
+	ExpectedResult   *string   `json:"expected_result"`
+	JudgingGuide     *string   `json:"judging_guide"`
+	SortOrder        uint32    `json:"sort_order"`
+	IsEnabled        bool      `json:"is_enabled"`
+	LockVersion      uint32    `json:"lock_version"`
+	Tags             []CaseTag `json:"tags"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 func (item VersionCase) Public() CasePublic {
+	var scenarioID *string
+	if item.ScenarioID != nil {
+		value := item.ScenarioID.String()
+		scenarioID = &value
+	}
 	return CasePublic{
 		ID: item.ID.String(), VersionID: item.DatasetVersionID.String(), CaseKey: item.CaseKey.String(),
+		ScenarioID: scenarioID, ScenarioName: item.ScenarioName,
+		ScenarioStatus: item.ScenarioStatus, AssignmentStatus: item.AssignmentStatus,
 		Name: item.Name, UserPrompt: item.UserPrompt, Precondition: item.Precondition,
 		ExpectedResult: item.ExpectedResult, JudgingGuide: item.JudgingGuide,
 		SortOrder: item.SortOrder, IsEnabled: item.IsEnabled, LockVersion: item.LockVersion,

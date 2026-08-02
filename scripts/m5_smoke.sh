@@ -85,9 +85,9 @@ login "${member_b_username}" "${member_password}" "${member_b_cookie}" "${smoke_
 member_b_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/member-b-session.json")"
 
 occurred_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-jq -n --arg scenario "${scenario_id}" --arg tag "${tag_accuracy_id}" \
+jq -n --arg target "${target_id}" --arg scenario "${scenario_id}" --arg tag "${tag_accuracy_id}" \
   --arg occurred "${occurred_at}" \
-  '{scenario_id: $scenario, title: "采购助手未识别预算条件",
+  '{evaluation_target_id: $target, scenario_id: $scenario, title: "采购助手未识别预算条件",
     agent_response_text: "建议采购高配服务器", agent_version: "2026.07.28",
     environment: "production", occurred_at: $occurred,
     business_reference: "ORDER-M5-001", session_id: "chat-m5-001",
@@ -273,9 +273,17 @@ test "$(request POST /api/v1/badcases "${member_a_cookie}" "${member_a_csrf}" \
   "${smoke_dir}/create-reused-input.json" "${smoke_dir}/disabled-create.json" \
   "m5-disabled-create-${timestamp}")" = "409"
 jq -e '.error.code == "RESOURCE_DISABLED"' "${smoke_dir}/disabled-create.json" >/dev/null
+jq --arg target "${target_id}" \
+  '.evaluation_target_id = $target | .scenario_id = null | .title = "待归类业务问题"' \
+  "${smoke_dir}/create-input.json" > "${smoke_dir}/unclassified-create-input.json"
+test "$(request POST /api/v1/badcases "${member_a_cookie}" "${member_a_csrf}" \
+  "${smoke_dir}/unclassified-create-input.json" "${smoke_dir}/unclassified-create.json" \
+  "m5-unclassified-create-${timestamp}")" = "201"
+jq -e '.data.scenario_id == null and .data.scenario_assignment_status == "unclassified"' \
+  "${smoke_dir}/unclassified-create.json" >/dev/null
 
 storage_dir="${repo_dir}/uploads/badcases/${badcase_id}/attachments"
 test -d "${storage_dir}"
 test "$(find "${storage_dir}" -type f | wc -l | tr -d ' ')" = "1"
 
-echo "M5 smoke passed: business registration, evidence, assignment, tags, workflow, note idempotency, invalidation/reactivation, permissions and timeline"
+echo "M5 smoke passed: business registration including unclassified, evidence, assignment, tags, workflow, note idempotency, invalidation/reactivation, permissions and timeline"
