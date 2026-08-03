@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { HomePageData, ResponseEnvelope } from '@/api/types'
+import { badcaseDisplayTitle } from '@/features/badcases/display'
 import { useAuthStore } from '@/stores/auth'
 import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
@@ -147,7 +148,7 @@ onMounted(load)
           @click="router.push(`/badcases/${item.id}`)"
         >
           <div class="home-list-main">
-            <strong>{{ item.title }}</strong>
+            <strong>{{ badcaseDisplayTitle(item) }}</strong>
             <span>{{ item.scenario_name }} · {{ item.source_type === 'business' ? '业务登记' : '评测发现' }}</span>
           </div>
           <el-tag :type="item.status === 'processing' ? 'primary' : 'warning'" effect="light">

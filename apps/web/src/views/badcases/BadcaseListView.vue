@@ -8,6 +8,7 @@ import { apiClient, apiErrorMessage } from '@/api/client'
 import type { Badcase, PageData, ResponseEnvelope, Scenario } from '@/api/types'
 import EvaluationTargetDialog from '@/components/badcases/EvaluationTargetDialog.vue'
 import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
+import { badcaseDisplayTitle } from '@/features/badcases/display'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -225,9 +226,10 @@ onMounted(() => Promise.all([loadOptions(), load()]))
         <el-table-column label="Badcase" min-width="300">
           <template #default="{ row }">
             <button class="table-primary-link" @click="router.push(`/badcases/${row.id}`)">
-              {{ row.title }}
+              {{ badcaseDisplayTitle(row) }}
             </button>
-            <small>{{ row.description || row.evaluation?.user_prompt || '-' }}</small>
+            <small v-if="row.source_type === 'business' && row.description">问题描述：{{ row.title }}</small>
+            <small v-else>{{ row.description || row.evaluation?.user_prompt || '-' }}</small>
           </template>
         </el-table-column>
         <el-table-column label="来源" width="100">

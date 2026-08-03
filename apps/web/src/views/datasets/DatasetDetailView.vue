@@ -9,8 +9,11 @@ import type {
   Dataset,
   DatasetDetail,
   DatasetVersion,
+  PageData,
   ResponseEnvelope,
+  VersionCase,
 } from '@/api/types'
+import { caseDisplayName } from '@/features/datasets/case-display'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -19,6 +22,11 @@ const router = useRouter()
 const loading = ref(false)
 const dataset = ref<Dataset | null>(null)
 const versions = ref<DatasetVersion[]>([])
+const cases = ref<VersionCase[]>([])
+const casesLoading = ref(false)
+const viewingVersionId = ref('')
+const casePage = ref(1)
+const caseTotal = ref(0)
 const editOpen = ref(false)
 const editSaving = ref(false)
 const editForm = reactive({ name: '', description: '' })
@@ -36,9 +44,57 @@ const draft = computed(() => versions.value.find((item) => item.status === 'draf
 const releasedVersions = computed(() =>
   versions.value.filter((item) => item.status !== 'draft'),
 )
+const viewingVersion = computed(
+  () => versions.value.find((item) => item.id === viewingVersionId.value) || null,
+)
 const ownershipActive = computed(
   () => dataset.value?.evaluation_target_status !== 'disabled',
 )
+let casesRequest = 0
+const casePageSize = 10
+
+function versionLabel(version: DatasetVersion) {
+  if (version.status === 'draft') return '当前草稿'
+  return `V${version.version_no} · ${version.status === 'published' ? '已发布' : '已归档'}`
+}
+
+async function loadCases(versionId: string, page = casePage.value) {
+  if (!versionId) {
+    cases.value = []
+    caseTotal.value = 0
+    return
+  }
+  const request = ++casesRequest
+  cases.value = []
+  casesLoading.value = true
+  try {
+    const response = await apiClient.get<ResponseEnvelope<PageData<VersionCase>>>(
+      `/api/v1/dataset-versions/${versionId}/cases`,
+      { params: { page, page_size: casePageSize } },
+    )
+    if (request === casesRequest) {
+      cases.value = response.data.data.items
+      caseTotal.value = response.data.data.total
+    }
+  } catch (error) {
+    if (request === casesRequest) {
+      cases.value = []
+      caseTotal.value = 0
+    }
+    ElMessage.error(apiErrorMessage(error))
+  } finally {
+    if (request === casesRequest) casesLoading.value = false
+  }
+}
+
+async function changeViewingVersion() {
+  casePage.value = 1
+  await loadCases(viewingVersionId.value)
+}
+
+async function changeCasePage() {
+  await loadCases(viewingVersionId.value)
+}
 
 async function load() {
   loading.value = true
@@ -48,6 +104,16 @@ async function load() {
     )
     dataset.value = response.data.data.dataset
     versions.value = response.data.data.versions
+    const selected = versions.value.find((item) => item.id === viewingVersionId.value)
+    const preferred =
+      selected ||
+      releasedVersions.value.find((item) => item.status === 'published') ||
+      releasedVersions.value[0] ||
+      draft.value ||
+      null
+    viewingVersionId.value = preferred?.id || ''
+    casePage.value = 1
+    await loadCases(viewingVersionId.value)
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   } finally {
@@ -276,6 +342,120 @@ onMounted(load)
             <strong>{{ dataset.latest_version_no ? `V${dataset.latest_version_no}` : '尚未发布' }}</strong>
           </div>
         </div>
+      </el-card>
+
+      <el-card class="dataset-content-card" shadow="never">
+        <div class="dataset-content-heading">
+          <div>
+            <h2>用例内容</h2>
+            <p>直接浏览任意版本；创建或编辑草稿不影响已发布内容。</p>
+          </div>
+          <div class="dataset-content-controls">
+            <el-select
+              v-model="viewingVersionId"
+              placeholder="选择查看版本"
+              aria-label="查看评测集版本"
+              :disabled="!versions.length"
+              @change="changeViewingVersion"
+            >
+              <el-option
+                v-for="version in versions"
+                :key="version.id"
+                :label="versionLabel(version)"
+                :value="version.id"
+              />
+            </el-select>
+            <el-button
+              v-if="auth.isAdmin && viewingVersion?.status === 'draft' && ownershipActive"
+              :icon="EditPen"
+              @click="router.push(`/dataset-versions/${viewingVersion.id}/edit`)"
+            >
+              编辑当前草稿
+            </el-button>
+          </div>
+        </div>
+
+        <div v-if="viewingVersion" class="viewing-version-summary">
+          <strong>
+            {{ viewingVersion.status === 'draft' ? '当前草稿' : `V${viewingVersion.version_no}` }}
+          </strong>
+          <el-tag
+            :type="
+              viewingVersion.status === 'published'
+                ? 'success'
+                : viewingVersion.status === 'draft'
+                  ? 'warning'
+                  : 'info'
+            "
+            effect="plain"
+          >
+            {{ viewingVersion.status === 'published' ? '已发布' : viewingVersion.status === 'draft' ? '草稿' : '已归档' }}
+          </el-tag>
+          <span>共 {{ caseTotal }} 条用例</span>
+        </div>
+
+        <el-table v-loading="casesLoading" :data="cases" row-key="id">
+          <template #empty>
+            <el-empty
+              :description="viewingVersion ? '当前版本暂无用例' : '暂无可查看版本'"
+              :image-size="72"
+            />
+          </template>
+          <el-table-column label="序号" width="72" align="center">
+            <template #default="{ $index }">
+              <span class="case-sequence">{{ (casePage - 1) * casePageSize + $index + 1 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="评测用例" min-width="360">
+            <template #default="{ row }">
+              <button
+                class="table-primary-link"
+                @click="router.push(`/version-cases/${row.id}`)"
+              >
+                {{ caseDisplayName(row.name, row.user_prompt) }}
+              </button>
+              <div class="table-secondary dataset-case-prompt">{{ row.user_prompt }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="场景归类" min-width="150">
+            <template #default="{ row }">
+              <span v-if="row.scenario_name">{{ row.scenario_name }}</span>
+              <span v-else class="classification-pending">待归类</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="用例标签" min-width="180">
+            <template #default="{ row }">
+              <template v-if="row.tags.length">
+                <el-tag
+                  v-for="tag in row.tags"
+                  :key="tag.id"
+                  class="case-tag"
+                  effect="plain"
+                  size="small"
+                >
+                  {{ tag.name }}
+                </el-tag>
+              </template>
+              <span v-else class="muted">未标记</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.is_enabled ? 'success' : 'info'" effect="plain">
+                {{ row.is_enabled ? '启用' : '停用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          v-if="caseTotal > casePageSize"
+          v-model:current-page="casePage"
+          class="table-pagination dataset-case-pagination"
+          layout="total, prev, pager, next"
+          :page-size="casePageSize"
+          :total="caseTotal"
+          @current-change="changeCasePage"
+        />
       </el-card>
 
       <el-card class="version-card" shadow="never">

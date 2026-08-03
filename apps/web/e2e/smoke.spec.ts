@@ -355,7 +355,16 @@ test('actively registers badcases continuously and retries only a failed screens
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          items: [target, { ...target, id: disabledTargetId, name: '合同审核助手' }],
+          items: [
+            target,
+            {
+              ...target,
+              id: disabledTargetId,
+              name: '合同审核助手',
+              description: '合同条款审核与风险识别',
+              status: 'disabled',
+            },
+          ],
           page: 1,
           page_size: 100,
           total: 2,
@@ -469,13 +478,16 @@ test('actively registers badcases continuously and retries only a failed screens
   await page.goto('/badcases/register')
   await expect(page.getByRole('heading', { name: '选择评测对象' })).toBeVisible()
   await page.getByPlaceholder('搜索评测对象').fill('合同')
-  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeEnabled()
+  await expect(page.getByRole('button', { name: /合同审核助手/ })).toHaveCount(0)
+  await page.getByText('显示已停用（1）', { exact: true }).click()
+  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeDisabled()
   await page.getByPlaceholder('搜索评测对象').fill('智能采购')
   await page.getByRole('button', { name: /智能采购 Agent/ }).click()
 
-  await page.getByPlaceholder('请输入 Badcase 标题').fill('采购推荐违反预算约束')
-  await page.getByPlaceholder('请简要描述问题现象、影响范围、期望结果等').fill('预算为 10 万元')
-  await page.getByPlaceholder('例如 2026.07.30').fill('agent-v2')
+  await page
+    .getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文')
+    .fill('预算为 10 万元时仍推荐超预算商品')
+  await page.getByPlaceholder('例如 20260803').fill('agent-v2')
   await page.locator('input[type="file"]').setInputFiles({
     name: 'evidence.png',
     mimeType: 'image/png',
@@ -483,7 +495,9 @@ test('actively registers badcases continuously and retries only a failed screens
   })
 
   await page.reload()
-  await expect(page.getByPlaceholder('请输入 Badcase 标题')).toHaveValue('采购推荐违反预算约束')
+  await expect(
+    page.getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文'),
+  ).toHaveValue('预算为 10 万元时仍推荐超预算商品')
   await expect(page.getByText(/截图需要重新选择/)).toBeVisible()
   await page.locator('input[type="file"]').setInputFiles({
     name: 'evidence.png',
@@ -496,9 +510,11 @@ test('actively registers badcases continuously and retries only a failed screens
   expect(createCount).toBe(1)
   expect(uploadCount).toBe(1)
   await page.getByRole('button', { name: '重试上传' }).click()
-  await expect(page.getByText('采购推荐违反预算约束')).toBeVisible()
-  await expect(page.getByPlaceholder('请输入 Badcase 标题')).toHaveValue('')
-  await expect(page.getByPlaceholder('例如 2026.07.30')).toHaveValue('agent-v2')
+  await expect(page.getByText('预算为 10 万元时仍推荐超预算商品')).toBeVisible()
+  await expect(
+    page.getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文'),
+  ).toHaveValue('')
+  await expect(page.getByPlaceholder('例如 20260803')).toHaveValue('agent-v2')
   expect(createCount).toBe(1)
   expect(uploadCount).toBe(2)
 })
@@ -706,18 +722,196 @@ test('disabled evaluation targets are unavailable when browsing and creating dat
   })
 
   await page.goto('/datasets')
-  await expect(page.locator('.dataset-filter-panel')).toContainText(target.name)
-  await expect(page.locator('.dataset-filter-panel')).not.toContainText(disabledTarget.name)
+  const targetFilter = page.getByRole('combobox', { name: '按评测对象筛选' })
+  await targetFilter.click()
+  await expect(page.getByRole('option', { name: target.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: new RegExp(disabledTarget.name) })).toHaveCount(0)
+  await page.keyboard.press('Escape')
   await expect(page.locator('.dataset-list-card')).not.toContainText(disabledDataset.name)
 
   await page.getByText('包含停用归属', { exact: true }).click()
-  await expect(page.locator('.dataset-filter-panel')).toContainText(disabledTarget.name)
+  await targetFilter.click()
+  await expect(page.getByRole('option', { name: new RegExp(disabledTarget.name) })).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect(page.locator('.dataset-list-card')).toContainText(disabledDataset.name)
 
   await page.getByRole('button', { name: '新建评测集' }).click()
   await page.getByRole('combobox', { name: '所属评测对象' }).click()
-  await expect(page.getByRole('option', { name: target.name })).toBeVisible()
-  await expect(page.getByRole('option', { name: disabledTarget.name })).toHaveCount(0)
+  const createTargetOptions = page.locator('.el-select-dropdown:visible')
+  await expect(createTargetOptions.getByRole('option', { name: target.name })).toBeVisible()
+  await expect(createTargetOptions.getByRole('option', { name: disabledTarget.name })).toHaveCount(0)
+})
+
+test('dataset filters scope scenarios to the selected evaluation target', async ({ page }) => {
+  const otherTarget = {
+    ...target,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5125',
+    name: '合同审核 Agent',
+  }
+  const otherScenario = {
+    ...scenario,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5126',
+    name: '条款风险识别',
+    evaluation_target_id: otherTarget.id,
+    evaluation_target_name: otherTarget.name,
+  }
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [target, otherTarget], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [scenario, otherScenario], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 100, total: 0 }, meta }),
+    })
+  })
+
+  await page.goto('/datasets')
+  const targetFilter = page.getByRole('combobox', { name: '按评测对象筛选' })
+  const scenarioFilter = page.getByRole('combobox', { name: '按场景筛选' })
+  await expect(targetFilter).toBeVisible()
+  await expect(scenarioFilter).toBeDisabled()
+
+  await targetFilter.click()
+  await page.getByRole('option', { name: target.name }).click()
+  await expect(scenarioFilter).toBeEnabled()
+  await scenarioFilter.click()
+  await expect(page.getByRole('option', { name: scenario.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: otherScenario.name })).toHaveCount(0)
+})
+
+test('views published dataset cases without creating a draft', async ({ page }) => {
+  const olderVersionId = '019fa2a2-ed09-7660-988d-38cb279d5127'
+  const latestCases = Array.from({ length: 11 }, (_, index) => ({
+    ...versionCase,
+    id: `019fa2a2-ed09-7660-988d-38cb279d52${String(index + 10).padStart(2, '0')}`,
+    user_prompt: `最新版本用例 ${index + 1}：预算 ${(index + 1) * 10} 万元，请推荐采购方案`,
+  }))
+  const publishedVersion = {
+    ...draft,
+    status: 'published',
+    version_no: 2,
+    case_count: latestCases.length,
+    enabled_count: latestCases.length,
+    published_at: '2026-07-28T01:00:00Z',
+  }
+  const olderVersion = {
+    ...publishedVersion,
+    id: olderVersionId,
+    version_no: 1,
+    published_at: '2026-07-27T01:00:00Z',
+  }
+  const olderCase = {
+    ...versionCase,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5128',
+    dataset_version_id: olderVersionId,
+    user_prompt: '历史版本：预算 8 万元，请推荐采购方案',
+  }
+  const publishedDataset = {
+    ...dataset,
+    latest_version_no: 2,
+    published_version_count: 2,
+    draft_version_id: null,
+    draft_case_count: 0,
+  }
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [target], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [publishedDataset], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/datasets/${datasetId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { dataset: publishedDataset, versions: [publishedVersion, olderVersion] },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/dataset-versions/${draftId}/cases?*`, async (route) => {
+    const pageNumber = Number(new URL(route.request().url()).searchParams.get('page') || '1')
+    const pageSize = Number(new URL(route.request().url()).searchParams.get('page_size') || '10')
+    const start = (pageNumber - 1) * pageSize
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          items: latestCases.slice(start, start + pageSize),
+          page: pageNumber,
+          page_size: pageSize,
+          total: latestCases.length,
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/dataset-versions/${olderVersionId}/cases?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [olderCase], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
+    })
+  })
+
+  await page.goto('/datasets')
+  await page.getByRole('button', { name: '预览用例' }).click()
+  await expect(page.getByText('显示前 8 条，共 11 条', { exact: true })).toBeVisible()
+  await expect(page.getByText(latestCases[7].user_prompt, { exact: true })).toBeVisible()
+  await expect(page.getByText(latestCases[8].user_prompt, { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '查看详情' }).click()
+  await expect(page).toHaveURL(`/datasets/${datasetId}`)
+  await expect(page.getByRole('heading', { name: publishedDataset.name })).toBeVisible()
+  await expect(page.getByText(latestCases[0].user_prompt, { exact: true })).toBeVisible()
+  await expect(page.locator('.dataset-content-card .el-loading-mask')).toBeHidden()
+  await page.locator('.dataset-content-card .el-pagination .btn-next').click()
+  await expect(page.getByText(latestCases[10].user_prompt, { exact: true })).toBeVisible()
+  await page.locator('.dataset-content-controls .el-select').click()
+  await page.locator('.el-select-dropdown:visible').getByRole('option', { name: 'V1 · 已发布' }).click()
+  await expect(page.getByText(olderCase.user_prompt, { exact: true })).toBeVisible()
+  await expect(page.locator('.viewing-version-summary').getByText('V1', { exact: true })).toBeVisible()
 })
 
 test('draft editor adds an input-only case from the inline composer', async ({ page }) => {
@@ -975,6 +1169,16 @@ test('starts an independent evaluation from a published dataset version', async 
       contentType: 'application/json',
       body: JSON.stringify({
         data: { dataset: { ...dataset, latest_version_no: 1 }, versions: [publishedVersion] },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/dataset-versions/${draftId}/cases?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [versionCase], page: 1, page_size: 100, total: 1 },
         meta,
       }),
     })
@@ -1376,7 +1580,7 @@ test('registers a business Badcase and advances its processing timeline', async 
     evaluation_target_id: targetId,
     evaluation_target_name: target.name,
     title: '采购助手忽略预算上限',
-    description: null,
+    description: '预算为 10 万元时仍推荐超预算商品',
     agent_response_text: '建议采购高配服务器',
     agent_version: '2026.07.28',
     environment: 'production',
@@ -1441,7 +1645,7 @@ test('registers a business Badcase and advances its processing timeline', async 
         evaluation_target_id: targetId,
         scenario_id: null,
         title: '采购助手忽略预算上限',
-        description: null,
+        description: '预算为 10 万元时仍推荐超预算商品',
         issue_tag_ids: [],
       })
       await route.fulfill({
@@ -1580,15 +1784,18 @@ test('registers a business Badcase and advances its processing timeline', async 
   await page.goto('/badcases')
   await page.getByRole('button', { name: '主动登记 Badcase' }).click()
   await page.getByRole('button', { name: /智能采购 Agent/ }).click()
-  await page.getByPlaceholder('请输入 Badcase 标题').fill('采购助手忽略预算上限')
+  await page.getByPlaceholder('简要说明问题现象、影响或期望结果，可留空').fill('采购助手忽略预算上限')
   await page
-    .getByPlaceholder('请粘贴 Agent 的完整回答文本，便于复现与分析')
+    .getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文')
+    .fill('预算为 10 万元时仍推荐超预算商品')
+  await page
+    .getByPlaceholder('需要复现或定位时再补充，可留空')
     .fill('建议采购高配服务器')
   await page.getByRole('button', { name: '登记并继续' }).click()
   await page.getByRole('button', { name: '查看详情' }).click()
 
   await expect(page).toHaveURL(`/badcases/${badcaseId}`)
-  await expect(page.getByRole('heading', { name: '采购助手忽略预算上限' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '预算为 10 万元时仍推荐超预算商品' })).toBeVisible()
   await page.getByText('未分配', { exact: true }).last().click()
   await page.locator('.el-select-dropdown__item').filter({ hasText: '系统管理员' }).click()
   await page.getByRole('button', { name: '保存', exact: true }).click()

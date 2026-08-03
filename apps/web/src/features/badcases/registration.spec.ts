@@ -7,7 +7,9 @@ import {
   isRegistrationValid,
   parseDraft,
   resetAfterRegistration,
+  submissionTitle,
   targetChoices,
+  todayForAgentVersion,
 } from './registration'
 
 const target = (id: string, status: CatalogItem['status'] = 'active'): CatalogItem => ({
@@ -35,10 +37,19 @@ describe('badcase registration state', () => {
     ).toEqual([1, 1])
   })
 
-  it('does not require a scenario, issue tag, answer, screenshot, or agent version', () => {
+  it('requires original input but not a title, scenario, tag, answer, screenshot, or agent version', () => {
     const form = emptyRegistrationForm()
-    Object.assign(form, { title: '推荐结果错误' })
+    Object.assign(form, { description: '预算为 10 万元时仍推荐超预算商品' })
     expect(isRegistrationValid(form)).toBe(true)
+  })
+
+  it('defaults the agent version to today and derives a title from original input when needed', () => {
+    expect(todayForAgentVersion(new Date(2026, 7, 3))).toBe('20260803')
+    expect(emptyRegistrationForm().agent_version).toMatch(/^\d{8}$/)
+    expect(submissionTitle('', '  预算为 10 万元\n仍推荐超预算商品  ')).toBe(
+      '预算为 10 万元 仍推荐超预算商品',
+    )
+    expect(submissionTitle('人工标题', '原始输入')).toBe('人工标题')
   })
 
   it('retains context and clears problem fields after a registration', () => {

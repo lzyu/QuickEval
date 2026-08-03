@@ -30,6 +30,7 @@ import type {
   Tag,
 } from '@/api/types'
 import EvaluationTargetDialog from '@/components/badcases/EvaluationTargetDialog.vue'
+import { badcaseDisplayTitle } from '@/features/badcases/display'
 import {
   availableTags,
   draftKey,
@@ -37,6 +38,7 @@ import {
   isRegistrationValid,
   parseDraft,
   resetAfterRegistration,
+  submissionTitle,
   validateRegistration,
   type RegistrationDraft,
 } from '@/features/badcases/registration'
@@ -72,7 +74,7 @@ const targetScenarios = computed(() =>
 const filteredIssueTags = computed(() => availableTags(issueTags.value, form.scenario_id))
 const form = reactive(emptyRegistrationForm())
 const errors = reactive({
-  title: '',
+  description: '',
   environment: '',
   occurred_at: '',
 })
@@ -381,7 +383,7 @@ async function submit() {
       {
         evaluation_target_id: currentTargetId.value,
         scenario_id: form.scenario_id || null,
-        title: form.title.trim(),
+        title: submissionTitle(form.title, form.description),
         description: form.description.trim() || null,
         agent_response_text: form.agent_response_text.trim() || null,
         agent_version: form.agent_version.trim() || null,
@@ -433,7 +435,7 @@ watch(
   () => {
     if (draftReady.value && !recordLocked.value) {
       Object.assign(errors, {
-        title: '',
+        description: '',
         environment: '',
         occurred_at: '',
       })
@@ -503,28 +505,32 @@ onBeforeUnmount(() => {
 
     <div v-if="currentTarget" class="register-workspace" :class="{ locked: recordLocked }">
       <section class="register-panel evidence-panel">
-        <h2>问题与现场证据</h2>
+        <h2>原始输入与现场证据</h2>
         <el-form label-position="top" :disabled="recordLocked">
-          <el-form-item label="Badcase 标题" required :error="errors.title">
-            <el-input v-model="form.title" maxlength="200" placeholder="请输入 Badcase 标题" />
-          </el-form-item>
-          <el-form-item label="问题描述（可选）">
+          <el-form-item label="原始输入" required :error="errors.description">
             <el-input
               v-model="form.description"
               type="textarea"
-              :rows="3"
+              :rows="5"
               maxlength="5000"
-              placeholder="请简要描述问题现象、影响范围、期望结果等"
+              placeholder="粘贴用户实际输入、触发指令或关键上下文，尽量保留原文"
             />
           </el-form-item>
-          <el-form-item label="Agent 回答文本">
+          <el-form-item label="问题描述">
+            <el-input
+              v-model="form.title"
+              maxlength="200"
+              placeholder="简要说明问题现象、影响或期望结果，可留空"
+            />
+          </el-form-item>
+          <el-form-item label="Agent 回答">
             <el-input
               v-model="form.agent_response_text"
               type="textarea"
-              :rows="6"
+              :rows="4"
               maxlength="20000"
               show-word-limit
-              placeholder="请粘贴 Agent 的完整回答文本，便于复现与分析"
+              placeholder="需要复现或定位时再补充，可留空"
             />
           </el-form-item>
           <el-form-item label="现场截图">
@@ -617,7 +623,7 @@ onBeforeUnmount(() => {
             </el-select>
             <div class="muted">场景尚未配置完整时可留空，不影响登记。</div>
           </el-form-item>
-          <el-form-item label="问题标签（可选）">
+          <el-form-item label="问题标签">
             <el-select
               v-model="form.issue_tag_ids"
               multiple
@@ -636,8 +642,8 @@ onBeforeUnmount(() => {
               <el-option label="其他" value="other" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Agent 版本（可选）">
-            <el-input v-model="form.agent_version" maxlength="100" placeholder="例如 2026.07.30" />
+          <el-form-item label="Agent 版本">
+            <el-input v-model="form.agent_version" maxlength="100" placeholder="例如 20260803" />
           </el-form-item>
           <el-form-item label="发生时间" required :error="errors.occurred_at">
             <el-date-picker
@@ -681,9 +687,9 @@ onBeforeUnmount(() => {
       <h2>本次登记 {{ recentItems.length }} 条</h2>
       <el-empty v-if="recentItems.length === 0" description="本次会话还没有成功登记的 Badcase" :image-size="52" />
       <div v-else class="recent-table">
-        <div class="recent-table-head"><span>标题</span><span>场景</span><span>发生时间</span><span>操作</span></div>
+        <div class="recent-table-head"><span>原始输入摘要</span><span>场景</span><span>发生时间</span><span>操作</span></div>
         <div v-for="item in recentItems" :key="item.id" class="recent-table-row">
-          <strong>{{ item.title }}</strong>
+          <strong>{{ badcaseDisplayTitle(item) }}</strong>
           <span>{{ item.scenario_name || '待归类' }}</span>
           <span>{{ formatTime(item.occurred_at) }}</span>
           <el-button link type="primary" @click="router.push(`/badcases/${item.id}`)">查看详情</el-button>
