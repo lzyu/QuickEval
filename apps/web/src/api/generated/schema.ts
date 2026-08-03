@@ -263,12 +263,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scenarios/{scenario_id}/case-tags": {
+    "/api/v1/evaluation-targets/{target_id}/case-tags": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -318,12 +318,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scenarios/{scenario_id}/case-tags/reorder": {
+    "/api/v1/evaluation-targets/{target_id}/case-tags/reorder": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -336,12 +336,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scenarios/{scenario_id}/available-case-tags": {
+    "/api/v1/evaluation-targets/{target_id}/available-case-tags": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -1369,9 +1369,9 @@ export interface components {
         };
         CaseTagRequest: components["schemas"]["NamedRequest"] & {
             /** @enum {string} */
-            scope: "global" | "scenario";
+            scope: "global" | "target";
             /** Format: uuid */
-            scenario_id?: string | null;
+            evaluation_target_id?: string | null;
         };
         ReorderRequest: {
             items: {
@@ -1425,10 +1425,10 @@ export interface components {
         };
         Tag: components["schemas"]["CatalogItem"] & {
             /** @enum {string} */
-            scope?: "global" | "scenario";
+            scope?: "global" | "target";
             /** Format: uuid */
-            scenario_id?: string | null;
-            scenario_name?: string | null;
+            evaluation_target_id?: string | null;
+            evaluation_target_name?: string | null;
             sort_order: number;
         };
         AuditLog: {
@@ -2778,13 +2778,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Case tags for the scenario. */
+            /** @description Case tags owned by the evaluation target. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2800,7 +2800,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -2867,7 +2867,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -2887,13 +2887,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Active global and scenario-specific tags available to cases in this scenario. */
+            /** @description Active global and target-specific tags available to cases for this evaluation target. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2907,8 +2907,8 @@ export interface operations {
     listManagedCaseTags: {
         parameters: {
             query: {
-                scope: "global" | "scenario";
-                scenario_id?: string;
+                scope: "global" | "target";
+                evaluation_target_id?: string;
                 status?: "active" | "disabled";
             };
             header?: never;
@@ -2941,7 +2941,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Global or scenario-specific case tag created. */
+            /** @description Global or target-specific case tag created. */
             201: {
                 headers: {
                     [name: string]: unknown;

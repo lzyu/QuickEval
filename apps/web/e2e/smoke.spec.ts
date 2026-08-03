@@ -225,7 +225,7 @@ async function mockDraftReads(page: Page) {
               id: tagId,
               name: '事实准确性',
               scope: 'global',
-              scenario_id: null,
+              evaluation_target_id: null,
               status: 'active',
               lock_version: 0,
               sort_order: 10,
@@ -236,7 +236,7 @@ async function mockDraftReads(page: Page) {
       }),
     })
   })
-  await page.route(`**/api/v1/scenarios/${scenarioId}/available-case-tags`, async (route) => {
+  await page.route(`**/api/v1/evaluation-targets/${targetId}/available-case-tags`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -247,13 +247,13 @@ async function mockDraftReads(page: Page) {
               id: tagId,
               name: '事实准确性',
               scope: 'global',
-              scenario_id: null,
+              evaluation_target_id: null,
               status: 'active',
               lock_version: 0,
               sort_order: 10,
             },
           ],
-          scenario: [],
+          target: [],
         },
         meta,
       }),
@@ -519,10 +519,10 @@ test('actively registers badcases continuously and retries only a failed screens
   expect(uploadCount).toBe(2)
 })
 
-test('admin manages global and scenario case tags by scope', async ({ page }) => {
+test('admin manages global and target case tags by scope', async ({ page }) => {
   await mockAdminSession(page)
   let createdGlobalTag = false
-  const scenarioTagId = '019fa2a2-ed09-7660-988d-38cb279d5117'
+  const targetTagId = '019fa2a2-ed09-7660-988d-38cb279d5117'
   await page.route('**/api/v1/evaluation-targets?*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -550,18 +550,18 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
             name: '意图识别',
             description: null,
             scope: 'global',
-            scenario_id: null,
+            evaluation_target_id: null,
             status: 'active',
             lock_version: 0,
             sort_order: 10,
           }
         : {
-            id: scenarioTagId,
+            id: targetTagId,
             name: '供应商比较',
             description: null,
-            scope: 'scenario',
-            scenario_id: scenarioId,
-            scenario_name: scenario.name,
+            scope: 'target',
+            evaluation_target_id: targetId,
+            evaluation_target_name: target.name,
             status: 'active',
             lock_version: 0,
             sort_order: 10,
@@ -579,7 +579,7 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
     }
     expect(route.request().postDataJSON()).toMatchObject({
       scope: 'global',
-      scenario_id: null,
+      evaluation_target_id: null,
       name: '指令遵循',
     })
     createdGlobalTag = true
@@ -592,7 +592,7 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
           name: '指令遵循',
           description: null,
           scope: 'global',
-          scenario_id: null,
+          evaluation_target_id: null,
           status: 'active',
           lock_version: 0,
           sort_order: 20,
@@ -603,14 +603,23 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
   })
 
   await page.goto('/admin/catalog')
+  await page.getByRole('button', { name: '新增场景' }).click()
+  await expect(page.getByRole('dialog', { name: '新建评测场景' })).toBeVisible()
+  await expect(page.getByLabel('所属评测对象')).toBeVisible()
+  await page.getByRole('button', { name: '取消' }).click()
+  await page.getByRole('tab', { name: '评测对象' }).click()
+  await page.getByRole('button', { name: '新增标签' }).click()
+  await expect(page.getByRole('dialog', { name: '新建用例标签' })).toBeVisible()
+  await page.getByRole('button', { name: '取消' }).click()
   await page.getByRole('tab', { name: '用例标签' }).click()
-  await expect(page.getByText('意图识别')).toBeVisible()
-  await page.getByText('场景标签', { exact: true }).click()
-  await expect(page.getByText('供应商比较')).toBeVisible()
-  await expect(page.locator('tbody').getByText(scenario.name)).toBeVisible()
   await page.getByText('全局标签', { exact: true }).click()
-  await page.getByRole('button', { name: '新建目录项' }).click()
-  await page.getByLabel('名称').fill('指令遵循')
+  await expect(page.getByText('意图识别')).toBeVisible()
+  await page.getByText('对象专属标签', { exact: true }).click()
+  await expect(page.getByText('供应商比较')).toBeVisible()
+  await expect(page.locator('tbody').getByText(target.name)).toBeVisible()
+  await page.getByText('全局标签', { exact: true }).click()
+  await page.getByRole('button', { name: '新建用例标签' }).click()
+  await page.getByLabel('用例标签名称').fill('指令遵循')
   await page.getByRole('button', { name: '保存' }).click()
   await expect.poll(() => createdGlobalTag).toBe(true)
 })

@@ -72,13 +72,13 @@ describe('badcase registration state', () => {
     expect(next.session_id).toBe('')
   })
 
-  it('filters scenario tags and ignores invalid stored drafts', () => {
+  it('keeps active issue tags independent from scenario and ignores invalid stored drafts', () => {
     const tags = [
       { ...target('global'), sort_order: 1, scope: 'global' },
-      { ...target('matching'), sort_order: 2, scope: 'scenario', scenario_id: 's1' },
-      { ...target('other'), sort_order: 3, scope: 'scenario', scenario_id: 's2' },
+      { ...target('matching'), sort_order: 2, scope: 'target', evaluation_target_id: 't1' },
+      { ...target('other'), sort_order: 3, scope: 'target', evaluation_target_id: 't2' },
     ] as Tag[]
-    expect(availableTags(tags, 's1').map((item) => item.id)).toEqual(['global', 'matching'])
+    expect(availableTags(tags).map((item) => item.id)).toEqual(['global', 'matching', 'other'])
     expect(parseDraft('{broken')).toBeNull()
     expect(parseDraft(JSON.stringify({ version: 2, form: {} }))).toBeNull()
   })

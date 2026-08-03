@@ -26,7 +26,7 @@ type NamedInput struct {
 
 type CaseTagInput struct {
 	Scope               string
-	ScenarioID          *id.UUID
+	EvaluationTargetID  *id.UUID
 	Name                string
 	Description         *string
 	ExpectedLockVersion uint32
@@ -224,16 +224,16 @@ func (service Service) CreateCaseTag(
 	actorID id.UUID,
 	input CaseTagInput,
 ) (CaseTag, error) {
-	if err := validateCaseTagScope(input.Scope, input.ScenarioID); err != nil {
+	if err := validateCaseTagScope(input.Scope, input.EvaluationTargetID); err != nil {
 		return CaseTag{}, err
 	}
-	if input.Scope == CaseTagScopeScenario {
-		scenario, err := service.repository.GetScenario(ctx, *input.ScenarioID)
+	if input.Scope == CaseTagScopeTarget {
+		target, err := service.repository.GetTarget(ctx, *input.EvaluationTargetID)
 		if err != nil {
 			return CaseTag{}, mapNotFound(err)
 		}
-		if scenario.Status != StatusActive {
-			return CaseTag{}, apperror.Conflict("RESOURCE_DISABLED", "停用的场景不能新建用例标签")
+		if target.Status != StatusActive {
+			return CaseTag{}, apperror.Conflict("RESOURCE_DISABLED", "停用的评测对象不能新建用例标签")
 		}
 	}
 	name, description, err := validateNamed(input.Name, input.Description, 100)
@@ -243,7 +243,7 @@ func (service Service) CreateCaseTag(
 	conflicts, err := service.repository.CaseTagNameConflicts(
 		ctx,
 		input.Scope,
-		input.ScenarioID,
+		input.EvaluationTargetID,
 		name,
 		nil,
 	)
@@ -253,23 +253,23 @@ func (service Service) CreateCaseTag(
 	if conflicts {
 		return CaseTag{}, apperror.Conflict(
 			"NAME_CONFLICT",
-			"全局标签与同一场景内的标签不能重名",
+			"全局标签与同一评测对象内的标签不能重名",
 		)
 	}
-	items, err := service.repository.ListCaseTags(ctx, input.Scope, input.ScenarioID, "")
+	items, err := service.repository.ListCaseTags(ctx, input.Scope, input.EvaluationTargetID, "")
 	if err != nil {
 		return CaseTag{}, err
 	}
 	item := CaseTag{
-		ID:          id.MustNew(),
-		Scope:       input.Scope,
-		ScenarioID:  input.ScenarioID,
-		Name:        name,
-		Description: description,
-		Status:      StatusActive,
-		SortOrder:   uint32(len(items)+1) * 10,
-		CreatedBy:   actorID,
-		UpdatedBy:   actorID,
+		ID:                 id.MustNew(),
+		Scope:              input.Scope,
+		EvaluationTargetID: input.EvaluationTargetID,
+		Name:               name,
+		Description:        description,
+		Status:             StatusActive,
+		SortOrder:          uint32(len(items)+1) * 10,
+		CreatedBy:          actorID,
+		UpdatedBy:          actorID,
 	}
 	if err := service.repository.CreateCaseTag(ctx, &item); err != nil {
 		return CaseTag{}, mapWriteError(err)
@@ -293,7 +293,7 @@ func (service Service) UpdateCaseTag(
 	conflicts, err := service.repository.CaseTagNameConflicts(
 		ctx,
 		before.Scope,
-		before.ScenarioID,
+		before.EvaluationTargetID,
 		name,
 		&tagID,
 	)
@@ -303,7 +303,7 @@ func (service Service) UpdateCaseTag(
 	if conflicts {
 		return CaseTag{}, CaseTag{}, apperror.Conflict(
 			"NAME_CONFLICT",
-			"全局标签与同一场景内的标签不能重名",
+			"全局标签与同一评测对象内的标签不能重名",
 		)
 	}
 	if err := service.repository.UpdateCaseTag(
@@ -348,32 +348,32 @@ func (service Service) SetCaseTagStatus(
 
 func (service Service) ReorderCaseTags(
 	ctx context.Context,
-	actorID, scenarioID id.UUID,
+	actorID, targetID id.UUID,
 	items []ReorderItem,
 ) error {
 	if err := validateReorder(items); err != nil {
 		return err
 	}
-	return mapWriteError(service.repository.ReorderCaseTags(ctx, scenarioID, actorID, items))
+	return mapWriteError(service.repository.ReorderCaseTags(ctx, targetID, actorID, items))
 }
 
-func validateCaseTagScope(scope string, scenarioID *id.UUID) error {
+func validateCaseTagScope(scope string, targetID *id.UUID) error {
 	switch scope {
 	case CaseTagScopeGlobal:
-		if scenarioID != nil {
+		if targetID != nil {
 			return apperror.Validation(
-				apperror.FieldError{Field: "scenario_id", Message: "全局标签不能绑定场景"},
+				apperror.FieldError{Field: "evaluation_target_id", Message: "全局标签不能绑定评测对象"},
 			)
 		}
-	case CaseTagScopeScenario:
-		if scenarioID == nil {
+	case CaseTagScopeTarget:
+		if targetID == nil {
 			return apperror.Validation(
-				apperror.FieldError{Field: "scenario_id", Message: "场景标签必须选择所属场景"},
+				apperror.FieldError{Field: "evaluation_target_id", Message: "对象专属标签必须选择所属评测对象"},
 			)
 		}
 	default:
 		return apperror.Validation(
-			apperror.FieldError{Field: "scope", Message: "标签作用域必须是 global 或 scenario"},
+			apperror.FieldError{Field: "scope", Message: "标签作用域必须是 global 或 target"},
 		)
 	}
 	return nil

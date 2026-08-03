@@ -48,7 +48,7 @@ test "$(request POST /api/v1/scenarios "${smoke_dir}/scenario-input.json" \
 scenario_id="$(jq -er '.data.id' "${smoke_dir}/scenario.json")"
 
 jq -n --arg name "事实准确性 ${timestamp}" \
-  '{scope: "global", scenario_id: null, name: $name, description: "M2 smoke"}' \
+  '{scope: "global", evaluation_target_id: null, name: $name, description: "M2 smoke"}' \
   > "${smoke_dir}/tag-input.json"
 test "$(request POST "/api/v1/case-tags" \
   "${smoke_dir}/tag-input.json" "${smoke_dir}/tag.json")" = "201"
@@ -133,7 +133,7 @@ jq -n --arg id "${target_id}" \
 test "$(request POST /api/v1/scenarios "${smoke_dir}/second-scenario-input.json" \
   "${smoke_dir}/second-scenario.json")" = "201"
 second_scenario_id="$(jq -er '.data.id' "${smoke_dir}/second-scenario.json")"
-test "$(request GET "/api/v1/scenarios/${second_scenario_id}/available-case-tags" "" \
+test "$(request GET "/api/v1/evaluation-targets/${target_id}/available-case-tags" "" \
   "${smoke_dir}/second-scenario-tags.json")" = "200"
 jq -e --arg id "${tag_id}" '.data.global | any(.id == $id)' \
   "${smoke_dir}/second-scenario-tags.json" >/dev/null

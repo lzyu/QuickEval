@@ -71,7 +71,7 @@ const targetScenarios = computed(() =>
     (item) => item.status === 'active' && item.evaluation_target_id === currentTargetId.value,
   ),
 )
-const filteredIssueTags = computed(() => availableTags(issueTags.value, form.scenario_id))
+const filteredIssueTags = computed(() => availableTags(issueTags.value))
 const form = reactive(emptyRegistrationForm())
 const errors = reactive({
   description: '',

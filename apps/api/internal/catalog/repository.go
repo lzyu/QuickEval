@@ -170,15 +170,15 @@ func (repository Repository) ScenarioHasHistory(ctx context.Context, scenarioID 
 func (repository Repository) ListCaseTags(
 	ctx context.Context,
 	scope string,
-	scenarioID *id.UUID,
+	targetID *id.UUID,
 	status string,
 ) ([]CaseTag, error) {
 	query := repository.caseTagQuery(ctx)
 	if scope != "" {
 		query = query.Where("case_tags.scope = ?", scope)
 	}
-	if scenarioID != nil {
-		query = query.Where("case_tags.scenario_id = ?", *scenarioID)
+	if targetID != nil {
+		query = query.Where("case_tags.evaluation_target_id = ?", *targetID)
 	}
 	if status != "" {
 		query = query.Where("case_tags.status = ?", status)
@@ -191,11 +191,11 @@ func (repository Repository) ListCaseTags(
 
 func (repository Repository) ListAvailableCaseTags(
 	ctx context.Context,
-	scenarioID id.UUID,
+	targetID id.UUID,
 	status string,
 ) ([]CaseTag, error) {
 	query := repository.caseTagQuery(ctx).
-		Where("(case_tags.scope = ? OR case_tags.scenario_id = ?)", CaseTagScopeGlobal, scenarioID)
+		Where("(case_tags.scope = ? OR case_tags.evaluation_target_id = ?)", CaseTagScopeGlobal, targetID)
 	if status != "" {
 		query = query.Where("case_tags.status = ?", status)
 	}
@@ -210,19 +210,19 @@ func (repository Repository) ListAvailableCaseTags(
 func (repository Repository) CaseTagNameConflicts(
 	ctx context.Context,
 	scope string,
-	scenarioID *id.UUID,
+	targetID *id.UUID,
 	name string,
 	excludeID *id.UUID,
 ) (bool, error) {
 	query := repository.db.WithContext(ctx).Table("case_tags").Where("name = ?", name)
 	if scope == CaseTagScopeGlobal {
-		query = query.Where("scope = ? OR scope = ?", CaseTagScopeGlobal, CaseTagScopeScenario)
+		query = query.Where("scope = ? OR scope = ?", CaseTagScopeGlobal, CaseTagScopeTarget)
 	} else {
 		query = query.Where(
-			"scope = ? OR (scope = ? AND scenario_id = ?)",
+			"scope = ? OR (scope = ? AND evaluation_target_id = ?)",
 			CaseTagScopeGlobal,
-			CaseTagScopeScenario,
-			*scenarioID,
+			CaseTagScopeTarget,
+			*targetID,
 		)
 	}
 	if excludeID != nil {
@@ -236,8 +236,8 @@ func (repository Repository) CaseTagNameConflicts(
 func (repository Repository) caseTagQuery(ctx context.Context) *gorm.DB {
 	return repository.db.WithContext(ctx).
 		Table("case_tags").
-		Select("case_tags.*, scenarios.name AS scenario_name").
-		Joins("LEFT JOIN scenarios ON scenarios.id = case_tags.scenario_id")
+		Select("case_tags.*, evaluation_targets.name AS target_name").
+		Joins("LEFT JOIN evaluation_targets ON evaluation_targets.id = case_tags.evaluation_target_id")
 }
 
 func (repository Repository) GetCaseTag(ctx context.Context, tagID id.UUID) (CaseTag, error) {
@@ -280,16 +280,16 @@ func (repository Repository) SetCaseTagStatus(
 
 func (repository Repository) ReorderCaseTags(
 	ctx context.Context,
-	scenarioID, actorID id.UUID,
+	targetID, actorID id.UUID,
 	items []ReorderItem,
 ) error {
 	return repository.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, item := range items {
 			result := tx.Table("case_tags").
 				Where(
-					"id = ? AND scenario_id = ? AND lock_version = ?",
+					"id = ? AND evaluation_target_id = ? AND lock_version = ?",
 					item.ID,
-					scenarioID,
+					targetID,
 					item.ExpectedLockVersion,
 				).
 				Updates(map[string]any{

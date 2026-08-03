@@ -69,10 +69,8 @@ export function targetChoices(targets: CatalogItem[], scenarios: Scenario[]): Ta
   }))
 }
 
-export function availableTags(tags: Tag[], scenarioId: string) {
-  return tags.filter(
-    (tag) => tag.status === 'active' && (tag.scope !== 'scenario' || tag.scenario_id === scenarioId),
-  )
+export function availableTags(tags: Tag[]) {
+  return tags.filter((tag) => tag.status === 'active')
 }
 
 export function validateRegistration(form: RegistrationFormState) {

@@ -37,7 +37,7 @@ const navigation = [
   { section: 'dashboard', label: '数据看板', icon: DataAnalysis, to: '/dashboard' },
 ]
 const adminNavigation = [
-  { label: '基础目录', icon: Operation, to: '/admin/catalog' },
+  { label: '评测配置', icon: Operation, to: '/admin/catalog' },
   { label: '问题标签', icon: Tickets, to: '/admin/issue-tags' },
   { label: '用户管理', icon: User, to: '/admin/users' },
   { label: '审计日志', icon: Setting, to: '/admin/audit-logs' },

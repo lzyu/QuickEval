@@ -8,23 +8,23 @@ import (
 )
 
 func TestValidateCaseTagScope(t *testing.T) {
-	scenarioID := id.MustNew()
+	targetID := id.MustNew()
 	tests := []struct {
-		name       string
-		scope      string
-		scenarioID *id.UUID
-		wantField  string
+		name      string
+		scope     string
+		targetID  *id.UUID
+		wantField string
 	}{
-		{name: "global without scenario", scope: CaseTagScopeGlobal},
-		{name: "scenario with owner", scope: CaseTagScopeScenario, scenarioID: &scenarioID},
-		{name: "global rejects scenario", scope: CaseTagScopeGlobal, scenarioID: &scenarioID, wantField: "scenario_id"},
-		{name: "scenario requires owner", scope: CaseTagScopeScenario, wantField: "scenario_id"},
+		{name: "global without target", scope: CaseTagScopeGlobal},
+		{name: "target with owner", scope: CaseTagScopeTarget, targetID: &targetID},
+		{name: "global rejects target", scope: CaseTagScopeGlobal, targetID: &targetID, wantField: "evaluation_target_id"},
+		{name: "target requires owner", scope: CaseTagScopeTarget, wantField: "evaluation_target_id"},
 		{name: "unknown scope", scope: "shared", wantField: "scope"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateCaseTagScope(test.scope, test.scenarioID)
+			err := validateCaseTagScope(test.scope, test.targetID)
 			if test.wantField == "" {
 				if err != nil {
 					t.Fatalf("validateCaseTagScope() error = %v", err)

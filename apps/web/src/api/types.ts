@@ -50,9 +50,9 @@ export interface Scenario extends CatalogItem {
 }
 
 export interface Tag extends CatalogItem {
-  scope?: 'global' | 'scenario'
-  scenario_id?: string
-  scenario_name?: string
+  scope?: 'global' | 'target'
+  evaluation_target_id?: string
+  evaluation_target_name?: string
   color?: string | null
   sort_order: number
 }

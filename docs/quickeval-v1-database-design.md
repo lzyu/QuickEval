@@ -130,7 +130,7 @@ lock_version INT UNSIGNED NOT NULL DEFAULT 0
 | 账号 | `user_identities` | 本地或 OA 登录身份 |
 | 评测结构 | `evaluation_targets` | 被评测的 Agent 产品 |
 | 评测结构 | `scenarios` | 对象内可选的用例与 Badcase 分类 |
-| 评测结构 | `case_tags` | 全局或场景级用例能力分类 |
+| 评测结构 | `case_tags` | 全局或评测对象级用例能力分类 |
 | 评测集 | `datasets` | 跨版本稳定的评测集 |
 | 评测集 | `dataset_versions` | 草稿、发布及归档版本 |
 | 评测集 | `version_cases` | 版本中的用例内容快照 |
@@ -222,9 +222,9 @@ pending ──> processing ──> resolved
 - 发布版本号连续且不复用。
 - 发布版本至少包含一条启用用例。
 - 已发布版本内容不可修改。
-- 未归类用例只能使用启用的全局标签；已归类用例还可以使用所属场景的启用场景标签。
-- 全局用例标签不绑定场景；场景用例标签必须绑定且只能用于一个场景。
-- 全局标签不能与任一场景标签重名，场景标签不能与同场景或全局标签重名。
+- 用例可使用启用的全局标签和其评测对象启用的对象专属标签，与是否归类到场景无关。
+- 全局用例标签不绑定评测对象；对象专属标签必须绑定且只能用于一个评测对象。
+- 全局标签不能与任一对象专属标签重名，对象专属标签不能与同一评测对象内的全局或对象专属标签重名。
 - 用例或 Badcase 选择的场景必须属于其评测对象；不选择场景不阻塞导入、发布、评测或登记。
 - 评测来源 Badcase 的对象、场景和归类状态与 CaseResult 一致。
 - `evaluated` 结果具备回答文本或截图。
@@ -279,7 +279,7 @@ users:                  UNIQUE(email), (status, created_at)
 user_identities:        UNIQUE(provider, provider_subject), UNIQUE(user_id, provider)
 evaluation_targets:     UNIQUE(name), (status, updated_at)
 scenarios:              UNIQUE(evaluation_target_id, name), (evaluation_target_id, status, updated_at)
-case_tags:              UNIQUE(scope_owner_id, name), (scope, status, sort_order), (scenario_id, status, sort_order)
+case_tags:              (scope, status, sort_order), (evaluation_target_id, status, sort_order)
 datasets:               UNIQUE(evaluation_target_id, name), (evaluation_target_id, status, updated_at)
 dataset_versions:       UNIQUE(dataset_id, version_no), (dataset_id, status, created_at)
 version_cases:          UNIQUE(dataset_version_id, case_key), (dataset_version_id, is_enabled, sort_order),

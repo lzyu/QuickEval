@@ -29,7 +29,7 @@ The optional, reviewable assignment of an Evaluation Case or Badcase to a Scenar
 _Avoid_: Scenario ownership, default scenario
 
 **Case Tag（用例标签）**:
-A classification used to organize and filter Evaluation Cases by the capability being exercised. A Global Case Tag is available in every Scenario, while a Scenario Case Tag is available only in its owning Scenario. It is distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
+A classification used to organize and filter Evaluation Cases by the capability being exercised. A Global Case Tag is available to every Evaluation Target, while a Target Case Tag is available only to its owning Evaluation Target. It is independent from Scenario Classification, distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
 _Avoid_: Issue tag, Badcase category
 
 ## Evaluation Execution

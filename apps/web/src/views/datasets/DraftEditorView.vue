@@ -58,9 +58,9 @@ const nextVersionNo = computed(() => (dataset.value?.latest_version_no || 0) + 1
 const availableGlobalTags = computed(() =>
   caseTags.value.filter((tag) => tag.status === 'active' && tag.scope === 'global'),
 )
-const availableScenarioTags = computed(() =>
+const availableTargetTags = computed(() =>
   caseTags.value.filter(
-    (tag) => tag.status === 'active' && tag.scope === 'scenario' && tag.scenario_id === form.scenario_id,
+    (tag) => tag.status === 'active' && tag.scope === 'target',
   ),
 )
 const targetScenarios = computed(() =>
@@ -92,12 +92,11 @@ async function load() {
     ])
     dataset.value = datasetResponse.data.data.dataset
     cases.value = caseResponse.data.data.items
-    const [scenarioResponse, tagResponse] = await Promise.all([
-      apiClient.get<ResponseEnvelope<PageData<Scenario>>>('/api/v1/scenarios?page_size=100'),
-      apiClient.get<ResponseEnvelope<{ items: Tag[] }>>('/api/v1/case-tags?scope=global'),
-    ])
+    const scenarioResponse = await apiClient.get<ResponseEnvelope<PageData<Scenario>>>(
+      '/api/v1/scenarios?page_size=100',
+    )
     scenarios.value = scenarioResponse.data.data.items
-    caseTags.value = tagResponse.data.data.items
+    await loadCaseTags()
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   } finally {
@@ -105,21 +104,17 @@ async function load() {
   }
 }
 
-async function loadCaseTags(scenarioID: string) {
+async function loadCaseTags() {
   const requestID = ++caseTagRequestID
-  if (!scenarioID) {
-    const response = await apiClient.get<ResponseEnvelope<{ items: Tag[] }>>(
-      '/api/v1/case-tags?scope=global',
-    )
-    if (requestID !== caseTagRequestID) return
-    caseTags.value = response.data.data.items
-    return
-  }
-  const response = await apiClient.get<ResponseEnvelope<{ global: Tag[]; scenario: Tag[] }>>(
-    `/api/v1/scenarios/${scenarioID}/available-case-tags`,
-  )
+  if (!dataset.value) return
+  const [globalResponse, targetResponse] = await Promise.all([
+    apiClient.get<ResponseEnvelope<{ items: Tag[] }>>('/api/v1/case-tags?scope=global'),
+    apiClient.get<ResponseEnvelope<{ items: Tag[] }>>(
+      `/api/v1/case-tags?scope=target&evaluation_target_id=${dataset.value.evaluation_target_id}`,
+    ),
+  ])
   if (requestID !== caseTagRequestID) return
-  caseTags.value = [...response.data.data.global, ...response.data.data.scenario]
+  caseTags.value = [...globalResponse.data.data.items, ...targetResponse.data.data.items]
 }
 
 async function refreshVersionSnapshot() {
@@ -417,29 +412,6 @@ onBeforeRouteLeave(() => {
 })
 
 watch(
-  () => form.scenario_id,
-  async (scenarioID) => {
-    try {
-      await loadCaseTags(scenarioID)
-    } catch (error) {
-      ElMessage.error(apiErrorMessage(error))
-      return
-    }
-    const allowed = new Set([
-      ...availableGlobalTags.value.map((tag) => tag.id),
-      ...availableScenarioTags.value.map((tag) => tag.id),
-    ])
-    const filteredTagIDs = form.tag_ids.filter((tagID) => allowed.has(tagID))
-    if (
-      filteredTagIDs.length !== form.tag_ids.length ||
-      filteredTagIDs.some((tagID, index) => tagID !== form.tag_ids[index])
-    ) {
-      form.tag_ids = filteredTagIDs
-    }
-  },
-)
-
-watch(
   form,
   () => {
     if (trackFormChanges.value) dirty.value = true
@@ -529,7 +501,7 @@ onMounted(load)
                 mode="edit"
                 :target-scenarios="targetScenarios"
                 :available-global-tags="availableGlobalTags"
-                :available-scenario-tags="availableScenarioTags"
+                :available-target-tags="availableTargetTags"
                 :saving-case="savingCase"
                 :saving-mode="savingMode"
                 @cancel="closeEditor"
@@ -627,7 +599,7 @@ onMounted(load)
               mode="create"
               :target-scenarios="targetScenarios"
               :available-global-tags="availableGlobalTags"
-              :available-scenario-tags="availableScenarioTags"
+              :available-target-tags="availableTargetTags"
               :saving-case="savingCase"
               :saving-mode="savingMode"
               @cancel="closeCreateEditor"

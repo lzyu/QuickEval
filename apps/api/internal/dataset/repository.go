@@ -399,7 +399,7 @@ func (repository Repository) BumpVersionLock(ctx context.Context, versionID, act
 
 func (repository Repository) FindActiveTags(
 	ctx context.Context,
-	scenarioID *id.UUID,
+	targetID id.UUID,
 	tagIDs []id.UUID,
 ) (map[id.UUID]string, error) {
 	if len(tagIDs) == 0 {
@@ -411,11 +411,7 @@ func (repository Repository) FindActiveTags(
 	}
 	query := repository.db.WithContext(ctx).Table("case_tags").Select("id, name").
 		Where("status = 'active' AND id IN ?", tagIDs)
-	if scenarioID == nil {
-		query = query.Where("scope = 'global'")
-	} else {
-		query = query.Where("scope = 'global' OR scenario_id = ?", *scenarioID)
-	}
+	query = query.Where("scope = 'global' OR evaluation_target_id = ?", targetID)
 	err := query.Scan(&rows).Error
 	result := make(map[id.UUID]string, len(rows))
 	for _, row := range rows {
@@ -426,7 +422,7 @@ func (repository Repository) FindActiveTags(
 
 func (repository Repository) FindActiveTagsByNames(
 	ctx context.Context,
-	scenarioID *id.UUID,
+	targetID id.UUID,
 	names []string,
 ) (map[string]id.UUID, error) {
 	if len(names) == 0 {
@@ -438,11 +434,7 @@ func (repository Repository) FindActiveTagsByNames(
 	}
 	query := repository.db.WithContext(ctx).Table("case_tags").Select("id, name").
 		Where("status = 'active' AND name IN ?", names)
-	if scenarioID == nil {
-		query = query.Where("scope = 'global'")
-	} else {
-		query = query.Where("scope = 'global' OR scenario_id = ?", *scenarioID)
-	}
+	query = query.Where("scope = 'global' OR evaluation_target_id = ?", targetID)
 	err := query.Scan(&rows).Error
 	result := make(map[string]id.UUID, len(rows))
 	for _, row := range rows {

@@ -930,11 +930,22 @@ h3 {
   display: flex;
   gap: 16px;
   align-items: center;
-  margin-bottom: 18px;
 }
 
 .catalog-filter-row .catalog-filter {
   margin: 0;
+}
+
+.catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin: 4px 0 18px;
+}
+
+.catalog-toolbar .el-select {
+  width: min(320px, 100%);
 }
 
 .filter-row {

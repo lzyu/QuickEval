@@ -111,7 +111,7 @@ const router = createRouter({
           path: 'admin/catalog',
           name: 'admin-catalog',
           component: CatalogView,
-          meta: { admin: true, title: '基础目录', section: 'admin' },
+          meta: { admin: true, title: '评测配置', section: 'admin' },
         },
         {
           path: 'admin/users',

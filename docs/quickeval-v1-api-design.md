@@ -279,21 +279,21 @@ POST /api/v1/scenarios/{scenario_id}:enable
 
 ### 6.3 用例标签
 
-用例标签分为 `global` 和 `scenario` 两种不可变作用域。全局标签不携带
-`scenario_id`，场景标签必须携带。场景可用标签是启用的全局标签与当前场景启用
-标签的并集。
+用例标签分为 `global` 和 `target` 两种不可变作用域。全局标签不携带
+`evaluation_target_id`，对象专属标签必须携带。评测对象可用标签是启用的全局标签与
+该对象启用标签的并集；场景只是用例的可选归类，不参与标签可用性判断。
 
 ```http
 GET   /api/v1/case-tags
 POST  /api/v1/case-tags
-GET   /api/v1/scenarios/{scenario_id}/case-tags
-POST  /api/v1/scenarios/{scenario_id}/case-tags
-GET   /api/v1/scenarios/{scenario_id}/available-case-tags
+GET   /api/v1/evaluation-targets/{target_id}/case-tags
+POST  /api/v1/evaluation-targets/{target_id}/case-tags
+GET   /api/v1/evaluation-targets/{target_id}/available-case-tags
 PATCH /api/v1/case-tags/{tag_id}
 
 POST /api/v1/case-tags/{tag_id}:disable
 POST /api/v1/case-tags/{tag_id}:enable
-POST /api/v1/scenarios/{scenario_id}/case-tags:reorder
+POST /api/v1/evaluation-targets/{target_id}/case-tags:reorder
 ```
 
 ### 6.4 问题标签
