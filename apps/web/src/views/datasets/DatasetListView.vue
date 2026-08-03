@@ -247,7 +247,7 @@ onMounted(async () => {
   <section class="dataset-page">
     <div class="dataset-layout">
       <el-card class="dataset-list-card" shadow="never">
-        <div v-if="auth.isAdmin" class="content-primary-actions">
+        <div v-if="auth.isOperationsAdmin" class="content-primary-actions">
           <el-button type="primary" :icon="Plus" @click="openCreate">新建评测集</el-button>
         </div>
         <div class="dataset-filter-bar">
@@ -291,7 +291,7 @@ onMounted(async () => {
             />
           </el-select>
           <el-select
-            v-if="auth.isAdmin"
+            v-if="auth.isOperationsAdmin"
             v-model="filters.status"
             clearable
             placeholder="全部状态"
@@ -309,7 +309,7 @@ onMounted(async () => {
             <el-button v-if="hasFilters" @click="resetFilters">重置</el-button>
           </div>
         </div>
-        <div v-if="auth.isAdmin" class="dataset-filter-options">
+        <div v-if="auth.isOperationsAdmin" class="dataset-filter-options">
           <el-checkbox v-model="includeDisabledCatalog">包含停用归属</el-checkbox>
           <span>场景仅在选定评测对象后可用</span>
         </div>
@@ -330,9 +330,9 @@ onMounted(async () => {
         >
           <template #empty>
             <ActionableEmptyState
-              :title="hasFilters ? '没有符合条件的评测集' : auth.isAdmin ? '还没有评测集' : '暂无可开始的评测集'"
-              :description="hasFilters ? '调整对象、场景或关键词后再试。' : auth.isAdmin ? '先创建评测集，再维护并发布首个用例版本。' : '管理员发布评测集版本后，你可以从这里发起人工评测。'"
-              :action-label="hasFilters ? '清除筛选' : auth.isAdmin ? '创建首个评测集' : ''"
+              :title="hasFilters ? '没有符合条件的评测集' : auth.isOperationsAdmin ? '还没有评测集' : '暂无可开始的评测集'"
+              :description="hasFilters ? '调整对象、场景或关键词后再试。' : auth.isOperationsAdmin ? '先创建评测集，再维护并发布首个用例版本。' : '运营管理员发布评测集版本后，你可以从这里发起人工评测。'"
+              :action-label="hasFilters ? '清除筛选' : auth.isOperationsAdmin ? '创建首个评测集' : ''"
               compact
               @action="hasFilters ? resetFilters() : openCreate()"
             />

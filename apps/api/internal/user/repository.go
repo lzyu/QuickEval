@@ -217,11 +217,11 @@ func (repository Repository) UpdatePassword(
 	return nil
 }
 
-func (repository Repository) CountActiveAdmins(ctx context.Context) (int64, error) {
+func (repository Repository) CountActiveSuperAdmins(ctx context.Context) (int64, error) {
 	var count int64
 	err := repository.db.WithContext(ctx).
 		Model(&User{}).
-		Where("role = ? AND status = ?", RoleAdmin, StatusActive).
+		Where("role = ? AND status = ?", RoleSuperAdmin, StatusActive).
 		Count(&count).Error
 	return count, err
 }

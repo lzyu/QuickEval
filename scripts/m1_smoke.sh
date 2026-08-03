@@ -9,9 +9,12 @@ smoke_dir="/private/tmp/quickeval-m1-smoke"
 mkdir -p "${smoke_dir}"
 admin_cookie="${smoke_dir}/admin.cookie"
 member_cookie="${smoke_dir}/member.cookie"
+operator_cookie="${smoke_dir}/operator.cookie"
 timestamp="$(date +%s)"
 member_username="m1_member_${timestamp}"
 member_password="MemberPass123!"
+operator_username="m1_operator_${timestamp}"
+operator_password="OperatorPass123!"
 
 request() {
   local method="$1"
@@ -52,6 +55,12 @@ jq -n --arg username "${member_username}" \
 test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/create-member.json" "${smoke_dir}/member.json")" = "201"
 member_id="$(jq -er '.data.id' "${smoke_dir}/member.json")"
+
+jq -n --arg username "${operator_username}" \
+  '{username: $username, display_name: "M1 验收运营管理员", email: null, role: "operator"}' \
+  > "${smoke_dir}/create-operator.json"
+test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
+  "${smoke_dir}/create-operator.json" "${smoke_dir}/operator.json")" = "201"
 
 jq -n --arg name "M1 评测对象 ${timestamp}" \
   '{name: $name, description: "M1 smoke"}' > "${smoke_dir}/create-target.json"
@@ -159,6 +168,31 @@ jq -e --arg id "${issue_tag_id}" '.data.items | all(.id != $id)' \
   "${smoke_dir}/member-issue-tags.json" >/dev/null
 test "$(request GET /api/v1/users "${member_cookie}" "" "" \
   "${smoke_dir}/member-users.json")" = "403"
+
+jq -n --arg username "${operator_username}" \
+  '{username: $username, password: "123456"}' > "${smoke_dir}/operator-login.json"
+test "$(curl -sS -o "${smoke_dir}/operator-session.json" -w "%{http_code}" -c "${operator_cookie}" \
+  -H "Content-Type: application/json" --data-binary "@${smoke_dir}/operator-login.json" \
+  "${api_base}/api/v1/auth/login")" = "200"
+operator_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/operator-session.json")"
+jq -n --arg password "${operator_password}" \
+  '{current_password: "123456", new_password: $password}' > "${smoke_dir}/operator-change-password.json"
+test "$(request POST /api/v1/auth/change-password "${operator_cookie}" "${operator_csrf}" \
+  "${smoke_dir}/operator-change-password.json" "${smoke_dir}/operator-change-password-response.json")" = "204"
+jq -n --arg username "${operator_username}" --arg password "${operator_password}" \
+  '{username: $username, password: $password}' > "${smoke_dir}/operator-login.json"
+test "$(curl -sS -o "${smoke_dir}/operator-session.json" -w "%{http_code}" -c "${operator_cookie}" \
+  -H "Content-Type: application/json" --data-binary "@${smoke_dir}/operator-login.json" \
+  "${api_base}/api/v1/auth/login")" = "200"
+operator_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/operator-session.json")"
+test "$(request GET /api/v1/audit-logs "${operator_cookie}" "" "" \
+  "${smoke_dir}/operator-audit.json")" = "200"
+test "$(request GET /api/v1/users "${operator_cookie}" "" "" \
+  "${smoke_dir}/operator-users.json")" = "403"
+jq -n --arg name "M1 运营管理员标签 ${timestamp}" '{name: $name, description: "运营管理员验收"}' \
+  > "${smoke_dir}/operator-issue-tag.json"
+test "$(request POST /api/v1/issue-tags "${operator_cookie}" "${operator_csrf}" \
+  "${smoke_dir}/operator-issue-tag.json" "${smoke_dir}/operator-issue-tag-response.json")" = "201"
 
 test "$(request POST "/api/v1/users/${member_id}/reset-password" "${admin_cookie}" "${admin_csrf}" \
   "" "${smoke_dir}/reset-response.json")" = "204"

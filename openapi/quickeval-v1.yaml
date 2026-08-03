@@ -134,7 +134,7 @@ paths:
           schema: { type: string, enum: [active, disabled] }
         - name: role
           in: query
-          schema: { type: string, enum: [admin, member] }
+          schema: { type: string, enum: [super_admin, operator, member] }
         - name: keyword
           in: query
           schema: { type: string }
@@ -2065,14 +2065,14 @@ components:
         username: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,63}$" }
         display_name: { type: string, minLength: 1 }
         email: { type: [string, "null"], format: email }
-        role: { type: string, enum: [admin, member] }
+        role: { type: string, enum: [super_admin, operator, member] }
     UpdateUserRequest:
       type: object
       required: [display_name, role, expected_lock_version]
       properties:
         display_name: { type: string, minLength: 1 }
         email: { type: [string, "null"], format: email }
-        role: { type: string, enum: [admin, member] }
+        role: { type: string, enum: [super_admin, operator, member] }
         expected_lock_version: { type: integer, minimum: 0 }
     StateRequest:
       type: object
@@ -2123,7 +2123,7 @@ components:
         username: { type: string }
         display_name: { type: string }
         email: { type: [string, "null"], format: email }
-        role: { type: string, enum: [admin, member] }
+        role: { type: string, enum: [super_admin, operator, member] }
         status: { type: string, enum: [active, disabled] }
         lock_version: { type: integer, minimum: 0 }
         password_change_required: { type: boolean }

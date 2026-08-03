@@ -6,6 +6,18 @@ QuickEval captures independent human evaluations of business Agents and turns qu
 An account authenticated with a username and password. Administrators create it with the system initial password; it remains password-change-required until its owner sets a new password, and cannot access business work before then.
 _Avoid_: Temporary account, passwordless user
 
+**Super Administrator（超级管理员）**:
+The highest fixed QuickEval role. It has every operational capability and is the only role allowed to manage user accounts.
+_Avoid_: User administrator, owner
+
+**Operations Administrator（运营管理员）**:
+A fixed role that can manage evaluation configuration, datasets, evaluations, Badcases, issue tags, and audit logs, but cannot view or manage user accounts.
+_Avoid_: User administrator, member
+
+**Member（成员）**:
+A standard participant who evaluates, registers Badcases, and manages only the content allowed by the existing ownership rules.
+_Avoid_: Regular administrator
+
 ## Evaluation Structure
 
 **Evaluation Target（评测对象）**:

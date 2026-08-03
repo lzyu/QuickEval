@@ -113,18 +113,18 @@ func (service Service) BootstrapAdmin(
 		input.Username,
 		input.DisplayName,
 		input.Email,
-		RoleAdmin,
+		RoleSuperAdmin,
 		input.Password,
 		true,
 	); err != nil {
 		return Account{}, err
 	}
-	count, err := service.repository.CountActiveAdmins(ctx)
+	count, err := service.repository.CountActiveSuperAdmins(ctx)
 	if err != nil {
 		return Account{}, err
 	}
 	if count > 0 {
-		return Account{}, apperror.Conflict("ADMIN_ALREADY_EXISTS", "系统中已经存在管理员")
+		return Account{}, apperror.Conflict("SUPER_ADMIN_ALREADY_EXISTS", "系统中已经存在超级管理员")
 	}
 	hash, err := service.hasher.Hash(input.Password)
 	if err != nil {
@@ -135,7 +135,7 @@ func (service Service) BootstrapAdmin(
 		Username:               input.Username,
 		DisplayName:            input.DisplayName,
 		Email:                  input.Email,
-		Role:                   RoleAdmin,
+		Role:                   RoleSuperAdmin,
 		Status:                 StatusActive,
 		PasswordHash:           hash,
 		PasswordChangeRequired: false,
@@ -177,10 +177,10 @@ func (service Service) Update(
 	); err != nil {
 		return Account{}, Account{}, err
 	}
-	if actorID == userID && input.Role != RoleAdmin {
+	if actorID == userID && input.Role != RoleSuperAdmin {
 		return Account{}, Account{}, apperror.Conflict(
-			"SELF_ADMIN_ROLE_CHANGE_FORBIDDEN",
-			"不能移除当前登录账号的管理员角色",
+			"SELF_SUPER_ADMIN_ROLE_CHANGE_FORBIDDEN",
+			"不能移除当前登录账号的超级管理员角色",
 		)
 	}
 	if err := service.repository.UpdateProfile(
@@ -223,15 +223,15 @@ func (service Service) SetStatus(
 			"用户已经处于目标状态",
 		)
 	}
-	if before.Role == RoleAdmin && status == StatusDisabled {
-		activeAdmins, err := service.repository.CountActiveAdmins(ctx)
+	if before.Role == RoleSuperAdmin && status == StatusDisabled {
+		activeSuperAdmins, err := service.repository.CountActiveSuperAdmins(ctx)
 		if err != nil {
 			return Account{}, Account{}, err
 		}
-		if activeAdmins <= 1 {
+		if activeSuperAdmins <= 1 {
 			return Account{}, Account{}, apperror.Conflict(
-				"LAST_ADMIN_DISABLE_FORBIDDEN",
-				"不能停用最后一个可用管理员",
+				"LAST_SUPER_ADMIN_DISABLE_FORBIDDEN",
+				"不能停用最后一个可用超级管理员",
 			)
 		}
 	}
@@ -298,10 +298,10 @@ func (service Service) validateAccountInput(
 			})
 		}
 	}
-	if role != RoleMember && role != RoleAdmin {
+	if role != RoleMember && role != RoleOperator && role != RoleSuperAdmin {
 		fields = append(fields, apperror.FieldError{
 			Field:   "role",
-			Message: "角色必须是普通成员或管理员",
+			Message: "角色必须是成员、运营管理员或超级管理员",
 		})
 	}
 	if validatePassword && len(password) < service.passwordMinLength {

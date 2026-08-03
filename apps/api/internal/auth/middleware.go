@@ -104,7 +104,7 @@ func (middleware Middleware) CSRF() gin.HandlerFunc {
 	}
 }
 
-func RequireAdmin() gin.HandlerFunc {
+func RequireOperationsAdmin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		principal, ok := PrincipalFrom(ctx)
 		if !ok {
@@ -112,6 +112,27 @@ func RequireAdmin() gin.HandlerFunc {
 			return
 		}
 		if !principal.Admin() {
+			response.ApplicationError(ctx, apperror.Forbidden())
+			return
+		}
+		ctx.Next()
+	}
+}
+
+// RequireAdmin keeps existing business-handler terminology compatible while
+// requiring either an operations administrator or a super administrator.
+func RequireAdmin() gin.HandlerFunc {
+	return RequireOperationsAdmin()
+}
+
+func RequireSuperAdmin() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		principal, ok := PrincipalFrom(ctx)
+		if !ok {
+			response.ApplicationError(ctx, apperror.Unauthorized())
+			return
+		}
+		if !principal.SuperAdmin() {
 			response.ApplicationError(ctx, apperror.Forbidden())
 			return
 		}

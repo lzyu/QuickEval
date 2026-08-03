@@ -63,7 +63,7 @@ const router = createRouter({
           path: 'dataset-versions/:versionId/edit',
           name: 'draft-editor',
           component: () => import('@/views/datasets/DraftEditorView.vue'),
-          meta: { admin: true, title: '编辑评测集草稿', section: 'datasets' },
+          meta: { operationsAdmin: true, title: '编辑评测集草稿', section: 'datasets' },
         },
         {
           path: 'evaluations',
@@ -117,25 +117,25 @@ const router = createRouter({
           path: 'admin/catalog',
           name: 'admin-catalog',
           component: CatalogView,
-          meta: { admin: true, title: '评测配置', section: 'admin' },
+          meta: { operationsAdmin: true, title: '评测配置', section: 'admin' },
         },
         {
           path: 'admin/users',
           name: 'admin-users',
           component: UsersView,
-          meta: { admin: true, title: '用户管理', section: 'admin' },
+          meta: { superAdmin: true, title: '用户管理', section: 'admin' },
         },
         {
           path: 'admin/issue-tags',
           name: 'admin-issue-tags',
           component: IssueTagsView,
-          meta: { admin: true, title: '问题标签', section: 'admin' },
+          meta: { operationsAdmin: true, title: '问题标签', section: 'admin' },
         },
         {
           path: 'admin/audit-logs',
           name: 'admin-audit',
           component: AuditLogsView,
-          meta: { admin: true, title: '审计日志', section: 'admin' },
+          meta: { operationsAdmin: true, title: '审计日志', section: 'admin' },
         },
       ],
     },
@@ -163,7 +163,10 @@ router.beforeEach(async (to) => {
   if (!auth.passwordChangeRequired && to.name === 'password-change') {
     return { name: 'home' }
   }
-  if (to.meta.admin && !auth.isAdmin) {
+  if (to.meta.superAdmin && !auth.isSuperAdmin) {
+    return { name: 'forbidden' }
+  }
+  if (to.meta.operationsAdmin && !auth.isOperationsAdmin) {
     return { name: 'forbidden' }
   }
   return true

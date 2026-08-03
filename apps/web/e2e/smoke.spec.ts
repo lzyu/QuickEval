@@ -5,9 +5,9 @@ const adminSession = {
     user: {
       id: '019fa2a2-ed09-7660-988d-38cb279d5198',
       username: 'admin',
-      display_name: '系统管理员',
+      display_name: '系统超级管理员',
       email: 'admin@quickeval.local',
-      role: 'admin',
+      role: 'super_admin',
       status: 'active',
       lock_version: 0,
       password_change_required: false,
@@ -421,6 +421,29 @@ test('member is redirected away from admin routes', async ({ page }) => {
   await page.goto('/admin/users')
   await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible()
   await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
+})
+
+test('operator can access operations menus but not user management', async ({ page }) => {
+  const operatorSession = structuredClone(adminSession)
+  operatorSession.data.user.role = 'operator'
+  operatorSession.data.permissions.manage_users = false
+
+  await page.route('**/api/v1/auth/session', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(operatorSession),
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: '系统管理', exact: true }).click()
+  await expect(page.getByRole('button', { name: /评测配置/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /审计日志/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
+
+  await page.goto('/admin/users')
+  await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible()
 })
 
 test('actively registers badcases continuously and retries only a failed screenshot upload', async ({

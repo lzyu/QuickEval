@@ -166,9 +166,9 @@ onMounted(load)
         </template>
         <ActionableEmptyState
           v-if="data.recent_datasets.length === 0"
-          :title="auth.isAdmin ? '还没有已发布的评测集' : '暂无可用的评测集'"
-          :description="auth.isAdmin ? '创建评测集并发布首个版本后，团队即可开始人工评测。' : '管理员发布评测集版本后，最新内容会出现在这里。'"
-          :action-label="auth.isAdmin ? '前往创建' : ''"
+          :title="auth.isOperationsAdmin ? '还没有已发布的评测集' : '暂无可用的评测集'"
+          :description="auth.isOperationsAdmin ? '创建评测集并发布首个版本后，团队即可开始人工评测。' : '运营管理员发布评测集版本后，最新内容会出现在这里。'"
+          :action-label="auth.isOperationsAdmin ? '前往创建' : ''"
           compact
           @action="router.push('/datasets')"
         />

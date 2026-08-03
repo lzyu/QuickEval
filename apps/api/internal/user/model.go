@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	RoleMember = "member"
-	RoleAdmin  = "admin"
+	RoleMember     = "member"
+	RoleOperator   = "operator"
+	RoleSuperAdmin = "super_admin"
 
 	StatusActive   = "active"
 	StatusDisabled = "disabled"
@@ -64,6 +65,14 @@ type Account struct {
 
 func (account Account) IsActive() bool {
 	return account.Status == StatusActive && account.IdentityStatus == StatusActive
+}
+
+func (account Account) CanManageOperations() bool {
+	return account.Role == RoleOperator || account.Role == RoleSuperAdmin
+}
+
+func (account Account) CanManageUsers() bool {
+	return account.Role == RoleSuperAdmin
 }
 
 type Public struct {

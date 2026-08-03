@@ -1341,14 +1341,14 @@ export interface components {
             /** Format: email */
             email?: string | null;
             /** @enum {string} */
-            role: "admin" | "member";
+            role: "super_admin" | "operator" | "member";
         };
         UpdateUserRequest: {
             display_name: string;
             /** Format: email */
             email?: string | null;
             /** @enum {string} */
-            role: "admin" | "member";
+            role: "super_admin" | "operator" | "member";
             expected_lock_version: number;
         };
         StateRequest: {
@@ -1383,7 +1383,7 @@ export interface components {
             /** Format: email */
             email?: string | null;
             /** @enum {string} */
-            role: "admin" | "member";
+            role: "super_admin" | "operator" | "member";
             /** @enum {string} */
             status: "active" | "disabled";
             lock_version: number;
@@ -2403,7 +2403,7 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
                 status?: "active" | "disabled";
-                role?: "admin" | "member";
+                role?: "super_admin" | "operator" | "member";
                 keyword?: string;
             };
             header?: never;

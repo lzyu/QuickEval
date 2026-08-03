@@ -13,7 +13,7 @@ const form = reactive({
   username: '',
   display_name: '',
   email: '',
-  role: 'member' as 'admin' | 'member',
+  role: 'member' as 'super_admin' | 'operator' | 'member',
 })
 
 async function load() {
@@ -116,8 +116,10 @@ onMounted(load)
             <el-tag v-if="row.password_change_required" size="small" type="warning">待设置密码</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="role" label="角色" width="110">
-          <template #default="{ row }">{{ row.role === 'admin' ? '管理员' : '成员' }}</template>
+        <el-table-column prop="role" label="角色" width="130">
+          <template #default="{ row }">
+            {{ row.role === 'super_admin' ? '超级管理员' : row.role === 'operator' ? '运营管理员' : '成员' }}
+          </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="110">
           <template #default="{ row }">
@@ -149,8 +151,10 @@ onMounted(load)
       <el-form-item label="角色">
         <el-radio-group v-model="form.role">
           <el-radio-button value="member">成员</el-radio-button>
-          <el-radio-button value="admin">管理员</el-radio-button>
+          <el-radio-button value="operator">运营管理员</el-radio-button>
+          <el-radio-button value="super_admin">超级管理员</el-radio-button>
         </el-radio-group>
+        <small class="form-help">运营管理员可管理业务运营；只有超级管理员可以管理用户。</small>
       </el-form-item>
       <el-alert
         v-if="!editing"

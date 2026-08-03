@@ -19,7 +19,11 @@ func (principal Principal) ID() id.UUID {
 }
 
 func (principal Principal) Admin() bool {
-	return principal.User.Role == user.RoleAdmin
+	return principal.User.CanManageOperations()
+}
+
+func (principal Principal) SuperAdmin() bool {
+	return principal.User.CanManageUsers()
 }
 
 func SetPrincipal(ctx *gin.Context, principal Principal) {

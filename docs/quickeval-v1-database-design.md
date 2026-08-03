@@ -6,7 +6,7 @@
 >
 > 更新日期：2026-08-01
 >
-> 配套 DDL：[000001_initial_schema.up.sql](../migrations/000001_initial_schema.up.sql)、[000005_target_scoped_datasets.up.sql](../migrations/000005_target_scoped_datasets.up.sql)、[000007_initial_password_change_required.up.sql](../migrations/000007_initial_password_change_required.up.sql)、[000008_audit_usernames.up.sql](../migrations/000008_audit_usernames.up.sql)
+> 配套 DDL：[000001_initial_schema.up.sql](../migrations/000001_initial_schema.up.sql)、[000005_target_scoped_datasets.up.sql](../migrations/000005_target_scoped_datasets.up.sql)、[000007_initial_password_change_required.up.sql](../migrations/000007_initial_password_change_required.up.sql)、[000008_audit_usernames.up.sql](../migrations/000008_audit_usernames.up.sql)、[000009_split_administrator_roles.up.sql](../migrations/000009_split_administrator_roles.up.sql)
 
 ## 1. 设计目标
 

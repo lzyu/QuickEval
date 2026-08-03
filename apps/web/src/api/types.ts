@@ -15,7 +15,7 @@ export interface User {
   username: string
   display_name: string
   email: string | null
-  role: 'admin' | 'member'
+  role: 'super_admin' | 'operator' | 'member'
   status: 'active' | 'disabled'
   lock_version: number
   password_change_required: boolean

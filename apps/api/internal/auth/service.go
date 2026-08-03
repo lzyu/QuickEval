@@ -101,15 +101,16 @@ func SessionPayload(
 	session Session,
 	cfg config.Config,
 ) map[string]any {
-	admin := account.Role == user.RoleAdmin
+	operationsAdmin := account.CanManageOperations()
+	superAdmin := account.CanManageUsers()
 	return map[string]any{
 		"user": account.ToPublic(),
 		"permissions": map[string]bool{
-			"manage_users":    admin,
-			"manage_catalog":  admin,
+			"manage_users":    superAdmin,
+			"manage_catalog":  operationsAdmin,
 			"evaluate":        true,
 			"manage_badcases": true,
-			"view_audit_logs": admin,
+			"view_audit_logs": operationsAdmin,
 		},
 		"features": map[string]bool{
 			"oa_login_enabled": false,

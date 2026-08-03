@@ -290,7 +290,7 @@ onMounted(load)
           </div>
           <div class="heading-actions">
             <el-button
-              v-if="auth.isAdmin && draft && ownershipActive"
+              v-if="auth.isOperationsAdmin && draft && ownershipActive"
               type="primary"
               :icon="EditPen"
               @click="router.push(`/dataset-versions/${draft.id}/edit`)"
@@ -298,7 +298,7 @@ onMounted(load)
               编辑草稿
             </el-button>
             <el-button
-              v-else-if="auth.isAdmin && dataset.status === 'active' && ownershipActive"
+              v-else-if="auth.isOperationsAdmin && dataset.status === 'active' && ownershipActive"
               type="primary"
               :icon="Plus"
               @click="createDraft(releasedVersions[0])"
@@ -311,7 +311,7 @@ onMounted(load)
             >
               开始评测
             </el-button>
-            <el-dropdown v-if="auth.isAdmin">
+            <el-dropdown v-if="auth.isOperationsAdmin">
               <el-button>更多</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
@@ -366,7 +366,7 @@ onMounted(load)
               />
             </el-select>
             <el-button
-              v-if="auth.isAdmin && viewingVersion?.status === 'draft' && ownershipActive"
+              v-if="auth.isOperationsAdmin && viewingVersion?.status === 'draft' && ownershipActive"
               :icon="EditPen"
               @click="router.push(`/dataset-versions/${viewingVersion.id}/edit`)"
             >
@@ -464,7 +464,7 @@ onMounted(load)
             <h2>版本记录</h2>
           </div>
           <el-button
-            v-if="auth.isAdmin && !draft && dataset.status === 'active' && ownershipActive"
+            v-if="auth.isOperationsAdmin && !draft && dataset.status === 'active' && ownershipActive"
             :icon="Plus"
             @click="createDraft(releasedVersions[0])"
           >
@@ -527,13 +527,13 @@ onMounted(load)
                 开始评测
               </el-button>
               <el-button
-                v-if="auth.isAdmin && !draft && dataset.status === 'active' && ownershipActive"
+                v-if="auth.isOperationsAdmin && !draft && dataset.status === 'active' && ownershipActive"
                 @click="createDraft(version)"
               >
                 复制草稿
               </el-button>
               <el-button
-                v-if="auth.isAdmin && version.status === 'published'"
+                v-if="auth.isOperationsAdmin && version.status === 'published'"
                 link
                 @click="archiveVersion(version)"
               >

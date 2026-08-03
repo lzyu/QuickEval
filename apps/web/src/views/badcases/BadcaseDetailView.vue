@@ -254,7 +254,7 @@ async function reorderAttachment(index: number, offset: number) {
 }
 
 function mayDelete(attachment: Attachment) {
-  return auth.isAdmin || attachment.created_by === auth.user?.id || item.value?.created_by === auth.user?.id
+  return auth.isOperationsAdmin || attachment.created_by === auth.user?.id || item.value?.created_by === auth.user?.id
 }
 
 function formatTime(value: string) {

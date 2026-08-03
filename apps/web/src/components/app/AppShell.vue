@@ -36,12 +36,12 @@ const navigation = [
   { section: 'badcases', label: 'Badcase 中心', icon: Tickets, to: '/badcases' },
   { section: 'dashboard', label: '数据看板', icon: DataAnalysis, to: '/dashboard' },
 ]
-const adminNavigation = [
+const adminNavigation = computed(() => [
   { label: '评测配置', icon: Operation, to: '/admin/catalog' },
   { label: '问题标签', icon: Tickets, to: '/admin/issue-tags' },
-  { label: '用户管理', icon: User, to: '/admin/users' },
+  ...(auth.isSuperAdmin ? [{ label: '用户管理', icon: User, to: '/admin/users' }] : []),
   { label: '审计日志', icon: Setting, to: '/admin/audit-logs' },
-]
+])
 const adminNavigationOpen = ref(false)
 const activeSection = computed(() => String(route.meta.section || ''))
 const adminStorageKey = computed(
@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
           <el-icon :size="18"><component :is="item.icon" /></el-icon>
           <span>{{ item.label }}</span>
         </button>
-        <div v-if="auth.isAdmin" class="nav-group">
+        <div v-if="auth.isOperationsAdmin" class="nav-group">
           <button
             class="nav-item nav-group-toggle"
             :class="{ active: activeSection === 'admin' }"

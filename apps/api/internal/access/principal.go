@@ -17,7 +17,7 @@ func (principal Principal) ID() id.UUID {
 }
 
 func (principal Principal) Admin() bool {
-	return principal.Role == "admin"
+	return principal.Role == "operator" || principal.Role == "super_admin"
 }
 
 func Set(ctx *gin.Context, principal Principal) {

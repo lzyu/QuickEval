@@ -45,6 +45,22 @@ func TestRequireAdminRejectsMember(t *testing.T) {
 	}
 }
 
+func TestRequireSuperAdminRejectsOperator(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/", func(ctx *gin.Context) {
+		SetPrincipal(ctx, Principal{User: accountWithRole(user.RoleOperator)})
+	}, RequireSuperAdmin(), func(ctx *gin.Context) {
+		ctx.Status(http.StatusNoContent)
+	})
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", response.Code)
+	}
+}
+
 func TestRequirePasswordChangeCompleteRejectsInitialPassword(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
