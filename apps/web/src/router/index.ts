@@ -10,6 +10,7 @@ import ForbiddenView from '@/views/ForbiddenView.vue'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import PasswordChangeView from '@/views/PasswordChangeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +25,11 @@ const router = createRouter({
       path: '/forbidden',
       name: 'forbidden',
       component: ForbiddenView,
+    },
+    {
+      path: '/change-password',
+      name: 'password-change',
+      component: PasswordChangeView,
     },
     {
       path: '/',
@@ -145,10 +151,17 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.restore()
   if (to.meta.public) {
-    return auth.isAuthenticated && to.name === 'login' ? { name: 'home' } : true
+    if (!auth.isAuthenticated || to.name !== 'login') return true
+    return auth.passwordChangeRequired ? { name: 'password-change' } : { name: 'home' }
   }
   if (!auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (auth.passwordChangeRequired && to.name !== 'password-change') {
+    return { name: 'password-change' }
+  }
+  if (!auth.passwordChangeRequired && to.name === 'password-change') {
+    return { name: 'home' }
   }
   if (to.meta.admin && !auth.isAdmin) {
     return { name: 'forbidden' }

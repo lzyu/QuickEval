@@ -18,6 +18,7 @@ export interface User {
   role: 'admin' | 'member'
   status: 'active' | 'disabled'
   lock_version: number
+  password_change_required: boolean
   created_at?: string
   updated_at?: string
 }
@@ -60,9 +61,11 @@ export interface Tag extends CatalogItem {
 export interface AuditLog {
   id: string
   actor_user_id: string | null
+  actor_username: string | null
   action: string
   entity_type: string
   entity_id: string
+  subject_username: string | null
   before_data: unknown
   after_data: unknown
   request_id: string

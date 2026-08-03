@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AxiosError } from 'axios'
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
@@ -11,6 +11,7 @@ const router = useRouter()
 const loading = ref(false)
 const errorMessage = ref('')
 const form = reactive({ username: '', password: '' })
+const passwordChanged = computed(() => route.query.password_changed === '1')
 
 async function submit() {
   loading.value = true
@@ -45,6 +46,7 @@ async function submit() {
       <el-form class="login-form" label-position="top" @submit.prevent="submit">
         <h2>欢迎回来</h2>
         <p>使用本地账号登录 QuickEval</p>
+        <el-alert v-if="passwordChanged" title="密码已设置，请使用新密码登录" type="success" show-icon :closable="false" />
         <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
         <el-form-item label="用户名或邮箱">
           <el-input v-model="form.username" size="large" autocomplete="username" />

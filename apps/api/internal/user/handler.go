@@ -89,7 +89,6 @@ type createRequest struct {
 	DisplayName string  `json:"display_name"`
 	Email       *string `json:"email"`
 	Role        string  `json:"role"`
-	Password    string  `json:"password"`
 }
 
 func (handler Handler) Create(ctx *gin.Context) {
@@ -104,7 +103,6 @@ func (handler Handler) Create(ctx *gin.Context) {
 		DisplayName: request.DisplayName,
 		Email:       request.Email,
 		Role:        request.Role,
-		Password:    request.Password,
 	})
 	if err != nil {
 		response.ApplicationError(ctx, err)
@@ -191,10 +189,6 @@ func (handler Handler) setStatus(ctx *gin.Context, status, action string) {
 	response.JSON(ctx, http.StatusOK, after.ToPublic())
 }
 
-type resetPasswordRequest struct {
-	Password string `json:"password"`
-}
-
 func (handler Handler) ResetPassword(ctx *gin.Context) {
 	principal, _ := access.From(ctx)
 	userID, err := parseID(ctx.Param("user_id"))
@@ -202,21 +196,16 @@ func (handler Handler) ResetPassword(ctx *gin.Context) {
 		response.ApplicationError(ctx, err)
 		return
 	}
-	var request resetPasswordRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		response.ApplicationError(ctx, apperror.Validation())
-		return
-	}
 	if err := handler.service.ResetPassword(
 		ctx.Request.Context(),
 		userID,
-		request.Password,
 	); err != nil {
 		response.ApplicationError(ctx, err)
 		return
 	}
-	handler.record(ctx, principal.ID(), "user.password_reset", userID, nil, map[string]bool{
-		"password_reset": true,
+	handler.record(ctx, principal.ID(), "user.password_reset", userID, nil, map[string]any{
+		"password_reset":           true,
+		"password_change_required": true,
 	})
 	ctx.Status(http.StatusNoContent)
 }

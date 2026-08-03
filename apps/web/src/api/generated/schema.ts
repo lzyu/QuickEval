@@ -1342,7 +1342,6 @@ export interface components {
             email?: string | null;
             /** @enum {string} */
             role: "admin" | "member";
-            password: string;
         };
         UpdateUserRequest: {
             display_name: string;
@@ -1351,9 +1350,6 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "member";
             expected_lock_version: number;
-        };
-        ResetPasswordRequest: {
-            password: string;
         };
         StateRequest: {
             expected_lock_version: number;
@@ -1391,6 +1387,7 @@ export interface components {
             /** @enum {string} */
             status: "active" | "disabled";
             lock_version: number;
+            password_change_required: boolean;
             created_at?: components["schemas"]["UTCTimestamp"];
             updated_at?: components["schemas"]["UTCTimestamp"];
         };
@@ -1435,9 +1432,11 @@ export interface components {
             id: components["schemas"]["UUID"];
             /** Format: uuid */
             actor_user_id?: string | null;
+            actor_username?: string | null;
             action: string;
             entity_type: string;
             entity_id: components["schemas"]["UUID"];
+            subject_username?: string | null;
             before_data?: unknown;
             after_data?: unknown;
             request_id: string;
@@ -1964,7 +1963,7 @@ export interface components {
         AvailableCaseTagsResponse: components["schemas"]["ResponseEnvelope"] & {
             data?: {
                 global: components["schemas"]["Tag"][];
-                scenario: components["schemas"]["Tag"][];
+                target: components["schemas"]["Tag"][];
             };
         };
         UserPage: components["schemas"]["PageBase"];
@@ -2536,13 +2535,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResetPasswordRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Password reset and user sessions revoked. */
+            /** @description Password reset to the initial password and user sessions revoked. */
             204: {
                 headers: {
                     [name: string]: unknown;

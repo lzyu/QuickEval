@@ -14,7 +14,6 @@ const form = reactive({
   display_name: '',
   email: '',
   role: 'member' as 'admin' | 'member',
-  password: '',
 })
 
 async function load() {
@@ -30,7 +29,7 @@ async function load() {
 
 function openCreate() {
   editing.value = null
-  Object.assign(form, { username: '', display_name: '', email: '', role: 'member', password: '' })
+  Object.assign(form, { username: '', display_name: '', email: '', role: 'member' })
   dialog.value = true
 }
 
@@ -41,7 +40,6 @@ function openEdit(user: User) {
     display_name: user.display_name,
     email: user.email || '',
     role: user.role,
-    password: '',
   })
   dialog.value = true
 }
@@ -57,12 +55,14 @@ async function save() {
       })
     } else {
       await apiClient.post('/api/v1/users', {
-        ...form,
+        username: form.username,
+        display_name: form.display_name,
+        role: form.role,
         email: form.email || null,
       })
     }
     dialog.value = false
-    ElMessage.success('用户已保存')
+    ElMessage.success(editing.value ? '用户已保存' : '用户已创建，初始密码为 123456')
     await load()
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
@@ -83,12 +83,20 @@ async function toggle(user: User) {
 }
 
 async function resetPassword(user: User) {
-  const result = await ElMessageBox.prompt('请输入新密码（至少 10 位）', `重置 ${user.display_name} 的密码`, {
-    inputType: 'password',
-    inputValidator: (value) => value.length >= 10 || '密码至少 10 位',
-  })
-  await apiClient.post(`/api/v1/users/${user.id}/reset-password`, { password: result.value })
-  ElMessage.success('密码已重置，原会话已失效')
+  try {
+    await ElMessageBox.confirm(`将 ${user.display_name} 的密码重置为 123456。该用户下次登录时必须设置新密码。`, '重置为初始密码', {
+      type: 'warning',
+      confirmButtonText: '确认重置',
+      cancelButtonText: '取消',
+    })
+    await apiClient.post(`/api/v1/users/${user.id}/reset-password`)
+    ElMessage.success('密码已重置为 123456，原会话已失效')
+    await load()
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(apiErrorMessage(error))
+    }
+  }
 }
 
 onMounted(load)
@@ -105,6 +113,7 @@ onMounted(load)
           <template #default="{ row }">
             <strong>{{ row.display_name }}</strong>
             <div class="table-secondary">{{ row.username }} · {{ row.email || '未填写邮箱' }}</div>
+            <el-tag v-if="row.password_change_required" size="small" type="warning">待设置密码</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="role" label="角色" width="110">
@@ -120,7 +129,7 @@ onMounted(load)
         <el-table-column label="操作" width="270" align="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link @click="resetPassword(row)">重置密码</el-button>
+            <el-button link @click="resetPassword(row)">重置为初始密码</el-button>
             <el-button link :type="row.status === 'active' ? 'danger' : 'success'" @click="toggle(row)">
               {{ row.status === 'active' ? '停用' : '启用' }}
             </el-button>
@@ -143,9 +152,14 @@ onMounted(load)
           <el-radio-button value="admin">管理员</el-radio-button>
         </el-radio-group>
       </el-form-item>
-      <el-form-item v-if="!editing" label="初始密码">
-        <el-input v-model="form.password" type="password" show-password />
-      </el-form-item>
+      <el-alert
+        v-if="!editing"
+        title="初始密码为 123456"
+        description="用户首次登录后必须设置新密码，才能继续使用系统。"
+        type="info"
+        :closable="false"
+        show-icon
+      />
     </el-form>
     <template #footer>
       <el-button @click="dialog = false">取消</el-button>

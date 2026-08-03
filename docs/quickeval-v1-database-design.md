@@ -6,7 +6,7 @@
 >
 > 更新日期：2026-08-01
 >
-> 配套 DDL：[000001_initial_schema.up.sql](../migrations/000001_initial_schema.up.sql)、[000005_target_scoped_datasets.up.sql](../migrations/000005_target_scoped_datasets.up.sql)
+> 配套 DDL：[000001_initial_schema.up.sql](../migrations/000001_initial_schema.up.sql)、[000005_target_scoped_datasets.up.sql](../migrations/000005_target_scoped_datasets.up.sql)、[000007_initial_password_change_required.up.sql](../migrations/000007_initial_password_change_required.up.sql)、[000008_audit_usernames.up.sql](../migrations/000008_audit_usernames.up.sql)
 
 ## 1. 设计目标
 
@@ -328,6 +328,9 @@ audit_logs:             (entity_type, entity_id, created_at)
                         (request_id)
                         (created_at)
 ```
+
+审计行保存 `actor_username` 快照；当 `entity_type = 'user'` 时额外保存
+`subject_username`。两者仅用于历史可读性，不参与用户身份认证或权限判断。
 
 上线后使用慢查询日志和 `EXPLAIN ANALYZE` 验证索引；不预先增加没有真实查询支撑的组合索引。
 

@@ -55,7 +55,7 @@ func run() error {
 		nil,
 		cfg.Security.PasswordMinLength,
 	)
-	account, err := service.BootstrapAdmin(context.Background(), user.CreateInput{
+	account, err := service.BootstrapAdmin(context.Background(), user.BootstrapInput{
 		Username:    *username,
 		DisplayName: *displayName,
 		Email:       emailValue,

@@ -46,8 +46,8 @@ test "$(request POST /api/v1/issue-tags "${admin_cookie}" "" \
   "${smoke_dir}/missing-csrf.json" "${smoke_dir}/missing-csrf-response.json")" = "403"
 jq -e '.error.code == "CSRF_INVALID"' "${smoke_dir}/missing-csrf-response.json" >/dev/null
 
-jq -n --arg username "${member_username}" --arg password "${member_password}" \
-  '{username: $username, display_name: "M1 验收成员", email: null, role: "member", password: $password}' \
+jq -n --arg username "${member_username}" \
+  '{username: $username, display_name: "M1 验收成员", email: null, role: "member"}' \
   > "${smoke_dir}/create-member.json"
 test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/create-member.json" "${smoke_dir}/member.json")" = "201"
@@ -130,7 +130,22 @@ jq -e --arg id "${member_id}" '.data.items | any(.id == $id)' "${smoke_dir}/user
 test "$(request GET "/api/v1/audit-logs?page_size=100" "${admin_cookie}" "" "" \
   "${smoke_dir}/audit.json")" = "200"
 jq -e '.data.items | any(.action == "issue_tag.created")' "${smoke_dir}/audit.json" >/dev/null
+jq -e --arg actor_username "${admin_username}" --arg subject_username "${member_username}" \
+  '.data.items | any(.action == "user.created" and .actor_username == $actor_username and .subject_username == $subject_username)' \
+  "${smoke_dir}/audit.json" >/dev/null
 
+jq -n --arg username "${member_username}" \
+  '{username: $username, password: "123456"}' > "${smoke_dir}/member-login.json"
+test "$(curl -sS -o "${smoke_dir}/member-session.json" -w "%{http_code}" -c "${member_cookie}" \
+  -H "Content-Type: application/json" --data-binary "@${smoke_dir}/member-login.json" \
+  "${api_base}/api/v1/auth/login")" = "200"
+member_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/member-session.json")"
+test "$(request GET /api/v1/evaluation-targets "${member_cookie}" "" "" \
+  "${smoke_dir}/member-targets-before-password-change.json")" = "403"
+jq -n --arg password "${member_password}" \
+  '{current_password: "123456", new_password: $password}' > "${smoke_dir}/member-change-password.json"
+test "$(request POST /api/v1/auth/change-password "${member_cookie}" "${member_csrf}" \
+  "${smoke_dir}/member-change-password.json" "${smoke_dir}/member-change-password-response.json")" = "204"
 jq -n --arg username "${member_username}" --arg password "${member_password}" \
   '{username: $username, password: $password}' > "${smoke_dir}/member-login.json"
 test "$(curl -sS -o "${smoke_dir}/member-session.json" -w "%{http_code}" -c "${member_cookie}" \
@@ -145,9 +160,8 @@ jq -e --arg id "${issue_tag_id}" '.data.items | all(.id != $id)' \
 test "$(request GET /api/v1/users "${member_cookie}" "" "" \
   "${smoke_dir}/member-users.json")" = "403"
 
-jq -n --arg password "ResetPass123!" '{password: $password}' > "${smoke_dir}/reset-member.json"
 test "$(request POST "/api/v1/users/${member_id}/reset-password" "${admin_cookie}" "${admin_csrf}" \
-  "${smoke_dir}/reset-member.json" "${smoke_dir}/reset-response.json")" = "204"
+  "" "${smoke_dir}/reset-response.json")" = "204"
 test "$(request GET /api/v1/auth/session "${member_cookie}" "" "" \
   "${smoke_dir}/revoked-member-session.json")" = "401"
 

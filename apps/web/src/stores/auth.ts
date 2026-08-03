@@ -17,6 +17,7 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => state.user !== null,
     isAdmin: (state) => state.user?.role === 'admin',
+    passwordChangeRequired: (state) => state.user?.password_change_required === true,
   },
   actions: {
     apply(payload: SessionPayload) {

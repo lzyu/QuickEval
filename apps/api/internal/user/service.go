@@ -14,6 +14,8 @@ import (
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{2,63}$`)
 
+const InitialPassword = "123456"
+
 type SessionRevoker interface {
 	RevokeUser(ctx context.Context, userID id.UUID) error
 }
@@ -44,6 +46,12 @@ type CreateInput struct {
 	DisplayName string
 	Email       *string
 	Role        string
+}
+
+type BootstrapInput struct {
+	Username    string
+	DisplayName string
+	Email       *string
 	Password    string
 }
 
@@ -61,23 +69,24 @@ func (service Service) Create(
 		input.DisplayName,
 		input.Email,
 		input.Role,
-		input.Password,
-		true,
+		"",
+		false,
 	); err != nil {
 		return Account{}, err
 	}
-	hash, err := service.hasher.Hash(input.Password)
+	hash, err := service.hasher.Hash(InitialPassword)
 	if err != nil {
 		return Account{}, err
 	}
 	account := Account{
-		ID:           id.MustNew(),
-		Username:     input.Username,
-		DisplayName:  input.DisplayName,
-		Email:        input.Email,
-		Role:         input.Role,
-		Status:       StatusActive,
-		PasswordHash: hash,
+		ID:                     id.MustNew(),
+		Username:               input.Username,
+		DisplayName:            input.DisplayName,
+		Email:                  input.Email,
+		Role:                   input.Role,
+		Status:                 StatusActive,
+		PasswordHash:           hash,
+		PasswordChangeRequired: true,
 	}
 	if err := service.repository.CreateAccount(
 		ctx,
@@ -95,17 +104,16 @@ func (service Service) Create(
 
 func (service Service) BootstrapAdmin(
 	ctx context.Context,
-	input CreateInput,
+	input BootstrapInput,
 ) (Account, error) {
 	input.Username = strings.ToLower(strings.TrimSpace(input.Username))
 	input.DisplayName = strings.TrimSpace(input.DisplayName)
 	input.Email = normalizeEmail(input.Email)
-	input.Role = RoleAdmin
 	if err := service.validateAccountInput(
 		input.Username,
 		input.DisplayName,
 		input.Email,
-		input.Role,
+		RoleAdmin,
 		input.Password,
 		true,
 	); err != nil {
@@ -123,13 +131,14 @@ func (service Service) BootstrapAdmin(
 		return Account{}, err
 	}
 	account := Account{
-		ID:           id.MustNew(),
-		Username:     input.Username,
-		DisplayName:  input.DisplayName,
-		Email:        input.Email,
-		Role:         RoleAdmin,
-		Status:       StatusActive,
-		PasswordHash: hash,
+		ID:                     id.MustNew(),
+		Username:               input.Username,
+		DisplayName:            input.DisplayName,
+		Email:                  input.Email,
+		Role:                   RoleAdmin,
+		Status:                 StatusActive,
+		PasswordHash:           hash,
+		PasswordChangeRequired: false,
 	}
 	if err := service.repository.CreateAccount(ctx, account, id.MustNew(), nil); err != nil {
 		if IsDuplicate(err) {
@@ -247,18 +256,12 @@ func (service Service) SetStatus(
 func (service Service) ResetPassword(
 	ctx context.Context,
 	userID id.UUID,
-	password string,
 ) error {
-	if len(password) < service.passwordMinLength {
-		return apperror.Validation(
-			apperror.FieldError{Field: "password", Message: "临时密码长度不足"},
-		)
-	}
-	hash, err := service.hasher.Hash(password)
+	hash, err := service.hasher.Hash(InitialPassword)
 	if err != nil {
 		return err
 	}
-	if err := service.repository.UpdatePassword(ctx, userID, hash); err != nil {
+	if err := service.repository.UpdatePassword(ctx, userID, hash, true); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return apperror.Conflict("IDENTITY_NOT_LOCAL", "该账号不支持重置本地密码")
 		}

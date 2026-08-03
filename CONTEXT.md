@@ -2,6 +2,10 @@
 
 QuickEval captures independent human evaluations of business Agents and turns quality problems found in evaluations or production usage into traceable Badcases.
 
+**Local Account（本地账号）**:
+An account authenticated with a username and password. Administrators create it with the system initial password; it remains password-change-required until its owner sets a new password, and cannot access business work before then.
+_Avoid_: Temporary account, passwordless user
+
 ## Evaluation Structure
 
 **Evaluation Target（评测对象）**:

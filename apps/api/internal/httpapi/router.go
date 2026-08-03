@@ -49,14 +49,23 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	api := router.Group("/api/v1")
 	api.POST("/auth/login", dependencies.Auth.Login)
 
+	authenticated := api.Group("")
+	authenticated.Use(dependencies.AuthMiddleware.Required())
+	authenticated.GET("/auth/session", dependencies.Auth.Session)
+
+	authMutating := authenticated.Group("")
+	authMutating.Use(dependencies.AuthMiddleware.CSRF())
+	authMutating.DELETE("/auth/session", dependencies.Auth.Logout)
+	authMutating.POST("/auth/change-password", dependencies.Auth.ChangePassword)
+
 	protected := api.Group("")
-	protected.Use(dependencies.AuthMiddleware.Required())
-	protected.GET("/auth/session", dependencies.Auth.Session)
+	protected.Use(
+		dependencies.AuthMiddleware.Required(),
+		auth.RequirePasswordChangeComplete(),
+	)
 
 	mutating := protected.Group("")
 	mutating.Use(dependencies.AuthMiddleware.CSRF())
-	mutating.DELETE("/auth/session", dependencies.Auth.Logout)
-	mutating.POST("/auth/change-password", dependencies.Auth.ChangePassword)
 	mutating.POST("/evaluation-runs", dependencies.Evaluations.CreateRun)
 	mutating.PATCH("/evaluation-runs/:run_id", dependencies.Evaluations.UpdateRun)
 	mutating.DELETE("/evaluation-runs/:run_id", dependencies.Evaluations.DeleteRun)

@@ -10,6 +10,7 @@ const adminSession = {
       role: 'admin',
       status: 'active',
       lock_version: 0,
+      password_change_required: false,
     },
     permissions: {
       manage_users: true,
@@ -318,6 +319,89 @@ test('logs in, restores the shell, and exposes admin navigation', async ({ page 
     }
   })
   expect(filterControlTops.button).toBe(filterControlTops.input)
+})
+
+test('requires a newly created local user to set a password before entering the app', async ({ page }) => {
+  let authenticated = false
+  const initialPasswordSession = structuredClone(adminSession)
+  initialPasswordSession.data.user.role = 'member'
+  initialPasswordSession.data.user.password_change_required = true
+  initialPasswordSession.data.permissions.manage_users = false
+  initialPasswordSession.data.permissions.manage_catalog = false
+  initialPasswordSession.data.permissions.view_audit_logs = false
+
+  await page.route('**/api/v1/auth/session', async (route) => {
+    await route.fulfill({
+      status: authenticated ? 200 : 401,
+      contentType: 'application/json',
+      body: authenticated ? JSON.stringify(initialPasswordSession) : JSON.stringify({ error: {} }),
+    })
+  })
+  await page.route('**/api/v1/auth/login', async (route) => {
+    authenticated = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(initialPasswordSession),
+    })
+  })
+  await page.route('**/api/v1/auth/change-password', async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      current_password: '123456',
+      new_password: 'MemberPass123!',
+    })
+    await route.fulfill({ status: 204 })
+  })
+
+  await page.goto('/')
+  await page.getByLabel('用户名或邮箱').fill('member')
+  await page.getByLabel('密码').fill('123456')
+  await page.getByRole('button', { name: '登录' }).click()
+
+  await expect(page).toHaveURL('/change-password')
+  await expect(page.getByRole('heading', { name: '设置新密码' })).toBeVisible()
+  await page.getByLabel('初始密码').fill('123456')
+  await page.getByLabel('新密码', { exact: true }).fill('MemberPass123!')
+  await page.getByLabel('确认新密码').fill('MemberPass123!')
+  await page.getByRole('button', { name: '设置并重新登录' }).click()
+  await expect(page).toHaveURL(/\/login\?password_changed=1/)
+  await expect(page.getByText('密码已设置，请使用新密码登录')).toBeVisible()
+})
+
+test('admin creates a user with the system initial password', async ({ page }) => {
+  await mockAdminSession(page)
+  let created = false
+  await page.route('**/api/v1/users?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 100, total: 0 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/users', async (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toEqual({
+      username: 'new.member',
+      display_name: '新成员',
+      role: 'member',
+      email: 'member@example.com',
+    })
+    created = true
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { ...adminSession.data.user, id: '019fa2a2-ed09-7660-988d-38cb279d5199', username: 'new.member', display_name: '新成员', email: 'member@example.com', role: 'member', password_change_required: true }, meta }),
+    })
+  })
+
+  await page.goto('/admin/users')
+  await page.getByRole('button', { name: '新建用户' }).click()
+  await expect(page.getByText('初始密码为 123456')).toBeVisible()
+  await page.getByLabel('用户名').fill('new.member')
+  await page.getByLabel('显示名称').fill('新成员')
+  await page.getByLabel('邮箱').fill('member@example.com')
+  await page.getByRole('button', { name: '保存' }).click()
+  await expect.poll(() => created).toBe(true)
 })
 
 test('member is redirected away from admin routes', async ({ page }) => {

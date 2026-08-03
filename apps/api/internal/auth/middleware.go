@@ -118,3 +118,22 @@ func RequireAdmin() gin.HandlerFunc {
 		ctx.Next()
 	}
 }
+
+func RequirePasswordChangeComplete() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		principal, ok := PrincipalFrom(ctx)
+		if !ok {
+			response.ApplicationError(ctx, apperror.Unauthorized())
+			return
+		}
+		if principal.User.PasswordChangeRequired {
+			response.ApplicationError(ctx, apperror.New(
+				http.StatusForbidden,
+				"PASSWORD_CHANGE_REQUIRED",
+				"请先修改初始密码后再使用系统",
+			))
+			return
+		}
+		ctx.Next()
+	}
+}

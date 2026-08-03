@@ -239,15 +239,9 @@ paths:
       security:
         - sessionCookie: []
           csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResetPasswordRequest"
       responses:
         "204":
-          description: Password reset and user sessions revoked.
+          description: Password reset to the initial password and user sessions revoked.
   /api/v1/evaluation-targets:
     get:
       tags: [Catalog]
@@ -2066,13 +2060,12 @@ components:
         new_password: { type: string, minLength: 10 }
     CreateUserRequest:
       type: object
-      required: [username, display_name, role, password]
+      required: [username, display_name, role]
       properties:
         username: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,63}$" }
         display_name: { type: string, minLength: 1 }
         email: { type: [string, "null"], format: email }
         role: { type: string, enum: [admin, member] }
-        password: { type: string, minLength: 10 }
     UpdateUserRequest:
       type: object
       required: [display_name, role, expected_lock_version]
@@ -2081,11 +2074,6 @@ components:
         email: { type: [string, "null"], format: email }
         role: { type: string, enum: [admin, member] }
         expected_lock_version: { type: integer, minimum: 0 }
-    ResetPasswordRequest:
-      type: object
-      required: [password]
-      properties:
-        password: { type: string, minLength: 10 }
     StateRequest:
       type: object
       required: [expected_lock_version]
@@ -2129,7 +2117,7 @@ components:
               expected_lock_version: { type: integer, minimum: 0 }
     User:
       type: object
-      required: [id, username, display_name, role, status, lock_version]
+      required: [id, username, display_name, role, status, lock_version, password_change_required]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         username: { type: string }
@@ -2138,6 +2126,7 @@ components:
         role: { type: string, enum: [admin, member] }
         status: { type: string, enum: [active, disabled] }
         lock_version: { type: integer, minimum: 0 }
+        password_change_required: { type: boolean }
         created_at: { $ref: "#/components/schemas/UTCTimestamp" }
         updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
     Session:
@@ -2198,9 +2187,11 @@ components:
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         actor_user_id: { type: [string, "null"], format: uuid }
+        actor_username: { type: [string, "null"] }
         action: { type: string }
         entity_type: { type: string }
         entity_id: { $ref: "#/components/schemas/UUID" }
+        subject_username: { type: [string, "null"] }
         before_data: {}
         after_data: {}
         request_id: { type: string }
@@ -3143,12 +3134,12 @@ components:
           properties:
             data:
               type: object
-              required: [global, scenario]
+              required: [global, target]
               properties:
                 global:
                   type: array
                   items: { $ref: "#/components/schemas/Tag" }
-                scenario:
+                target:
                   type: array
                   items: { $ref: "#/components/schemas/Tag" }
     UserPage:
