@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
     <aside class="app-sidebar" aria-label="主导航">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">Q</span>
-        <span>QuickEval</span>
+        <span>KooEval</span>
       </div>
       <nav class="navigation">
         <button
