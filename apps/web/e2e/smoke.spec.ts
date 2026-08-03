@@ -5,11 +5,12 @@ const adminSession = {
     user: {
       id: '019fa2a2-ed09-7660-988d-38cb279d5198',
       username: 'admin',
-      display_name: '系统管理员',
+      display_name: '系统超级管理员',
       email: 'admin@quickeval.local',
-      role: 'admin',
+      role: 'super_admin',
       status: 'active',
       lock_version: 0,
+      password_change_required: false,
     },
     permissions: {
       manage_users: true,
@@ -225,7 +226,7 @@ async function mockDraftReads(page: Page) {
               id: tagId,
               name: '事实准确性',
               scope: 'global',
-              scenario_id: null,
+              evaluation_target_id: null,
               status: 'active',
               lock_version: 0,
               sort_order: 10,
@@ -236,7 +237,7 @@ async function mockDraftReads(page: Page) {
       }),
     })
   })
-  await page.route(`**/api/v1/scenarios/${scenarioId}/available-case-tags`, async (route) => {
+  await page.route(`**/api/v1/evaluation-targets/${targetId}/available-case-tags`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -247,13 +248,13 @@ async function mockDraftReads(page: Page) {
               id: tagId,
               name: '事实准确性',
               scope: 'global',
-              scenario_id: null,
+              evaluation_target_id: null,
               status: 'active',
               lock_version: 0,
               sort_order: 10,
             },
           ],
-          scenario: [],
+          target: [],
         },
         meta,
       }),
@@ -320,6 +321,89 @@ test('logs in, restores the shell, and exposes admin navigation', async ({ page 
   expect(filterControlTops.button).toBe(filterControlTops.input)
 })
 
+test('requires a newly created local user to set a password before entering the app', async ({ page }) => {
+  let authenticated = false
+  const initialPasswordSession = structuredClone(adminSession)
+  initialPasswordSession.data.user.role = 'member'
+  initialPasswordSession.data.user.password_change_required = true
+  initialPasswordSession.data.permissions.manage_users = false
+  initialPasswordSession.data.permissions.manage_catalog = false
+  initialPasswordSession.data.permissions.view_audit_logs = false
+
+  await page.route('**/api/v1/auth/session', async (route) => {
+    await route.fulfill({
+      status: authenticated ? 200 : 401,
+      contentType: 'application/json',
+      body: authenticated ? JSON.stringify(initialPasswordSession) : JSON.stringify({ error: {} }),
+    })
+  })
+  await page.route('**/api/v1/auth/login', async (route) => {
+    authenticated = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(initialPasswordSession),
+    })
+  })
+  await page.route('**/api/v1/auth/change-password', async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      current_password: '123456',
+      new_password: 'MemberPass123!',
+    })
+    await route.fulfill({ status: 204 })
+  })
+
+  await page.goto('/')
+  await page.getByLabel('用户名或邮箱').fill('member')
+  await page.getByLabel('密码').fill('123456')
+  await page.getByRole('button', { name: '登录' }).click()
+
+  await expect(page).toHaveURL('/change-password')
+  await expect(page.getByRole('heading', { name: '设置新密码' })).toBeVisible()
+  await page.getByLabel('初始密码').fill('123456')
+  await page.getByLabel('新密码', { exact: true }).fill('MemberPass123!')
+  await page.getByLabel('确认新密码').fill('MemberPass123!')
+  await page.getByRole('button', { name: '设置并重新登录' }).click()
+  await expect(page).toHaveURL(/\/login\?password_changed=1/)
+  await expect(page.getByText('密码已设置，请使用新密码登录')).toBeVisible()
+})
+
+test('admin creates a user with the system initial password', async ({ page }) => {
+  await mockAdminSession(page)
+  let created = false
+  await page.route('**/api/v1/users?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 100, total: 0 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/users', async (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toEqual({
+      username: 'new.member',
+      display_name: '新成员',
+      role: 'member',
+      email: 'member@example.com',
+    })
+    created = true
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { ...adminSession.data.user, id: '019fa2a2-ed09-7660-988d-38cb279d5199', username: 'new.member', display_name: '新成员', email: 'member@example.com', role: 'member', password_change_required: true }, meta }),
+    })
+  })
+
+  await page.goto('/admin/users')
+  await page.getByRole('button', { name: '新建用户' }).click()
+  await expect(page.getByText('初始密码为 123456')).toBeVisible()
+  await page.getByLabel('用户名').fill('new.member')
+  await page.getByLabel('显示名称').fill('新成员')
+  await page.getByLabel('邮箱').fill('member@example.com')
+  await page.getByRole('button', { name: '保存' }).click()
+  await expect.poll(() => created).toBe(true)
+})
+
 test('member is redirected away from admin routes', async ({ page }) => {
   const memberSession = structuredClone(adminSession)
   memberSession.data.user.role = 'member'
@@ -339,6 +423,29 @@ test('member is redirected away from admin routes', async ({ page }) => {
   await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
 })
 
+test('operator can access operations menus but not user management', async ({ page }) => {
+  const operatorSession = structuredClone(adminSession)
+  operatorSession.data.user.role = 'operator'
+  operatorSession.data.permissions.manage_users = false
+
+  await page.route('**/api/v1/auth/session', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(operatorSession),
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: '系统管理', exact: true }).click()
+  await expect(page.getByRole('button', { name: /评测配置/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /审计日志/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /用户管理/ })).toHaveCount(0)
+
+  await page.goto('/admin/users')
+  await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible()
+})
+
 test('actively registers badcases continuously and retries only a failed screenshot upload', async ({
   page,
 }) => {
@@ -355,7 +462,16 @@ test('actively registers badcases continuously and retries only a failed screens
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          items: [target, { ...target, id: disabledTargetId, name: '合同审核助手' }],
+          items: [
+            target,
+            {
+              ...target,
+              id: disabledTargetId,
+              name: '合同审核助手',
+              description: '合同条款审核与风险识别',
+              status: 'disabled',
+            },
+          ],
           page: 1,
           page_size: 100,
           total: 2,
@@ -469,13 +585,16 @@ test('actively registers badcases continuously and retries only a failed screens
   await page.goto('/badcases/register')
   await expect(page.getByRole('heading', { name: '选择评测对象' })).toBeVisible()
   await page.getByPlaceholder('搜索评测对象').fill('合同')
-  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeEnabled()
+  await expect(page.getByRole('button', { name: /合同审核助手/ })).toHaveCount(0)
+  await page.getByText('显示已停用（1）', { exact: true }).click()
+  await expect(page.getByRole('button', { name: /合同审核助手/ })).toBeDisabled()
   await page.getByPlaceholder('搜索评测对象').fill('智能采购')
   await page.getByRole('button', { name: /智能采购 Agent/ }).click()
 
-  await page.getByPlaceholder('请输入 Badcase 标题').fill('采购推荐违反预算约束')
-  await page.getByPlaceholder('请简要描述问题现象、影响范围、期望结果等').fill('预算为 10 万元')
-  await page.getByPlaceholder('例如 2026.07.30').fill('agent-v2')
+  await page
+    .getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文')
+    .fill('预算为 10 万元时仍推荐超预算商品')
+  await page.getByPlaceholder('例如 20260803').fill('agent-v2')
   await page.locator('input[type="file"]').setInputFiles({
     name: 'evidence.png',
     mimeType: 'image/png',
@@ -483,7 +602,9 @@ test('actively registers badcases continuously and retries only a failed screens
   })
 
   await page.reload()
-  await expect(page.getByPlaceholder('请输入 Badcase 标题')).toHaveValue('采购推荐违反预算约束')
+  await expect(
+    page.getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文'),
+  ).toHaveValue('预算为 10 万元时仍推荐超预算商品')
   await expect(page.getByText(/截图需要重新选择/)).toBeVisible()
   await page.locator('input[type="file"]').setInputFiles({
     name: 'evidence.png',
@@ -496,17 +617,19 @@ test('actively registers badcases continuously and retries only a failed screens
   expect(createCount).toBe(1)
   expect(uploadCount).toBe(1)
   await page.getByRole('button', { name: '重试上传' }).click()
-  await expect(page.getByText('采购推荐违反预算约束')).toBeVisible()
-  await expect(page.getByPlaceholder('请输入 Badcase 标题')).toHaveValue('')
-  await expect(page.getByPlaceholder('例如 2026.07.30')).toHaveValue('agent-v2')
+  await expect(page.getByText('预算为 10 万元时仍推荐超预算商品')).toBeVisible()
+  await expect(
+    page.getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文'),
+  ).toHaveValue('')
+  await expect(page.getByPlaceholder('例如 20260803')).toHaveValue('agent-v2')
   expect(createCount).toBe(1)
   expect(uploadCount).toBe(2)
 })
 
-test('admin manages global and scenario case tags by scope', async ({ page }) => {
+test('admin manages global and target case tags by scope', async ({ page }) => {
   await mockAdminSession(page)
   let createdGlobalTag = false
-  const scenarioTagId = '019fa2a2-ed09-7660-988d-38cb279d5117'
+  const targetTagId = '019fa2a2-ed09-7660-988d-38cb279d5117'
   await page.route('**/api/v1/evaluation-targets?*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -534,18 +657,18 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
             name: '意图识别',
             description: null,
             scope: 'global',
-            scenario_id: null,
+            evaluation_target_id: null,
             status: 'active',
             lock_version: 0,
             sort_order: 10,
           }
         : {
-            id: scenarioTagId,
+            id: targetTagId,
             name: '供应商比较',
             description: null,
-            scope: 'scenario',
-            scenario_id: scenarioId,
-            scenario_name: scenario.name,
+            scope: 'target',
+            evaluation_target_id: targetId,
+            evaluation_target_name: target.name,
             status: 'active',
             lock_version: 0,
             sort_order: 10,
@@ -563,7 +686,7 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
     }
     expect(route.request().postDataJSON()).toMatchObject({
       scope: 'global',
-      scenario_id: null,
+      evaluation_target_id: null,
       name: '指令遵循',
     })
     createdGlobalTag = true
@@ -576,7 +699,7 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
           name: '指令遵循',
           description: null,
           scope: 'global',
-          scenario_id: null,
+          evaluation_target_id: null,
           status: 'active',
           lock_version: 0,
           sort_order: 20,
@@ -587,14 +710,23 @@ test('admin manages global and scenario case tags by scope', async ({ page }) =>
   })
 
   await page.goto('/admin/catalog')
+  await page.getByRole('button', { name: '新增场景' }).click()
+  await expect(page.getByRole('dialog', { name: '新建评测场景' })).toBeVisible()
+  await expect(page.getByLabel('所属评测对象')).toBeVisible()
+  await page.getByRole('button', { name: '取消' }).click()
+  await page.getByRole('tab', { name: '评测对象' }).click()
+  await page.getByRole('button', { name: '新增标签' }).click()
+  await expect(page.getByRole('dialog', { name: '新建用例标签' })).toBeVisible()
+  await page.getByRole('button', { name: '取消' }).click()
   await page.getByRole('tab', { name: '用例标签' }).click()
-  await expect(page.getByText('意图识别')).toBeVisible()
-  await page.getByText('场景标签', { exact: true }).click()
-  await expect(page.getByText('供应商比较')).toBeVisible()
-  await expect(page.locator('tbody').getByText(scenario.name)).toBeVisible()
   await page.getByText('全局标签', { exact: true }).click()
-  await page.getByRole('button', { name: '新建目录项' }).click()
-  await page.getByLabel('名称').fill('指令遵循')
+  await expect(page.getByText('意图识别')).toBeVisible()
+  await page.getByText('对象专属标签', { exact: true }).click()
+  await expect(page.getByText('供应商比较')).toBeVisible()
+  await expect(page.locator('tbody').getByText(target.name)).toBeVisible()
+  await page.getByText('全局标签', { exact: true }).click()
+  await page.getByRole('button', { name: '新建用例标签' }).click()
+  await page.getByLabel('用例标签名称').fill('指令遵循')
   await page.getByRole('button', { name: '保存' }).click()
   await expect.poll(() => createdGlobalTag).toBe(true)
 })
@@ -706,18 +838,264 @@ test('disabled evaluation targets are unavailable when browsing and creating dat
   })
 
   await page.goto('/datasets')
-  await expect(page.locator('.dataset-filter-panel')).toContainText(target.name)
-  await expect(page.locator('.dataset-filter-panel')).not.toContainText(disabledTarget.name)
+  const targetFilter = page.getByRole('combobox', { name: '按评测对象筛选' })
+  await targetFilter.click()
+  await expect(page.getByRole('option', { name: target.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: new RegExp(disabledTarget.name) })).toHaveCount(0)
+  await page.keyboard.press('Escape')
   await expect(page.locator('.dataset-list-card')).not.toContainText(disabledDataset.name)
 
   await page.getByText('包含停用归属', { exact: true }).click()
-  await expect(page.locator('.dataset-filter-panel')).toContainText(disabledTarget.name)
+  await targetFilter.click()
+  await expect(page.getByRole('option', { name: new RegExp(disabledTarget.name) })).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect(page.locator('.dataset-list-card')).toContainText(disabledDataset.name)
 
   await page.getByRole('button', { name: '新建评测集' }).click()
   await page.getByRole('combobox', { name: '所属评测对象' }).click()
-  await expect(page.getByRole('option', { name: target.name })).toBeVisible()
-  await expect(page.getByRole('option', { name: disabledTarget.name })).toHaveCount(0)
+  const createTargetOptions = page.locator('.el-select-dropdown:visible')
+  await expect(createTargetOptions.getByRole('option', { name: target.name })).toBeVisible()
+  await expect(createTargetOptions.getByRole('option', { name: disabledTarget.name })).toHaveCount(0)
+})
+
+test('dataset filters scope scenarios to the selected evaluation target', async ({ page }) => {
+  const otherTarget = {
+    ...target,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5125',
+    name: '合同审核 Agent',
+  }
+  const otherScenario = {
+    ...scenario,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5126',
+    name: '条款风险识别',
+    evaluation_target_id: otherTarget.id,
+    evaluation_target_name: otherTarget.name,
+  }
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [target, otherTarget], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [scenario, otherScenario], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 100, total: 0 }, meta }),
+    })
+  })
+
+  await page.goto('/datasets')
+  const targetFilter = page.getByRole('combobox', { name: '按评测对象筛选' })
+  const scenarioFilter = page.getByRole('combobox', { name: '按场景筛选' })
+  await expect(targetFilter).toBeVisible()
+  await expect(scenarioFilter).toBeDisabled()
+
+  await targetFilter.click()
+  await page.getByRole('option', { name: target.name }).click()
+  await expect(scenarioFilter).toBeEnabled()
+  await scenarioFilter.click()
+  await expect(page.getByRole('option', { name: scenario.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: otherScenario.name })).toHaveCount(0)
+})
+
+test('Badcase filters scope scenarios to the selected evaluation target', async ({ page }) => {
+  const otherTarget = {
+    ...target,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5135',
+    name: '合同审核 Agent',
+  }
+  const otherScenario = {
+    ...scenario,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5136',
+    name: '条款风险识别',
+    evaluation_target_id: otherTarget.id,
+    evaluation_target_name: otherTarget.name,
+  }
+  let requestedTargetID = ''
+
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [target, otherTarget], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [scenario, otherScenario], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/badcase-options', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { assignees: [], issue_tags: [] }, meta }),
+    })
+  })
+  await page.route(/\/api\/v1\/badcases(?:\?.*)?$/, async (route) => {
+    requestedTargetID = new URL(route.request().url()).searchParams.get('evaluation_target_id') || ''
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 20, total: 0 }, meta }),
+    })
+  })
+
+  await page.goto('/badcases')
+  const targetFilter = page.getByRole('combobox', { name: '按评测对象筛选' })
+  const scenarioFilter = page.getByRole('combobox', { name: '按评测场景筛选' })
+  await expect(targetFilter).toBeVisible()
+  await page.getByRole('button', { name: '更多筛选' }).click()
+  await expect(scenarioFilter).toBeDisabled()
+
+  await targetFilter.click()
+  await page.getByRole('option', { name: target.name }).click()
+  await expect.poll(() => requestedTargetID).toBe(target.id)
+  await expect(scenarioFilter).toBeEnabled()
+  await scenarioFilter.click()
+  await expect(page.getByRole('option', { name: scenario.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: otherScenario.name })).toHaveCount(0)
+})
+
+test('views published dataset cases without creating a draft', async ({ page }) => {
+  const olderVersionId = '019fa2a2-ed09-7660-988d-38cb279d5127'
+  const latestCases = Array.from({ length: 11 }, (_, index) => ({
+    ...versionCase,
+    id: `019fa2a2-ed09-7660-988d-38cb279d52${String(index + 10).padStart(2, '0')}`,
+    user_prompt: `最新版本用例 ${index + 1}：预算 ${(index + 1) * 10} 万元，请推荐采购方案`,
+  }))
+  const publishedVersion = {
+    ...draft,
+    status: 'published',
+    version_no: 2,
+    case_count: latestCases.length,
+    enabled_count: latestCases.length,
+    published_at: '2026-07-28T01:00:00Z',
+  }
+  const olderVersion = {
+    ...publishedVersion,
+    id: olderVersionId,
+    version_no: 1,
+    published_at: '2026-07-27T01:00:00Z',
+  }
+  const olderCase = {
+    ...versionCase,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5128',
+    dataset_version_id: olderVersionId,
+    user_prompt: '历史版本：预算 8 万元，请推荐采购方案',
+  }
+  const publishedDataset = {
+    ...dataset,
+    latest_version_no: 2,
+    published_version_count: 2,
+    draft_version_id: null,
+    draft_case_count: 0,
+  }
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [target], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [scenario], page: 1, page_size: 100, total: 1 }, meta }),
+    })
+  })
+  await page.route(/\/api\/v1\/datasets(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [publishedDataset], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/datasets/${datasetId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { dataset: publishedDataset, versions: [publishedVersion, olderVersion] },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/dataset-versions/${draftId}/cases?*`, async (route) => {
+    const pageNumber = Number(new URL(route.request().url()).searchParams.get('page') || '1')
+    const pageSize = Number(new URL(route.request().url()).searchParams.get('page_size') || '10')
+    const start = (pageNumber - 1) * pageSize
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          items: latestCases.slice(start, start + pageSize),
+          page: pageNumber,
+          page_size: pageSize,
+          total: latestCases.length,
+        },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/dataset-versions/${olderVersionId}/cases?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [olderCase], page: 1, page_size: 100, total: 1 },
+        meta,
+      }),
+    })
+  })
+
+  await page.goto('/datasets')
+  await page.getByRole('button', { name: '预览用例' }).click()
+  await expect(page.getByText('显示前 8 条，共 11 条', { exact: true })).toBeVisible()
+  await expect(page.getByText(latestCases[7].user_prompt, { exact: true })).toBeVisible()
+  await expect(page.getByText(latestCases[8].user_prompt, { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '查看详情' }).click()
+  await expect(page).toHaveURL(`/datasets/${datasetId}`)
+  await expect(page.getByRole('heading', { name: publishedDataset.name })).toBeVisible()
+  await expect(page.getByText(latestCases[0].user_prompt, { exact: true })).toBeVisible()
+  await expect(page.locator('.dataset-content-card .el-loading-mask')).toBeHidden()
+  await page.locator('.dataset-content-card .el-pagination .btn-next').click()
+  await expect(page.getByText(latestCases[10].user_prompt, { exact: true })).toBeVisible()
+  await page.locator('.dataset-content-controls .el-select').click()
+  await page.locator('.el-select-dropdown:visible').getByRole('option', { name: 'V1 · 已发布' }).click()
+  await expect(page.getByText(olderCase.user_prompt, { exact: true })).toBeVisible()
+  await expect(page.locator('.viewing-version-summary').getByText('V1', { exact: true })).toBeVisible()
 })
 
 test('draft editor adds an input-only case from the inline composer', async ({ page }) => {
@@ -975,6 +1353,16 @@ test('starts an independent evaluation from a published dataset version', async 
       contentType: 'application/json',
       body: JSON.stringify({
         data: { dataset: { ...dataset, latest_version_no: 1 }, versions: [publishedVersion] },
+        meta,
+      }),
+    })
+  })
+  await page.route(`**/api/v1/dataset-versions/${draftId}/cases?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [versionCase], page: 1, page_size: 100, total: 1 },
         meta,
       }),
     })
@@ -1376,7 +1764,7 @@ test('registers a business Badcase and advances its processing timeline', async 
     evaluation_target_id: targetId,
     evaluation_target_name: target.name,
     title: '采购助手忽略预算上限',
-    description: null,
+    description: '预算为 10 万元时仍推荐超预算商品',
     agent_response_text: '建议采购高配服务器',
     agent_version: '2026.07.28',
     environment: 'production',
@@ -1441,7 +1829,7 @@ test('registers a business Badcase and advances its processing timeline', async 
         evaluation_target_id: targetId,
         scenario_id: null,
         title: '采购助手忽略预算上限',
-        description: null,
+        description: '预算为 10 万元时仍推荐超预算商品',
         issue_tag_ids: [],
       })
       await route.fulfill({
@@ -1580,15 +1968,18 @@ test('registers a business Badcase and advances its processing timeline', async 
   await page.goto('/badcases')
   await page.getByRole('button', { name: '主动登记 Badcase' }).click()
   await page.getByRole('button', { name: /智能采购 Agent/ }).click()
-  await page.getByPlaceholder('请输入 Badcase 标题').fill('采购助手忽略预算上限')
+  await page.getByPlaceholder('简要说明问题现象、影响或期望结果，可留空').fill('采购助手忽略预算上限')
   await page
-    .getByPlaceholder('请粘贴 Agent 的完整回答文本，便于复现与分析')
+    .getByPlaceholder('粘贴用户实际输入、触发指令或关键上下文，尽量保留原文')
+    .fill('预算为 10 万元时仍推荐超预算商品')
+  await page
+    .getByPlaceholder('需要复现或定位时再补充，可留空')
     .fill('建议采购高配服务器')
   await page.getByRole('button', { name: '登记并继续' }).click()
   await page.getByRole('button', { name: '查看详情' }).click()
 
   await expect(page).toHaveURL(`/badcases/${badcaseId}`)
-  await expect(page.getByRole('heading', { name: '采购助手忽略预算上限' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '预算为 10 万元时仍推荐超预算商品' })).toBeVisible()
   await page.getByText('未分配', { exact: true }).last().click()
   await page.locator('.el-select-dropdown__item').filter({ hasText: '系统管理员' }).click()
   await page.getByRole('button', { name: '保存', exact: true }).click()

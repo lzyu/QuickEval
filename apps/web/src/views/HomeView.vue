@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { HomePageData, ResponseEnvelope } from '@/api/types'
+import { badcaseDisplayTitle } from '@/features/badcases/display'
 import { useAuthStore } from '@/stores/auth'
 import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
 
@@ -147,7 +148,7 @@ onMounted(load)
           @click="router.push(`/badcases/${item.id}`)"
         >
           <div class="home-list-main">
-            <strong>{{ item.title }}</strong>
+            <strong>{{ badcaseDisplayTitle(item) }}</strong>
             <span>{{ item.scenario_name }} · {{ item.source_type === 'business' ? '业务登记' : '评测发现' }}</span>
           </div>
           <el-tag :type="item.status === 'processing' ? 'primary' : 'warning'" effect="light">
@@ -165,9 +166,9 @@ onMounted(load)
         </template>
         <ActionableEmptyState
           v-if="data.recent_datasets.length === 0"
-          :title="auth.isAdmin ? '还没有已发布的评测集' : '暂无可用的评测集'"
-          :description="auth.isAdmin ? '创建评测集并发布首个版本后，团队即可开始人工评测。' : '管理员发布评测集版本后，最新内容会出现在这里。'"
-          :action-label="auth.isAdmin ? '前往创建' : ''"
+          :title="auth.isOperationsAdmin ? '还没有已发布的评测集' : '暂无可用的评测集'"
+          :description="auth.isOperationsAdmin ? '创建评测集并发布首个版本后，团队即可开始人工评测。' : '运营管理员发布评测集版本后，最新内容会出现在这里。'"
+          :action-label="auth.isOperationsAdmin ? '前往创建' : ''"
           compact
           @action="router.push('/datasets')"
         />

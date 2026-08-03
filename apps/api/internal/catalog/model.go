@@ -10,8 +10,8 @@ const (
 	StatusActive   = "active"
 	StatusDisabled = "disabled"
 
-	CaseTagScopeGlobal   = "global"
-	CaseTagScopeScenario = "scenario"
+	CaseTagScopeGlobal = "global"
+	CaseTagScopeTarget = "target"
 )
 
 type EvaluationTarget struct {
@@ -49,19 +49,19 @@ func (Scenario) TableName() string {
 }
 
 type CaseTag struct {
-	ID           id.UUID   `gorm:"column:id;type:binary(16);primaryKey"`
-	Scope        string    `gorm:"column:scope"`
-	ScenarioID   *id.UUID  `gorm:"column:scenario_id;type:binary(16)"`
-	ScenarioName *string   `gorm:"column:scenario_name;->"`
-	Name         string    `gorm:"column:name"`
-	Description  *string   `gorm:"column:description"`
-	Status       string    `gorm:"column:status"`
-	SortOrder    uint32    `gorm:"column:sort_order"`
-	LockVersion  uint32    `gorm:"column:lock_version"`
-	CreatedBy    id.UUID   `gorm:"column:created_by;type:binary(16)"`
-	UpdatedBy    id.UUID   `gorm:"column:updated_by;type:binary(16)"`
-	CreatedAt    time.Time `gorm:"column:created_at"`
-	UpdatedAt    time.Time `gorm:"column:updated_at"`
+	ID                 id.UUID   `gorm:"column:id;type:binary(16);primaryKey"`
+	Scope              string    `gorm:"column:scope"`
+	EvaluationTargetID *id.UUID  `gorm:"column:evaluation_target_id;type:binary(16)"`
+	TargetName         *string   `gorm:"column:target_name;->"`
+	Name               string    `gorm:"column:name"`
+	Description        *string   `gorm:"column:description"`
+	Status             string    `gorm:"column:status"`
+	SortOrder          uint32    `gorm:"column:sort_order"`
+	LockVersion        uint32    `gorm:"column:lock_version"`
+	CreatedBy          id.UUID   `gorm:"column:created_by;type:binary(16)"`
+	UpdatedBy          id.UUID   `gorm:"column:updated_by;type:binary(16)"`
+	CreatedAt          time.Time `gorm:"column:created_at"`
+	UpdatedAt          time.Time `gorm:"column:updated_at"`
 }
 
 func (CaseTag) TableName() string {
@@ -134,37 +134,37 @@ func (scenario Scenario) Public() ScenarioPublic {
 }
 
 type TagPublic struct {
-	ID           string    `json:"id"`
-	Scope        string    `json:"scope,omitempty"`
-	ScenarioID   *string   `json:"scenario_id,omitempty"`
-	ScenarioName *string   `json:"scenario_name,omitempty"`
-	Name         string    `json:"name"`
-	Description  *string   `json:"description"`
-	Status       string    `json:"status"`
-	SortOrder    uint32    `json:"sort_order"`
-	LockVersion  uint32    `json:"lock_version"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Scope              string    `json:"scope,omitempty"`
+	EvaluationTargetID *string   `json:"evaluation_target_id,omitempty"`
+	TargetName         *string   `json:"evaluation_target_name,omitempty"`
+	Name               string    `json:"name"`
+	Description        *string   `json:"description"`
+	Status             string    `json:"status"`
+	SortOrder          uint32    `json:"sort_order"`
+	LockVersion        uint32    `json:"lock_version"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 func (tag CaseTag) Public() TagPublic {
-	var scenarioID *string
-	if tag.ScenarioID != nil {
-		value := tag.ScenarioID.String()
-		scenarioID = &value
+	var targetID *string
+	if tag.EvaluationTargetID != nil {
+		value := tag.EvaluationTargetID.String()
+		targetID = &value
 	}
 	return TagPublic{
-		ID:           tag.ID.String(),
-		Scope:        tag.Scope,
-		ScenarioID:   scenarioID,
-		ScenarioName: tag.ScenarioName,
-		Name:         tag.Name,
-		Description:  tag.Description,
-		Status:       tag.Status,
-		SortOrder:    tag.SortOrder,
-		LockVersion:  tag.LockVersion,
-		CreatedAt:    tag.CreatedAt,
-		UpdatedAt:    tag.UpdatedAt,
+		ID:                 tag.ID.String(),
+		Scope:              tag.Scope,
+		EvaluationTargetID: targetID,
+		TargetName:         tag.TargetName,
+		Name:               tag.Name,
+		Description:        tag.Description,
+		Status:             tag.Status,
+		SortOrder:          tag.SortOrder,
+		LockVersion:        tag.LockVersion,
+		CreatedAt:          tag.CreatedAt,
+		UpdatedAt:          tag.UpdatedAt,
 	}
 }
 

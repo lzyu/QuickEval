@@ -263,12 +263,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scenarios/{scenario_id}/case-tags": {
+    "/api/v1/evaluation-targets/{target_id}/case-tags": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -318,12 +318,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scenarios/{scenario_id}/case-tags/reorder": {
+    "/api/v1/evaluation-targets/{target_id}/case-tags/reorder": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -336,12 +336,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scenarios/{scenario_id}/available-case-tags": {
+    "/api/v1/evaluation-targets/{target_id}/available-case-tags": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -1341,19 +1341,15 @@ export interface components {
             /** Format: email */
             email?: string | null;
             /** @enum {string} */
-            role: "admin" | "member";
-            password: string;
+            role: "super_admin" | "operator" | "member";
         };
         UpdateUserRequest: {
             display_name: string;
             /** Format: email */
             email?: string | null;
             /** @enum {string} */
-            role: "admin" | "member";
+            role: "super_admin" | "operator" | "member";
             expected_lock_version: number;
-        };
-        ResetPasswordRequest: {
-            password: string;
         };
         StateRequest: {
             expected_lock_version: number;
@@ -1369,9 +1365,9 @@ export interface components {
         };
         CaseTagRequest: components["schemas"]["NamedRequest"] & {
             /** @enum {string} */
-            scope: "global" | "scenario";
+            scope: "global" | "target";
             /** Format: uuid */
-            scenario_id?: string | null;
+            evaluation_target_id?: string | null;
         };
         ReorderRequest: {
             items: {
@@ -1387,10 +1383,11 @@ export interface components {
             /** Format: email */
             email?: string | null;
             /** @enum {string} */
-            role: "admin" | "member";
+            role: "super_admin" | "operator" | "member";
             /** @enum {string} */
             status: "active" | "disabled";
             lock_version: number;
+            password_change_required: boolean;
             created_at?: components["schemas"]["UTCTimestamp"];
             updated_at?: components["schemas"]["UTCTimestamp"];
         };
@@ -1425,19 +1422,21 @@ export interface components {
         };
         Tag: components["schemas"]["CatalogItem"] & {
             /** @enum {string} */
-            scope?: "global" | "scenario";
+            scope?: "global" | "target";
             /** Format: uuid */
-            scenario_id?: string | null;
-            scenario_name?: string | null;
+            evaluation_target_id?: string | null;
+            evaluation_target_name?: string | null;
             sort_order: number;
         };
         AuditLog: {
             id: components["schemas"]["UUID"];
             /** Format: uuid */
             actor_user_id?: string | null;
+            actor_username?: string | null;
             action: string;
             entity_type: string;
             entity_id: components["schemas"]["UUID"];
+            subject_username?: string | null;
             before_data?: unknown;
             after_data?: unknown;
             request_id: string;
@@ -1964,7 +1963,7 @@ export interface components {
         AvailableCaseTagsResponse: components["schemas"]["ResponseEnvelope"] & {
             data?: {
                 global: components["schemas"]["Tag"][];
-                scenario: components["schemas"]["Tag"][];
+                target: components["schemas"]["Tag"][];
             };
         };
         UserPage: components["schemas"]["PageBase"];
@@ -2404,7 +2403,7 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
                 status?: "active" | "disabled";
-                role?: "admin" | "member";
+                role?: "super_admin" | "operator" | "member";
                 keyword?: string;
             };
             header?: never;
@@ -2536,13 +2535,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResetPasswordRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Password reset and user sessions revoked. */
+            /** @description Password reset to the initial password and user sessions revoked. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -2778,13 +2773,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Case tags for the scenario. */
+            /** @description Case tags owned by the evaluation target. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2800,7 +2795,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -2867,7 +2862,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
@@ -2887,13 +2882,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                scenario_id: components["parameters"]["ScenarioID"];
+                target_id: components["parameters"]["TargetID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Active global and scenario-specific tags available to cases in this scenario. */
+            /** @description Active global and target-specific tags available to cases for this evaluation target. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2907,8 +2902,8 @@ export interface operations {
     listManagedCaseTags: {
         parameters: {
             query: {
-                scope: "global" | "scenario";
-                scenario_id?: string;
+                scope: "global" | "target";
+                evaluation_target_id?: string;
                 status?: "active" | "disabled";
             };
             header?: never;
@@ -2941,7 +2936,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Global or scenario-specific case tag created. */
+            /** @description Global or target-specific case tag created. */
             201: {
                 headers: {
                     [name: string]: unknown;

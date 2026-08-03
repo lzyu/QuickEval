@@ -134,7 +134,7 @@ paths:
           schema: { type: string, enum: [active, disabled] }
         - name: role
           in: query
-          schema: { type: string, enum: [admin, member] }
+          schema: { type: string, enum: [super_admin, operator, member] }
         - name: keyword
           in: query
           schema: { type: string }
@@ -239,15 +239,9 @@ paths:
       security:
         - sessionCookie: []
           csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResetPasswordRequest"
       responses:
         "204":
-          description: Password reset and user sessions revoked.
+          description: Password reset to the initial password and user sessions revoked.
   /api/v1/evaluation-targets:
     get:
       tags: [Catalog]
@@ -402,15 +396,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ScenarioResponse"
-  /api/v1/scenarios/{scenario_id}/case-tags:
+  /api/v1/evaluation-targets/{target_id}/case-tags:
     parameters:
-      - $ref: "#/components/parameters/ScenarioID"
+      - $ref: "#/components/parameters/TargetID"
     get:
       tags: [Catalog]
       operationId: listCaseTags
       responses:
         "200":
-          description: Case tags for the scenario.
+          description: Case tags owned by the evaluation target.
           content:
             application/json:
               schema:
@@ -467,9 +461,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TagResponse"
-  /api/v1/scenarios/{scenario_id}/case-tags/reorder:
+  /api/v1/evaluation-targets/{target_id}/case-tags/reorder:
     parameters:
-      - $ref: "#/components/parameters/ScenarioID"
+      - $ref: "#/components/parameters/TargetID"
     put:
       tags: [Catalog]
       operationId: reorderCaseTags
@@ -481,15 +475,15 @@ paths:
       responses:
         "204":
           description: Case tags reordered.
-  /api/v1/scenarios/{scenario_id}/available-case-tags:
+  /api/v1/evaluation-targets/{target_id}/available-case-tags:
     parameters:
-      - $ref: "#/components/parameters/ScenarioID"
+      - $ref: "#/components/parameters/TargetID"
     get:
       tags: [Catalog]
       operationId: listAvailableCaseTags
       responses:
         "200":
-          description: Active global and scenario-specific tags available to cases in this scenario.
+          description: Active global and target-specific tags available to cases for this evaluation target.
           content:
             application/json:
               schema:
@@ -502,8 +496,8 @@ paths:
         - name: scope
           in: query
           required: true
-          schema: { type: string, enum: [global, scenario] }
-        - name: scenario_id
+          schema: { type: string, enum: [global, target] }
+        - name: evaluation_target_id
           in: query
           schema: { type: string, format: uuid }
         - name: status
@@ -530,7 +524,7 @@ paths:
               $ref: "#/components/schemas/CaseTagRequest"
       responses:
         "201":
-          description: Global or scenario-specific case tag created.
+          description: Global or target-specific case tag created.
           content:
             application/json:
               schema:
@@ -2066,26 +2060,20 @@ components:
         new_password: { type: string, minLength: 10 }
     CreateUserRequest:
       type: object
-      required: [username, display_name, role, password]
+      required: [username, display_name, role]
       properties:
         username: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,63}$" }
         display_name: { type: string, minLength: 1 }
         email: { type: [string, "null"], format: email }
-        role: { type: string, enum: [admin, member] }
-        password: { type: string, minLength: 10 }
+        role: { type: string, enum: [super_admin, operator, member] }
     UpdateUserRequest:
       type: object
       required: [display_name, role, expected_lock_version]
       properties:
         display_name: { type: string, minLength: 1 }
         email: { type: [string, "null"], format: email }
-        role: { type: string, enum: [admin, member] }
+        role: { type: string, enum: [super_admin, operator, member] }
         expected_lock_version: { type: integer, minimum: 0 }
-    ResetPasswordRequest:
-      type: object
-      required: [password]
-      properties:
-        password: { type: string, minLength: 10 }
     StateRequest:
       type: object
       required: [expected_lock_version]
@@ -2111,8 +2099,8 @@ components:
         - type: object
           required: [scope]
           properties:
-            scope: { type: string, enum: [global, scenario] }
-            scenario_id: { type: [string, "null"], format: uuid }
+            scope: { type: string, enum: [global, target] }
+            evaluation_target_id: { type: [string, "null"], format: uuid }
     ReorderRequest:
       type: object
       required: [items]
@@ -2129,15 +2117,16 @@ components:
               expected_lock_version: { type: integer, minimum: 0 }
     User:
       type: object
-      required: [id, username, display_name, role, status, lock_version]
+      required: [id, username, display_name, role, status, lock_version, password_change_required]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         username: { type: string }
         display_name: { type: string }
         email: { type: [string, "null"], format: email }
-        role: { type: string, enum: [admin, member] }
+        role: { type: string, enum: [super_admin, operator, member] }
         status: { type: string, enum: [active, disabled] }
         lock_version: { type: integer, minimum: 0 }
+        password_change_required: { type: boolean }
         created_at: { $ref: "#/components/schemas/UTCTimestamp" }
         updated_at: { $ref: "#/components/schemas/UTCTimestamp" }
     Session:
@@ -2188,9 +2177,9 @@ components:
         - type: object
           required: [sort_order]
           properties:
-            scope: { type: string, enum: [global, scenario] }
-            scenario_id: { type: [string, "null"], format: uuid }
-            scenario_name: { type: [string, "null"] }
+            scope: { type: string, enum: [global, target] }
+            evaluation_target_id: { type: [string, "null"], format: uuid }
+            evaluation_target_name: { type: [string, "null"] }
             sort_order: { type: integer, minimum: 0 }
     AuditLog:
       type: object
@@ -2198,9 +2187,11 @@ components:
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         actor_user_id: { type: [string, "null"], format: uuid }
+        actor_username: { type: [string, "null"] }
         action: { type: string }
         entity_type: { type: string }
         entity_id: { $ref: "#/components/schemas/UUID" }
+        subject_username: { type: [string, "null"] }
         before_data: {}
         after_data: {}
         request_id: { type: string }
@@ -3143,12 +3134,12 @@ components:
           properties:
             data:
               type: object
-              required: [global, scenario]
+              required: [global, target]
               properties:
                 global:
                   type: array
                   items: { $ref: "#/components/schemas/Tag" }
-                scenario:
+                target:
                   type: array
                   items: { $ref: "#/components/schemas/Tag" }
     UserPage:

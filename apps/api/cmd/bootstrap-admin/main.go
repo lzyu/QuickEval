@@ -23,7 +23,7 @@ func main() {
 
 func run() error {
 	username := flag.String("username", "admin", "local login username")
-	displayName := flag.String("display-name", "系统管理员", "display name")
+	displayName := flag.String("display-name", "系统超级管理员", "display name")
 	email := flag.String("email", "", "optional email address")
 	flag.Parse()
 
@@ -55,7 +55,7 @@ func run() error {
 		nil,
 		cfg.Security.PasswordMinLength,
 	)
-	account, err := service.BootstrapAdmin(context.Background(), user.CreateInput{
+	account, err := service.BootstrapAdmin(context.Background(), user.BootstrapInput{
 		Username:    *username,
 		DisplayName: *displayName,
 		Email:       emailValue,
@@ -79,6 +79,6 @@ func run() error {
 	); err != nil {
 		return err
 	}
-	fmt.Printf("administrator created: %s (%s)\n", account.Username, account.ID.String())
+	fmt.Printf("super administrator created: %s (%s)\n", account.Username, account.ID.String())
 	return nil
 }

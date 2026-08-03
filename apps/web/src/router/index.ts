@@ -10,6 +10,7 @@ import ForbiddenView from '@/views/ForbiddenView.vue'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import PasswordChangeView from '@/views/PasswordChangeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +25,11 @@ const router = createRouter({
       path: '/forbidden',
       name: 'forbidden',
       component: ForbiddenView,
+    },
+    {
+      path: '/change-password',
+      name: 'password-change',
+      component: PasswordChangeView,
     },
     {
       path: '/',
@@ -57,7 +63,7 @@ const router = createRouter({
           path: 'dataset-versions/:versionId/edit',
           name: 'draft-editor',
           component: () => import('@/views/datasets/DraftEditorView.vue'),
-          meta: { admin: true, title: '编辑评测集草稿', section: 'datasets' },
+          meta: { operationsAdmin: true, title: '编辑评测集草稿', section: 'datasets' },
         },
         {
           path: 'evaluations',
@@ -111,25 +117,25 @@ const router = createRouter({
           path: 'admin/catalog',
           name: 'admin-catalog',
           component: CatalogView,
-          meta: { admin: true, title: '基础目录', section: 'admin' },
+          meta: { operationsAdmin: true, title: '评测配置', section: 'admin' },
         },
         {
           path: 'admin/users',
           name: 'admin-users',
           component: UsersView,
-          meta: { admin: true, title: '用户管理', section: 'admin' },
+          meta: { superAdmin: true, title: '用户管理', section: 'admin' },
         },
         {
           path: 'admin/issue-tags',
           name: 'admin-issue-tags',
           component: IssueTagsView,
-          meta: { admin: true, title: '问题标签', section: 'admin' },
+          meta: { operationsAdmin: true, title: '问题标签', section: 'admin' },
         },
         {
           path: 'admin/audit-logs',
           name: 'admin-audit',
           component: AuditLogsView,
-          meta: { admin: true, title: '审计日志', section: 'admin' },
+          meta: { operationsAdmin: true, title: '审计日志', section: 'admin' },
         },
       ],
     },
@@ -145,12 +151,22 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.restore()
   if (to.meta.public) {
-    return auth.isAuthenticated && to.name === 'login' ? { name: 'home' } : true
+    if (!auth.isAuthenticated || to.name !== 'login') return true
+    return auth.passwordChangeRequired ? { name: 'password-change' } : { name: 'home' }
   }
   if (!auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (to.meta.admin && !auth.isAdmin) {
+  if (auth.passwordChangeRequired && to.name !== 'password-change') {
+    return { name: 'password-change' }
+  }
+  if (!auth.passwordChangeRequired && to.name === 'password-change') {
+    return { name: 'home' }
+  }
+  if (to.meta.superAdmin && !auth.isSuperAdmin) {
+    return { name: 'forbidden' }
+  }
+  if (to.meta.operationsAdmin && !auth.isOperationsAdmin) {
     return { name: 'forbidden' }
   }
   return true

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 
 import type { Scenario, Tag } from '@/api/types'
 
-const props = defineProps<{
+defineProps<{
   mode: 'create' | 'edit'
   targetScenarios: Scenario[]
   availableGlobalTags: Tag[]
-  availableScenarioTags: Tag[]
+  availableTargetTags: Tag[]
   savingCase: boolean
   savingMode: 'close' | 'continue' | null
 }>()
@@ -27,9 +27,6 @@ const judgingGuide = defineModel<string>('judgingGuide', { required: true })
 const tagIDs = defineModel<string[]>('tagIds', { required: true })
 const isEnabled = defineModel<boolean>('isEnabled', { required: true })
 const extrasOpen = ref<string[]>([])
-const selectedScenarioName = computed(
-  () => props.targetScenarios.find((item) => item.id === scenarioID.value)?.name || '',
-)
 </script>
 
 <template>
@@ -67,7 +64,7 @@ const selectedScenarioName = computed(
         </el-form-item>
         <el-form-item label="用例标签（可选）">
           <el-select v-model="tagIDs" multiple clearable placeholder="暂不添加标签">
-            <el-option-group v-if="availableGlobalTags.length" label="通用能力 · 全部场景">
+            <el-option-group v-if="availableGlobalTags.length" label="全局标签">
               <el-option
                 v-for="tag in availableGlobalTags"
                 :key="tag.id"
@@ -76,11 +73,11 @@ const selectedScenarioName = computed(
               />
             </el-option-group>
             <el-option-group
-              v-if="availableScenarioTags.length"
-              :label="`场景标签 · ${selectedScenarioName}`"
+              v-if="availableTargetTags.length"
+              label="对象专属标签"
             >
               <el-option
-                v-for="tag in availableScenarioTags"
+                v-for="tag in availableTargetTags"
                 :key="tag.id"
                 :label="tag.name"
                 :value="tag.id"

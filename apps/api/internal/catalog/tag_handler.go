@@ -12,7 +12,7 @@ import (
 )
 
 func (handler Handler) ListCaseTags(ctx *gin.Context) {
-	scenarioID, ok := bindID(ctx, "scenario_id")
+	targetID, ok := bindID(ctx, "target_id")
 	if !ok {
 		return
 	}
@@ -23,8 +23,8 @@ func (handler Handler) ListCaseTags(ctx *gin.Context) {
 	}
 	items, err := handler.repository.ListCaseTags(
 		ctx.Request.Context(),
-		CaseTagScopeScenario,
-		&scenarioID,
+		CaseTagScopeTarget,
+		&targetID,
 		status,
 	)
 	if err != nil {
@@ -40,24 +40,24 @@ func (handler Handler) ListCaseTags(ctx *gin.Context) {
 
 func (handler Handler) ListManagedCaseTags(ctx *gin.Context) {
 	scope := ctx.Query("scope")
-	if scope != CaseTagScopeGlobal && scope != CaseTagScopeScenario {
+	if scope != CaseTagScopeGlobal && scope != CaseTagScopeTarget {
 		response.ApplicationError(ctx, apperror.Validation(
-			apperror.FieldError{Field: "scope", Message: "请选择全局或场景标签"},
+			apperror.FieldError{Field: "scope", Message: "请选择全局或对象专属标签"},
 		))
 		return
 	}
-	var scenarioID *id.UUID
-	if value := ctx.Query("scenario_id"); value != "" {
+	var targetID *id.UUID
+	if value := ctx.Query("evaluation_target_id"); value != "" {
 		parsed, err := id.Parse(value)
 		if err != nil {
 			response.ApplicationError(ctx, apperror.Validation(
-				apperror.FieldError{Field: "scenario_id", Message: "场景 ID 格式错误"},
+				apperror.FieldError{Field: "evaluation_target_id", Message: "评测对象 ID 格式错误"},
 			))
 			return
 		}
-		scenarioID = &parsed
+		targetID = &parsed
 	}
-	if err := validateCaseTagScope(scope, scenarioID); err != nil {
+	if err := validateCaseTagScope(scope, targetID); err != nil {
 		response.ApplicationError(ctx, err)
 		return
 	}
@@ -66,7 +66,7 @@ func (handler Handler) ListManagedCaseTags(ctx *gin.Context) {
 	if principal.Admin() {
 		status = ctx.Query("status")
 	}
-	items, err := handler.repository.ListCaseTags(ctx.Request.Context(), scope, scenarioID, status)
+	items, err := handler.repository.ListCaseTags(ctx.Request.Context(), scope, targetID, status)
 	if err != nil {
 		response.ApplicationError(ctx, err)
 		return
@@ -75,17 +75,17 @@ func (handler Handler) ListManagedCaseTags(ctx *gin.Context) {
 }
 
 func (handler Handler) ListAvailableCaseTags(ctx *gin.Context) {
-	scenarioID, ok := bindID(ctx, "scenario_id")
+	targetID, ok := bindID(ctx, "target_id")
 	if !ok {
 		return
 	}
-	scenario, err := handler.repository.GetScenario(ctx.Request.Context(), scenarioID)
+	target, err := handler.repository.GetTarget(ctx.Request.Context(), targetID)
 	if err != nil {
 		response.ApplicationError(ctx, mapNotFound(err))
 		return
 	}
 	principal, _ := access.From(ctx)
-	if !principal.Admin() && scenario.Status != StatusActive {
+	if !principal.Admin() && target.Status != StatusActive {
 		response.ApplicationError(ctx, apperror.NotFound())
 		return
 	}
@@ -96,29 +96,29 @@ func (handler Handler) ListAvailableCaseTags(ctx *gin.Context) {
 			status = StatusActive
 		}
 	}
-	items, err := handler.repository.ListAvailableCaseTags(ctx.Request.Context(), scenarioID, status)
+	items, err := handler.repository.ListAvailableCaseTags(ctx.Request.Context(), targetID, status)
 	if err != nil {
 		response.ApplicationError(ctx, err)
 		return
 	}
 	global := make([]TagPublic, 0)
-	scenarioItems := make([]TagPublic, 0)
+	targetItems := make([]TagPublic, 0)
 	for _, item := range items {
 		if item.Scope == CaseTagScopeGlobal {
 			global = append(global, item.Public())
 		} else {
-			scenarioItems = append(scenarioItems, item.Public())
+			targetItems = append(targetItems, item.Public())
 		}
 	}
 	response.JSON(ctx, http.StatusOK, map[string]any{
-		"global":   global,
-		"scenario": scenarioItems,
+		"global": global,
+		"target": targetItems,
 	})
 }
 
 func (handler Handler) CreateCaseTag(ctx *gin.Context) {
 	principal, _ := access.From(ctx)
-	scenarioID, ok := bindID(ctx, "scenario_id")
+	targetID, ok := bindID(ctx, "target_id")
 	if !ok {
 		return
 	}
@@ -130,7 +130,7 @@ func (handler Handler) CreateCaseTag(ctx *gin.Context) {
 		ctx.Request.Context(),
 		principal.ID(),
 		CaseTagInput{
-			Scope: CaseTagScopeScenario, ScenarioID: &scenarioID,
+			Scope: CaseTagScopeTarget, EvaluationTargetID: &targetID,
 			Name: request.Name, Description: request.Description,
 		},
 	)
@@ -144,7 +144,7 @@ func (handler Handler) CreateCaseTag(ctx *gin.Context) {
 
 type caseTagRequest struct {
 	Scope               string  `json:"scope"`
-	ScenarioID          *string `json:"scenario_id"`
+	EvaluationTargetID  *string `json:"evaluation_target_id"`
 	Name                string  `json:"name"`
 	Description         *string `json:"description"`
 	ExpectedLockVersion uint32  `json:"expected_lock_version"`
@@ -170,19 +170,19 @@ func bindCaseTagInput(ctx *gin.Context) (CaseTagInput, bool) {
 	if !bindJSON(ctx, &request) {
 		return CaseTagInput{}, false
 	}
-	var scenarioID *id.UUID
-	if request.ScenarioID != nil && *request.ScenarioID != "" {
-		parsed, err := id.Parse(*request.ScenarioID)
+	var targetID *id.UUID
+	if request.EvaluationTargetID != nil && *request.EvaluationTargetID != "" {
+		parsed, err := id.Parse(*request.EvaluationTargetID)
 		if err != nil {
 			response.ApplicationError(ctx, apperror.Validation(
-				apperror.FieldError{Field: "scenario_id", Message: "场景 ID 格式错误"},
+				apperror.FieldError{Field: "evaluation_target_id", Message: "评测对象 ID 格式错误"},
 			))
 			return CaseTagInput{}, false
 		}
-		scenarioID = &parsed
+		targetID = &parsed
 	}
 	return CaseTagInput{
-		Scope: request.Scope, ScenarioID: scenarioID,
+		Scope: request.Scope, EvaluationTargetID: targetID,
 		Name: request.Name, Description: request.Description,
 		ExpectedLockVersion: request.ExpectedLockVersion,
 	}, true
@@ -250,7 +250,7 @@ func (handler Handler) setCaseTagStatus(ctx *gin.Context, status, action string)
 
 func (handler Handler) ReorderCaseTags(ctx *gin.Context) {
 	principal, _ := access.From(ctx)
-	scenarioID, ok := bindID(ctx, "scenario_id")
+	targetID, ok := bindID(ctx, "target_id")
 	if !ok {
 		return
 	}
@@ -261,13 +261,13 @@ func (handler Handler) ReorderCaseTags(ctx *gin.Context) {
 	if err := handler.service.ReorderCaseTags(
 		ctx.Request.Context(),
 		principal.ID(),
-		scenarioID,
+		targetID,
 		items,
 	); err != nil {
 		response.ApplicationError(ctx, err)
 		return
 	}
-	handler.record(ctx, principal.ID(), "case_tag.reordered", "scenario", scenarioID, nil, map[string]any{
+	handler.record(ctx, principal.ID(), "case_tag.reordered", "evaluation_target", targetID, nil, map[string]any{
 		"item_count": len(items),
 	})
 	ctx.Status(http.StatusNoContent)

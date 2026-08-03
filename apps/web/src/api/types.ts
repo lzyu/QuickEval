@@ -15,9 +15,10 @@ export interface User {
   username: string
   display_name: string
   email: string | null
-  role: 'admin' | 'member'
+  role: 'super_admin' | 'operator' | 'member'
   status: 'active' | 'disabled'
   lock_version: number
+  password_change_required: boolean
   created_at?: string
   updated_at?: string
 }
@@ -50,9 +51,9 @@ export interface Scenario extends CatalogItem {
 }
 
 export interface Tag extends CatalogItem {
-  scope?: 'global' | 'scenario'
-  scenario_id?: string
-  scenario_name?: string
+  scope?: 'global' | 'target'
+  evaluation_target_id?: string
+  evaluation_target_name?: string
   color?: string | null
   sort_order: number
 }
@@ -60,9 +61,11 @@ export interface Tag extends CatalogItem {
 export interface AuditLog {
   id: string
   actor_user_id: string | null
+  actor_username: string | null
   action: string
   entity_type: string
   entity_id: string
+  subject_username: string | null
   before_data: unknown
   after_data: unknown
   request_id: string

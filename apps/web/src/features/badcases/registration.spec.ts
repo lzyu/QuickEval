@@ -7,7 +7,9 @@ import {
   isRegistrationValid,
   parseDraft,
   resetAfterRegistration,
+  submissionTitle,
   targetChoices,
+  todayForAgentVersion,
 } from './registration'
 
 const target = (id: string, status: CatalogItem['status'] = 'active'): CatalogItem => ({
@@ -35,10 +37,19 @@ describe('badcase registration state', () => {
     ).toEqual([1, 1])
   })
 
-  it('does not require a scenario, issue tag, answer, screenshot, or agent version', () => {
+  it('requires original input but not a title, scenario, tag, answer, screenshot, or agent version', () => {
     const form = emptyRegistrationForm()
-    Object.assign(form, { title: '推荐结果错误' })
+    Object.assign(form, { description: '预算为 10 万元时仍推荐超预算商品' })
     expect(isRegistrationValid(form)).toBe(true)
+  })
+
+  it('defaults the agent version to today and derives a title from original input when needed', () => {
+    expect(todayForAgentVersion(new Date(2026, 7, 3))).toBe('20260803')
+    expect(emptyRegistrationForm().agent_version).toMatch(/^\d{8}$/)
+    expect(submissionTitle('', '  预算为 10 万元\n仍推荐超预算商品  ')).toBe(
+      '预算为 10 万元 仍推荐超预算商品',
+    )
+    expect(submissionTitle('人工标题', '原始输入')).toBe('人工标题')
   })
 
   it('retains context and clears problem fields after a registration', () => {
@@ -61,13 +72,13 @@ describe('badcase registration state', () => {
     expect(next.session_id).toBe('')
   })
 
-  it('filters scenario tags and ignores invalid stored drafts', () => {
+  it('keeps active issue tags independent from scenario and ignores invalid stored drafts', () => {
     const tags = [
       { ...target('global'), sort_order: 1, scope: 'global' },
-      { ...target('matching'), sort_order: 2, scope: 'scenario', scenario_id: 's1' },
-      { ...target('other'), sort_order: 3, scope: 'scenario', scenario_id: 's2' },
+      { ...target('matching'), sort_order: 2, scope: 'target', evaluation_target_id: 't1' },
+      { ...target('other'), sort_order: 3, scope: 'target', evaluation_target_id: 't2' },
     ] as Tag[]
-    expect(availableTags(tags, 's1').map((item) => item.id)).toEqual(['global', 'matching'])
+    expect(availableTags(tags).map((item) => item.id)).toEqual(['global', 'matching', 'other'])
     expect(parseDraft('{broken')).toBeNull()
     expect(parseDraft(JSON.stringify({ version: 2, form: {} }))).toBeNull()
   })

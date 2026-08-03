@@ -76,7 +76,7 @@ func (provider LocalIdentityProvider) ChangePassword(
 	if err != nil {
 		return err
 	}
-	if err := provider.users.UpdatePassword(ctx, userID, hash); err != nil {
+	if err := provider.users.UpdatePassword(ctx, userID, hash, false); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return apperror.Conflict("IDENTITY_NOT_LOCAL", "当前账号不支持修改本地密码")
 		}

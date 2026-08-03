@@ -347,7 +347,7 @@ func (service Service) CreateCase(
 		if err := service.validateCaseScenario(ctx, repository, dataset.TargetID, normalized.ScenarioID); err != nil {
 			return err
 		}
-		tags, err := service.caseTagRecords(ctx, repository, normalized.ScenarioID, id.UUID{}, actorID, normalized.TagIDs)
+		tags, err := service.caseTagRecords(ctx, repository, dataset.TargetID, id.UUID{}, actorID, normalized.TagIDs)
 		if err != nil {
 			return err
 		}
@@ -398,7 +398,7 @@ func (service Service) UpdateCase(
 		if err := service.validateCaseScenario(ctx, repository, dataset.TargetID, normalized.ScenarioID); err != nil {
 			return err
 		}
-		tags, err := service.caseTagRecords(ctx, repository, normalized.ScenarioID, caseID, actorID, normalized.TagIDs)
+		tags, err := service.caseTagRecords(ctx, repository, dataset.TargetID, caseID, actorID, normalized.TagIDs)
 		if err != nil {
 			return err
 		}
@@ -498,7 +498,7 @@ func (service Service) AppendCases(
 			if err := service.validateCaseScenario(ctx, repository, dataset.TargetID, normalized.ScenarioID); err != nil {
 				return err
 			}
-			tags, err := service.caseTagRecords(ctx, repository, normalized.ScenarioID, item.ID, actorID, normalized.TagIDs)
+			tags, err := service.caseTagRecords(ctx, repository, dataset.TargetID, item.ID, actorID, normalized.TagIDs)
 			if err != nil {
 				return err
 			}
@@ -516,17 +516,17 @@ func (service Service) AppendCases(
 func (service Service) caseTagRecords(
 	ctx context.Context,
 	repository Repository,
-	scenarioID *id.UUID,
+	targetID id.UUID,
 	caseID, actorID id.UUID,
 	tagIDs []id.UUID,
 ) ([]VersionCaseTag, error) {
-	names, err := repository.FindActiveTags(ctx, scenarioID, tagIDs)
+	names, err := repository.FindActiveTags(ctx, targetID, tagIDs)
 	if err != nil {
 		return nil, err
 	}
 	if len(names) != len(tagIDs) {
 		return nil, apperror.Validation(
-			apperror.FieldError{Field: "tag_ids", Message: "包含不存在、停用或不适用于当前场景的标签"},
+			apperror.FieldError{Field: "tag_ids", Message: "包含不存在、停用或不适用于当前评测对象的标签"},
 		)
 	}
 	tags := make([]VersionCaseTag, 0, len(tagIDs))

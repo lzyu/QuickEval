@@ -31,13 +31,26 @@ export function nowForDateTimeInput(date = new Date()) {
   return local.toISOString().slice(0, 16)
 }
 
+export function todayForAgentVersion(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}${month}${day}`
+}
+
+export function submissionTitle(title: string, originalInput: string) {
+  const explicitTitle = title.trim()
+  if (explicitTitle) return explicitTitle
+  return Array.from(originalInput.trim().replace(/\s+/g, ' ')).slice(0, 200).join('')
+}
+
 export function emptyRegistrationForm(): RegistrationFormState {
   return {
     scenario_id: '',
     title: '',
     description: '',
     agent_response_text: '',
-    agent_version: '',
+    agent_version: todayForAgentVersion(),
     environment: 'production',
     occurred_at: nowForDateTimeInput(),
     business_reference: '',
@@ -56,15 +69,13 @@ export function targetChoices(targets: CatalogItem[], scenarios: Scenario[]): Ta
   }))
 }
 
-export function availableTags(tags: Tag[], scenarioId: string) {
-  return tags.filter(
-    (tag) => tag.status === 'active' && (tag.scope !== 'scenario' || tag.scenario_id === scenarioId),
-  )
+export function availableTags(tags: Tag[]) {
+  return tags.filter((tag) => tag.status === 'active')
 }
 
 export function validateRegistration(form: RegistrationFormState) {
   return {
-    title: form.title.trim() ? '' : '请输入 Badcase 标题',
+    description: form.description.trim() ? '' : '请填写原始输入',
     environment: form.environment ? '' : '请选择运行环境',
     occurred_at: form.occurred_at ? '' : '请选择发生时间',
   }

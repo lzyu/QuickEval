@@ -103,7 +103,8 @@ func (repository Repository) StreamEvaluationExportRows(
 			SUM(b.id IS NOT NULL) OVER (PARTITION BY er.id) AS run_badcase_count,
 			BIN_TO_UUID(cr.id) AS result_id, vc.name AS case_name, vc.user_prompt,
 			cr.status AS result_status, cr.answer_text, cr.score, cr.comment, cr.skip_reason,
-			b.id IS NOT NULL AS has_badcase, BIN_TO_UUID(b.id) AS badcase_id, b.title AS badcase_title,
+			b.id IS NOT NULL AS has_badcase, BIN_TO_UUID(b.id) AS badcase_id,
+			COALESCE(vc.user_prompt, NULLIF(b.description, ''), b.title) AS badcase_title,
 			COALESCE((SELECT GROUP_CONCAT(vct.tag_name_snapshot ORDER BY vct.tag_name_snapshot SEPARATOR '；')
 				FROM version_case_tags vct WHERE vct.version_case_id = vc.id), '') AS case_tags,
 			COALESCE((SELECT GROUP_CONCAT(CONCAT('/api/v1/attachments/', BIN_TO_UUID(a.id), '/content')
@@ -133,7 +134,8 @@ func (repository Repository) badcaseExportQuery(
 ) *gorm.DB {
 	return repository.applyBadcaseFilters(repository.badcaseBase(ctx), filters).
 		Joins("JOIN users creator ON creator.id = b.created_by").
-		Joins("LEFT JOIN users assignee ON assignee.id = b.assignee_id")
+		Joins("LEFT JOIN users assignee ON assignee.id = b.assignee_id").
+		Joins("LEFT JOIN version_cases vc ON vc.id = crb.version_case_id")
 }
 
 func (repository Repository) BadcaseExportCount(
@@ -152,7 +154,10 @@ func (repository Repository) StreamBadcaseExportRows(
 ) error {
 	query := repository.badcaseExportQuery(ctx, filters).Select(
 		`BIN_TO_UUID(b.id) AS id, b.source_type, t.name AS target_name,
-			COALESCE(s.name, '待归类') AS scenario_name, b.title, b.description, b.agent_response_text,
+			COALESCE(s.name, '待归类') AS scenario_name,
+			CASE WHEN b.source_type = 'evaluation' THEN COALESCE(vc.user_prompt, NULLIF(b.description, ''), b.title)
+			ELSE COALESCE(NULLIF(b.description, ''), b.title) END AS title,
+			b.title AS description, b.agent_response_text,
 			b.agent_version, b.environment, b.occurred_at, b.status,
 			assignee.display_name AS assignee_name, creator.display_name AS creator_name,
 			b.business_reference, b.session_id, b.created_at, b.updated_at,

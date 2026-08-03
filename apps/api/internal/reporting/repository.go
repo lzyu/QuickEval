@@ -56,8 +56,12 @@ func (repository Repository) Home(ctx context.Context, actorID id.UUID) (Home, e
 
 	var badcases []HomeBadcase
 	err = repository.db.WithContext(ctx).Table("badcases b").
-		Select("b.id, b.title, COALESCE(s.name, '待归类') AS scenario_name, b.status, b.source_type, b.updated_at").
+		Select(`b.id, CASE WHEN b.source_type = 'evaluation' THEN COALESCE(vc.user_prompt, NULLIF(b.description, ''), b.title)
+			ELSE COALESCE(NULLIF(b.description, ''), b.title) END AS title,
+			COALESCE(s.name, '待归类') AS scenario_name, b.status, b.source_type, b.updated_at`).
 		Joins("LEFT JOIN scenarios s ON s.id = b.scenario_id").
+		Joins("LEFT JOIN case_results cr ON cr.id = b.case_result_id").
+		Joins("LEFT JOIN version_cases vc ON vc.id = cr.version_case_id").
 		Where("b.assignee_id = ? AND b.invalidated_at IS NULL AND b.status IN ('pending','processing')", actorID).
 		Order("FIELD(b.status, 'processing', 'pending'), b.updated_at DESC").Limit(5).
 		Scan(&badcases).Error
@@ -82,9 +86,12 @@ func (repository Repository) Home(ctx context.Context, actorID id.UUID) (Home, e
 
 	var activities []Activity
 	err = repository.db.WithContext(ctx).Table("badcase_activities ba").
-		Select(`ba.id, ba.badcase_id, b.title AS badcase_title, ba.activity_type,
+		Select(`ba.id, ba.badcase_id, CASE WHEN b.source_type = 'evaluation' THEN COALESCE(vc.user_prompt, NULLIF(b.description, ''), b.title)
+			ELSE COALESCE(NULLIF(b.description, ''), b.title) END AS badcase_title, ba.activity_type,
 			ba.note, u.display_name AS actor_name, ba.created_at`).
 		Joins("JOIN badcases b ON b.id = ba.badcase_id").
+		Joins("LEFT JOIN case_results cr ON cr.id = b.case_result_id").
+		Joins("LEFT JOIN version_cases vc ON vc.id = cr.version_case_id").
 		Joins("JOIN users u ON u.id = ba.actor_id").
 		Where(`ba.actor_id = ? OR b.assignee_id = ? OR b.created_by = ?
 			OR ba.from_assignee_id = ? OR ba.to_assignee_id = ?`,
@@ -222,7 +229,7 @@ func (repository Repository) EvaluationResults(
 			er.environment, er.completed_at, vc.name AS case_name, vc.user_prompt,
 			cr.status AS result_status, cr.answer_text, cr.score, cr.comment, cr.skip_reason,
 			b_detail.id IS NOT NULL AS has_badcase, BIN_TO_UUID(b_detail.id) AS badcase_id,
-			b_detail.title AS badcase_title,
+			COALESCE(vc.user_prompt, NULLIF(b_detail.description, ''), b_detail.title) AS badcase_title,
 			COALESCE((SELECT GROUP_CONCAT(vct.tag_name_snapshot ORDER BY vct.tag_name_snapshot SEPARATOR '；')
 				FROM version_case_tags vct WHERE vct.version_case_id = vc.id), '') AS case_tags,
 			(SELECT COUNT(*) FROM attachments a WHERE a.case_result_id = cr.id) AS evidence_count`).
@@ -657,15 +664,19 @@ func (repository Repository) Search(
 	}
 	if enabled["badcase"] {
 		parts = append(parts, `SELECT 'badcase' AS item_type, b.id AS item_id, NULL AS parent_id,
-			b.title AS title, CONCAT(t.name, ' / ', COALESCE(s.name, '待归类')) AS subtitle,
-			COALESCE(b.description, b.agent_response_text, b.business_reference, b.session_id, '') AS snippet
+			CASE WHEN b.source_type = 'evaluation' THEN COALESCE(vc.user_prompt, NULLIF(b.description, ''), b.title)
+			ELSE COALESCE(NULLIF(b.description, ''), b.title) END AS title,
+			CONCAT(t.name, ' / ', COALESCE(s.name, '待归类')) AS subtitle,
+			COALESCE(b.title, b.agent_response_text, b.business_reference, b.session_id, '') AS snippet
 			FROM badcases b LEFT JOIN scenarios s ON s.id = b.scenario_id
+			LEFT JOIN case_results cr ON cr.id = b.case_result_id
+			LEFT JOIN version_cases vc ON vc.id = cr.version_case_id
 			JOIN evaluation_targets t ON t.id = b.evaluation_target_id
-			WHERE b.title LIKE ? OR b.description LIKE ? OR b.agent_response_text LIKE ?
+			WHERE b.title LIKE ? OR b.description LIKE ? OR vc.user_prompt LIKE ? OR b.agent_response_text LIKE ?
 				OR b.business_reference LIKE ? OR b.session_id LIKE ?
 				OR EXISTS (SELECT 1 FROM badcase_activities ba
 					WHERE ba.badcase_id = b.id AND ba.note LIKE ?)`)
-		args = append(args, like, like, like, like, like, like)
+		args = append(args, like, like, like, like, like, like, like)
 	}
 	if enabled["evaluation_result"] {
 		parts = append(parts, `SELECT 'evaluation_result' AS item_type, cr.id AS item_id,

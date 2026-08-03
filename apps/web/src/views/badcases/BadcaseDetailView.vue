@@ -6,6 +6,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
 import type { Attachment, Badcase, BadcasePage, ResponseEnvelope } from '@/api/types'
+import { badcaseDisplayTitle } from '@/features/badcases/display'
+import { submissionTitle } from '@/features/badcases/registration'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -34,6 +36,11 @@ const evidence = computed(() => [
   ...(item.value?.original_attachments || []),
   ...(item.value?.attachments || []),
 ])
+const displayTitle = computed(() => (item.value ? badcaseDisplayTitle(item.value) : ''))
+const hasProblemDescription = computed(() => {
+  if (!item.value || item.value.source_type !== 'business' || !item.value.description) return false
+  return item.value.title !== submissionTitle('', item.value.description)
+})
 const tagSelectionChanged = computed(() => {
   const saved = (item.value?.issue_tags || []).map((tag) => tag.id).sort().join(',')
   const selected = [...selectedTagIDs.value].sort().join(',')
@@ -145,12 +152,16 @@ function openEdit() {
 
 async function saveEdit() {
   if (!item.value) return
+  if (!editForm.description.trim()) {
+    ElMessage.warning('请填写原始输入')
+    return
+  }
   commanding.value = true
   try {
     await apiClient.patch(`/api/v1/badcases/${item.value.id}`, {
       scenario_id: item.value.scenario_id,
-      title: editForm.title,
-      description: editForm.description.trim() || null,
+      title: submissionTitle(editForm.title, editForm.description),
+      description: editForm.description.trim(),
       agent_response_text: editForm.agent_response_text || null,
       agent_version: editForm.agent_version || null,
       environment: editForm.environment,
@@ -243,7 +254,7 @@ async function reorderAttachment(index: number, offset: number) {
 }
 
 function mayDelete(attachment: Attachment) {
-  return auth.isAdmin || attachment.created_by === auth.user?.id || item.value?.created_by === auth.user?.id
+  return auth.isOperationsAdmin || attachment.created_by === auth.user?.id || item.value?.created_by === auth.user?.id
 }
 
 function formatTime(value: string) {
@@ -294,7 +305,7 @@ onMounted(load)
           <el-tag effect="plain" size="small">
             {{ item.source_type === 'business' ? '业务登记' : '评测发现' }}
           </el-tag>
-          <h1>{{ item.title }}</h1>
+          <h1>{{ displayTitle }}</h1>
           <p>{{ item.evaluation_target_name }} · {{ item.scenario_name || '待归类' }} · {{ formatTime(item.occurred_at) }}</p>
         </div>
         <div class="heading-actions">
@@ -324,8 +335,12 @@ onMounted(load)
         <main>
           <el-card shadow="never">
             <template #header><strong>问题现场</strong></template>
-            <h3>问题描述</h3>
-            <p class="prewrap">{{ item.description || '-' }}</p>
+            <h3>{{ item.source_type === 'business' ? '原始输入' : '问题描述' }}</h3>
+            <p class="prewrap">{{ item.description || item.title || '-' }}</p>
+            <template v-if="hasProblemDescription">
+              <h3>问题描述</h3>
+              <p class="prewrap">{{ item.title }}</p>
+            </template>
             <h3>Agent 回答</h3>
             <p class="prewrap">{{ item.agent_response_text || '未记录文本，请查看截图证据。' }}</p>
             <el-descriptions v-if="item.source_type === 'business'" :column="2" border>
@@ -489,8 +504,12 @@ onMounted(load)
 
   <el-dialog v-model="editOpen" title="编辑业务 Badcase" width="640">
     <el-form label-position="top">
-      <el-form-item label="问题标题" required><el-input v-model="editForm.title" maxlength="200" /></el-form-item>
-      <el-form-item label="问题描述（可选）"><el-input v-model="editForm.description" type="textarea" :rows="4" /></el-form-item>
+      <el-form-item label="原始输入" required>
+        <el-input v-model="editForm.description" type="textarea" :rows="5" maxlength="5000" />
+      </el-form-item>
+      <el-form-item label="问题描述">
+        <el-input v-model="editForm.title" maxlength="200" placeholder="可留空" />
+      </el-form-item>
       <el-form-item label="Agent 回答"><el-input v-model="editForm.agent_response_text" type="textarea" :rows="5" /></el-form-item>
       <div class="drawer-form-grid">
         <el-form-item label="Agent 版本"><el-input v-model="editForm.agent_version" maxlength="100" /></el-form-item>
@@ -510,7 +529,7 @@ onMounted(load)
       <el-button
         type="primary"
         :loading="commanding"
-        :disabled="!editForm.title.trim()"
+        :disabled="!editForm.description.trim()"
         @click="saveEdit"
       >
         保存

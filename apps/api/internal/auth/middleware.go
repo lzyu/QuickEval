@@ -104,7 +104,7 @@ func (middleware Middleware) CSRF() gin.HandlerFunc {
 	}
 }
 
-func RequireAdmin() gin.HandlerFunc {
+func RequireOperationsAdmin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		principal, ok := PrincipalFrom(ctx)
 		if !ok {
@@ -113,6 +113,46 @@ func RequireAdmin() gin.HandlerFunc {
 		}
 		if !principal.Admin() {
 			response.ApplicationError(ctx, apperror.Forbidden())
+			return
+		}
+		ctx.Next()
+	}
+}
+
+// RequireAdmin keeps existing business-handler terminology compatible while
+// requiring either an operations administrator or a super administrator.
+func RequireAdmin() gin.HandlerFunc {
+	return RequireOperationsAdmin()
+}
+
+func RequireSuperAdmin() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		principal, ok := PrincipalFrom(ctx)
+		if !ok {
+			response.ApplicationError(ctx, apperror.Unauthorized())
+			return
+		}
+		if !principal.SuperAdmin() {
+			response.ApplicationError(ctx, apperror.Forbidden())
+			return
+		}
+		ctx.Next()
+	}
+}
+
+func RequirePasswordChangeComplete() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		principal, ok := PrincipalFrom(ctx)
+		if !ok {
+			response.ApplicationError(ctx, apperror.Unauthorized())
+			return
+		}
+		if principal.User.PasswordChangeRequired {
+			response.ApplicationError(ctx, apperror.New(
+				http.StatusForbidden,
+				"PASSWORD_CHANGE_REQUIRED",
+				"请先修改初始密码后再使用系统",
+			))
 			return
 		}
 		ctx.Next()

@@ -46,14 +46,26 @@ login() {
     "${api_base}/api/v1/auth/login")" = "200"
 }
 
+activate_member() {
+  local username="$1" password="$2" cookie="$3" prefix="$4"
+  login "${username}" "123456" "${cookie}" "${prefix}-initial"
+  local csrf
+  csrf="$(jq -er '.data.csrf_token' "${prefix}-initial.json")"
+  jq -n --arg password "${password}" \
+    '{current_password: "123456", new_password: $password}' > "${prefix}-change-password.json"
+  test "$(request POST /api/v1/auth/change-password "${cookie}" "${csrf}" \
+    "${prefix}-change-password.json" "${prefix}-change-password-response.json")" = "204"
+  login "${username}" "${password}" "${cookie}" "${prefix}"
+}
+
 login "${admin_username}" "${QUICKEVAL_SMOKE_PASSWORD}" "${admin_cookie}" "${smoke_dir}/admin-session"
 admin_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/admin-session.json")"
 
 for suffix in a b; do
   username="m3_member_${suffix}_${timestamp}"
-  jq -n --arg username "${username}" --arg password "${member_password}" \
+  jq -n --arg username "${username}" \
     --arg name "M3 验收成员 ${suffix}" \
-    '{username: $username, display_name: $name, email: null, role: "member", password: $password}' \
+    '{username: $username, display_name: $name, email: null, role: "member"}' \
     > "${smoke_dir}/member-${suffix}-input.json"
   test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
     "${smoke_dir}/member-${suffix}-input.json" "${smoke_dir}/member-${suffix}.json")" = "201"
@@ -99,9 +111,9 @@ jq -n --argjson lock "${draft_lock}" \
 test "$(request POST "/api/v1/dataset-versions/${draft_id}/publish" \
   "${admin_cookie}" "${admin_csrf}" "${smoke_dir}/publish-input.json" "${smoke_dir}/version.json")" = "200"
 
-login "${member_a_username}" "${member_password}" "${member_a_cookie}" "${smoke_dir}/member-a-session"
+activate_member "${member_a_username}" "${member_password}" "${member_a_cookie}" "${smoke_dir}/member-a-session"
 member_a_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/member-a-session.json")"
-login "${member_b_username}" "${member_password}" "${member_b_cookie}" "${smoke_dir}/member-b-session"
+activate_member "${member_b_username}" "${member_password}" "${member_b_cookie}" "${smoke_dir}/member-b-session"
 member_b_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/member-b-session.json")"
 
 jq -n --arg version "${draft_id}" \

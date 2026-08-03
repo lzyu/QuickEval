@@ -31,11 +31,23 @@ login() {
     "${api_base}/api/v1/auth/login")" = "200"
 }
 
+activate_member() {
+  local username="$1" password="$2" cookie="$3" prefix="$4"
+  login "${username}" "123456" "${cookie}" "${prefix}-initial"
+  local csrf
+  csrf="$(jq -er '.data.csrf_token' "${prefix}-initial.json")"
+  jq -n --arg password "${password}" \
+    '{current_password: "123456", new_password: $password}' > "${prefix}-change-password.json"
+  test "$(request POST /api/v1/auth/change-password "${cookie}" "${csrf}" \
+    "${prefix}-change-password.json" "${prefix}-change-password-response.json")" = "204"
+  login "${username}" "${password}" "${cookie}" "${prefix}"
+}
+
 login "${admin_username}" "${QUICKEVAL_SMOKE_PASSWORD}" "${admin_cookie}" "${smoke_dir}/admin-session"
 admin_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/admin-session.json")"
 
-jq -n --arg username "m6_member_${timestamp}" --arg password "${member_password}" \
-  '{username:$username,display_name:"M6 验收成员",email:null,role:"member",password:$password}' \
+jq -n --arg username "m6_member_${timestamp}" \
+  '{username:$username,display_name:"M6 验收成员",email:null,role:"member"}' \
   > "${smoke_dir}/member-input.json"
 test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/member-input.json" "${smoke_dir}/member.json")" = "201"
@@ -103,7 +115,7 @@ test "$(request POST "/api/v1/dataset-versions/${v2_id}/publish" \
   "${admin_cookie}" "${admin_csrf}" "${smoke_dir}/publish-v2-input.json" \
   "${smoke_dir}/published-v2.json")" = "200"
 
-login "${member_username}" "${member_password}" "${member_cookie}" "${smoke_dir}/member-session"
+activate_member "${member_username}" "${member_password}" "${member_cookie}" "${smoke_dir}/member-session"
 member_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/member-session.json")"
 
 create_run() {

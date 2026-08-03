@@ -242,7 +242,7 @@ func (handler Handler) ExportBadcases(ctx *gin.Context) {
 		return
 	}
 	writeCSV(ctx, "quickeval-badcases.csv", []string{
-		"Badcase ID", "来源", "评测对象", "场景", "标题", "问题描述", "Agent回答",
+		"Badcase ID", "来源", "评测对象", "场景", "原始输入摘要", "问题描述", "Agent回答",
 		"Agent版本", "环境", "发生时间", "状态", "负责人", "创建人", "业务单号",
 		"会话ID", "问题标签", "原始评测截图鉴权地址", "补充截图鉴权地址", "创建时间", "更新时间",
 	}, func(writer *csv.Writer) error {

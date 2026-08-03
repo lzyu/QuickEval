@@ -31,8 +31,14 @@ onMounted(load)
       </el-form>
       <el-table :data="items" empty-text="暂无审计记录">
         <el-table-column prop="created_at" label="时间" width="190" />
+        <el-table-column label="操作用户" width="150">
+          <template #default="{ row }">{{ row.actor_username || '系统' }}</template>
+        </el-table-column>
         <el-table-column prop="action" label="动作" min-width="170" />
         <el-table-column prop="entity_type" label="资源类型" width="130" />
+        <el-table-column label="用户主体" width="150">
+          <template #default="{ row }">{{ row.subject_username || '—' }}</template>
+        </el-table-column>
         <el-table-column prop="entity_id" label="资源 ID" min-width="250" />
         <el-table-column prop="request_id" label="请求 ID" min-width="250" />
         <el-table-column label="变更" width="90">

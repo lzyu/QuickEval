@@ -5,9 +5,10 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiClient, apiErrorMessage } from '@/api/client'
-import type { Badcase, PageData, ResponseEnvelope, Scenario } from '@/api/types'
+import type { Badcase, CatalogItem, PageData, ResponseEnvelope, Scenario } from '@/api/types'
 import EvaluationTargetDialog from '@/components/badcases/EvaluationTargetDialog.vue'
 import ActionableEmptyState from '@/components/app/ActionableEmptyState.vue'
+import { badcaseDisplayTitle } from '@/features/badcases/display'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -17,6 +18,7 @@ const loading = ref(false)
 const targetPickerOpen = ref(false)
 const items = ref<Badcase[]>([])
 const total = ref(0)
+const targets = ref<CatalogItem[]>([])
 const scenarios = ref<Scenario[]>([])
 const assignees = ref<Array<{ id: string; display_name: string }>>([])
 const query = reactive({
@@ -42,12 +44,28 @@ const query = reactive({
 const advancedFiltersOpen = ref(Boolean(query.scenario_id || query.assignee_id || query.validity))
 const visibleFilterCount = computed(
   () =>
-    [query.keyword, query.source_type, query.scenario_id, query.assignee_id, query.status, query.validity]
+    [
+      query.keyword,
+      query.evaluation_target_id,
+      query.source_type,
+      query.scenario_id,
+      query.assignee_id,
+      query.status,
+      query.validity,
+    ]
       .filter(Boolean).length,
+)
+const visibleScenarios = computed(() =>
+  query.evaluation_target_id
+    ? scenarios.value.filter((item) => item.evaluation_target_id === query.evaluation_target_id)
+    : [],
 )
 async function loadOptions() {
   try {
-    const [scenarioResponse, optionResponse] = await Promise.all([
+    const [targetResponse, scenarioResponse, optionResponse] = await Promise.all([
+      apiClient.get<ResponseEnvelope<PageData<CatalogItem>>>('/api/v1/evaluation-targets', {
+        params: { page: 1, page_size: 100 },
+      }),
       apiClient.get<ResponseEnvelope<PageData<Scenario>>>('/api/v1/scenarios', {
         params: { page: 1, page_size: 100 },
       }),
@@ -58,8 +76,13 @@ async function loadOptions() {
         }>
       >('/api/v1/badcase-options'),
     ])
+    targets.value = targetResponse.data.data.items
     scenarios.value = scenarioResponse.data.data.items
     assignees.value = optionResponse.data.data.assignees
+    if (query.scenario_id && !query.evaluation_target_id) {
+      query.evaluation_target_id =
+        scenarios.value.find((item) => item.id === query.scenario_id)?.evaluation_target_id || ''
+    }
   } catch (error) {
     ElMessage.error(apiErrorMessage(error))
   }
@@ -90,6 +113,11 @@ async function load() {
 function search() {
   query.page = 1
   load()
+}
+
+function changeTarget() {
+  query.scenario_id = ''
+  search()
 }
 
 function resetFilters() {
@@ -138,7 +166,10 @@ function openRegistration(targetId: string) {
   router.push({ name: 'badcase-register', query: { evaluation_target_id: targetId } })
 }
 
-onMounted(() => Promise.all([loadOptions(), load()]))
+onMounted(async () => {
+  await loadOptions()
+  await load()
+})
 </script>
 
 <template>
@@ -153,11 +184,21 @@ onMounted(() => Promise.all([loadOptions(), load()]))
         <el-input
           v-model="query.keyword"
           clearable
-          placeholder="搜索标题、描述或 Agent 回答"
+          placeholder="搜索原始输入、问题描述或 Agent 回答"
           :prefix-icon="Search"
           aria-label="搜索 Badcase"
           @keyup.enter="search"
         />
+        <el-select
+          v-model="query.evaluation_target_id"
+          filterable
+          clearable
+          placeholder="全部评测对象"
+          aria-label="按评测对象筛选"
+          @change="changeTarget"
+        >
+          <el-option v-for="target in targets" :key="target.id" :label="target.name" :value="target.id" />
+        </el-select>
         <el-select v-model="query.source_type" clearable placeholder="全部来源" aria-label="按来源筛选" @change="search">
           <el-option label="评测发现" value="evaluation" />
           <el-option label="业务登记" value="business" />
@@ -184,9 +225,16 @@ onMounted(() => Promise.all([loadOptions(), load()]))
       </div>
 
       <div v-show="advancedFiltersOpen" id="badcase-advanced-filters" class="badcase-advanced-filters">
-        <el-select v-model="query.scenario_id" clearable placeholder="全部场景" aria-label="按场景筛选" @change="search">
+        <el-select
+          v-model="query.scenario_id"
+          clearable
+          :disabled="!query.evaluation_target_id"
+          :placeholder="query.evaluation_target_id ? '全部评测场景' : '请先选择评测对象'"
+          aria-label="按评测场景筛选"
+          @change="search"
+        >
           <el-option
-            v-for="scenario in scenarios"
+            v-for="scenario in visibleScenarios"
             :key="scenario.id"
             :label="scenario.name"
             :value="scenario.id"
@@ -225,9 +273,10 @@ onMounted(() => Promise.all([loadOptions(), load()]))
         <el-table-column label="Badcase" min-width="300">
           <template #default="{ row }">
             <button class="table-primary-link" @click="router.push(`/badcases/${row.id}`)">
-              {{ row.title }}
+              {{ badcaseDisplayTitle(row) }}
             </button>
-            <small>{{ row.description || row.evaluation?.user_prompt || '-' }}</small>
+            <small v-if="row.source_type === 'business' && row.description">问题描述：{{ row.title }}</small>
+            <small v-else>{{ row.description || row.evaluation?.user_prompt || '-' }}</small>
           </template>
         </el-table-column>
         <el-table-column label="来源" width="100">
@@ -237,8 +286,8 @@ onMounted(() => Promise.all([loadOptions(), load()]))
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="场景" min-width="130">
-          <template #default="{ row }">{{ row.scenario_name || '待归类' }}</template>
+        <el-table-column label="评测对象" min-width="170">
+          <template #default="{ row }">{{ row.evaluation_target_name }}</template>
         </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">

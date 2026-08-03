@@ -111,12 +111,13 @@ func (repository Repository) CreateAccount(
 
 		passwordHash := account.PasswordHash
 		identity := Identity{
-			ID:              identityID,
-			UserID:          account.ID,
-			Provider:        "local",
-			ProviderSubject: account.Username,
-			PasswordHash:    &passwordHash,
-			Status:          StatusActive,
+			ID:                     identityID,
+			UserID:                 account.ID,
+			Provider:               "local",
+			ProviderSubject:        account.Username,
+			PasswordHash:           &passwordHash,
+			PasswordChangeRequired: account.PasswordChangeRequired,
+			Status:                 StatusActive,
 		}
 		return tx.Create(&identity).Error
 	})
@@ -198,11 +199,15 @@ func (repository Repository) UpdatePassword(
 	ctx context.Context,
 	userID id.UUID,
 	passwordHash string,
+	passwordChangeRequired bool,
 ) error {
 	result := repository.db.WithContext(ctx).
 		Model(&Identity{}).
 		Where("user_id = ? AND provider = 'local'", userID).
-		Update("password_hash", passwordHash)
+		Updates(map[string]any{
+			"password_hash":            passwordHash,
+			"password_change_required": passwordChangeRequired,
+		})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -212,11 +217,11 @@ func (repository Repository) UpdatePassword(
 	return nil
 }
 
-func (repository Repository) CountActiveAdmins(ctx context.Context) (int64, error) {
+func (repository Repository) CountActiveSuperAdmins(ctx context.Context) (int64, error) {
 	var count int64
 	err := repository.db.WithContext(ctx).
 		Model(&User{}).
-		Where("role = ? AND status = ?", RoleAdmin, StatusActive).
+		Where("role = ? AND status = ?", RoleSuperAdmin, StatusActive).
 		Count(&count).Error
 	return count, err
 }
@@ -226,7 +231,7 @@ func (repository Repository) accountQuery(db *gorm.DB) *gorm.DB {
 		Select(
 			"users.id, user_identities.provider_subject AS username, users.display_name, users.email, " +
 				"users.role, users.status, users.lock_version, users.created_at, users.updated_at, " +
-				"user_identities.status AS identity_status, user_identities.password_hash, " +
+				"user_identities.status AS identity_status, user_identities.password_hash, user_identities.password_change_required, " +
 				"user_identities.provider AS identity_provider",
 		).
 		Joins(

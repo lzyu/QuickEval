@@ -9,9 +9,12 @@ smoke_dir="/private/tmp/quickeval-m1-smoke"
 mkdir -p "${smoke_dir}"
 admin_cookie="${smoke_dir}/admin.cookie"
 member_cookie="${smoke_dir}/member.cookie"
+operator_cookie="${smoke_dir}/operator.cookie"
 timestamp="$(date +%s)"
 member_username="m1_member_${timestamp}"
 member_password="MemberPass123!"
+operator_username="m1_operator_${timestamp}"
+operator_password="OperatorPass123!"
 
 request() {
   local method="$1"
@@ -46,12 +49,18 @@ test "$(request POST /api/v1/issue-tags "${admin_cookie}" "" \
   "${smoke_dir}/missing-csrf.json" "${smoke_dir}/missing-csrf-response.json")" = "403"
 jq -e '.error.code == "CSRF_INVALID"' "${smoke_dir}/missing-csrf-response.json" >/dev/null
 
-jq -n --arg username "${member_username}" --arg password "${member_password}" \
-  '{username: $username, display_name: "M1 验收成员", email: null, role: "member", password: $password}' \
+jq -n --arg username "${member_username}" \
+  '{username: $username, display_name: "M1 验收成员", email: null, role: "member"}' \
   > "${smoke_dir}/create-member.json"
 test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/create-member.json" "${smoke_dir}/member.json")" = "201"
 member_id="$(jq -er '.data.id' "${smoke_dir}/member.json")"
+
+jq -n --arg username "${operator_username}" \
+  '{username: $username, display_name: "M1 验收运营管理员", email: null, role: "operator"}' \
+  > "${smoke_dir}/create-operator.json"
+test "$(request POST /api/v1/users "${admin_cookie}" "${admin_csrf}" \
+  "${smoke_dir}/create-operator.json" "${smoke_dir}/operator.json")" = "201"
 
 jq -n --arg name "M1 评测对象 ${timestamp}" \
   '{name: $name, description: "M1 smoke"}' > "${smoke_dir}/create-target.json"
@@ -67,12 +76,12 @@ test "$(request POST /api/v1/scenarios "${admin_cookie}" "${admin_csrf}" \
 scenario_id="$(jq -er '.data.id' "${smoke_dir}/scenario.json")"
 
 jq -n '{name: "询价准确性", description: "用例分类"}' > "${smoke_dir}/create-case-tag.json"
-test "$(request POST "/api/v1/scenarios/${scenario_id}/case-tags" "${admin_cookie}" "${admin_csrf}" \
+test "$(request POST "/api/v1/evaluation-targets/${target_id}/case-tags" "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/create-case-tag.json" "${smoke_dir}/case-tag.json")" = "201"
 scenario_tag_id="$(jq -er '.data.id' "${smoke_dir}/case-tag.json")"
 global_tag_name="意图识别 ${timestamp}"
 jq -n --arg name "${global_tag_name}" \
-  '{scope: "global", scenario_id: null, name: $name, description: "跨场景通用能力"}' \
+  '{scope: "global", evaluation_target_id: null, name: $name, description: "跨对象通用能力"}' \
   > "${smoke_dir}/create-global-case-tag.json"
 test "$(request POST /api/v1/case-tags "${admin_cookie}" "${admin_csrf}" \
   "${smoke_dir}/create-global-case-tag.json" "${smoke_dir}/global-case-tag.json")" = "201"
@@ -80,23 +89,23 @@ global_tag_id="$(jq -er '.data.id' "${smoke_dir}/global-case-tag.json")"
 test "$(request GET "/api/v1/case-tags?scope=global" "${admin_cookie}" "" "" \
   "${smoke_dir}/global-case-tags.json")" = "200"
 jq -e --arg id "${global_tag_id}" \
-  '.data.items | any(.id == $id and .scope == "global" and .scenario_id == null)' \
+  '.data.items | any(.id == $id and .scope == "global" and .evaluation_target_id == null)' \
   "${smoke_dir}/global-case-tags.json" >/dev/null
-test "$(request GET "/api/v1/scenarios/${scenario_id}/available-case-tags" \
+test "$(request GET "/api/v1/evaluation-targets/${target_id}/available-case-tags" \
   "${admin_cookie}" "" "" "${smoke_dir}/available-case-tags.json")" = "200"
-jq -e --arg global "${global_tag_id}" --arg scenario "${scenario_tag_id}" \
-  '(.data.global | any(.id == $global)) and (.data.scenario | any(.id == $scenario))' \
+jq -e --arg global "${global_tag_id}" --arg target "${scenario_tag_id}" \
+  '(.data.global | any(.id == $global)) and (.data.target | any(.id == $target))' \
   "${smoke_dir}/available-case-tags.json" >/dev/null
 jq -n --arg name "${global_tag_name}" '{name: $name, description: "应与全局标签冲突"}' \
   > "${smoke_dir}/conflicting-case-tag.json"
-test "$(request POST "/api/v1/scenarios/${scenario_id}/case-tags" \
+test "$(request POST "/api/v1/evaluation-targets/${target_id}/case-tags" \
   "${admin_cookie}" "${admin_csrf}" "${smoke_dir}/conflicting-case-tag.json" \
   "${smoke_dir}/conflicting-case-tag-response.json")" = "409"
 jq -e '.error.code == "NAME_CONFLICT"' \
   "${smoke_dir}/conflicting-case-tag-response.json" >/dev/null
 jq '{items: [{id: .data.id, sort_order: 10, expected_lock_version: .data.lock_version}]}' \
   "${smoke_dir}/case-tag.json" > "${smoke_dir}/reorder-case-tag.json"
-test "$(request PUT "/api/v1/scenarios/${scenario_id}/case-tags/reorder" \
+test "$(request PUT "/api/v1/evaluation-targets/${target_id}/case-tags/reorder" \
   "${admin_cookie}" "${admin_csrf}" "${smoke_dir}/reorder-case-tag.json" \
   "${smoke_dir}/reorder-case-tag-response.json")" = "204"
 
@@ -130,7 +139,22 @@ jq -e --arg id "${member_id}" '.data.items | any(.id == $id)' "${smoke_dir}/user
 test "$(request GET "/api/v1/audit-logs?page_size=100" "${admin_cookie}" "" "" \
   "${smoke_dir}/audit.json")" = "200"
 jq -e '.data.items | any(.action == "issue_tag.created")' "${smoke_dir}/audit.json" >/dev/null
+jq -e --arg actor_username "${admin_username}" --arg subject_username "${member_username}" \
+  '.data.items | any(.action == "user.created" and .actor_username == $actor_username and .subject_username == $subject_username)' \
+  "${smoke_dir}/audit.json" >/dev/null
 
+jq -n --arg username "${member_username}" \
+  '{username: $username, password: "123456"}' > "${smoke_dir}/member-login.json"
+test "$(curl -sS -o "${smoke_dir}/member-session.json" -w "%{http_code}" -c "${member_cookie}" \
+  -H "Content-Type: application/json" --data-binary "@${smoke_dir}/member-login.json" \
+  "${api_base}/api/v1/auth/login")" = "200"
+member_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/member-session.json")"
+test "$(request GET /api/v1/evaluation-targets "${member_cookie}" "" "" \
+  "${smoke_dir}/member-targets-before-password-change.json")" = "403"
+jq -n --arg password "${member_password}" \
+  '{current_password: "123456", new_password: $password}' > "${smoke_dir}/member-change-password.json"
+test "$(request POST /api/v1/auth/change-password "${member_cookie}" "${member_csrf}" \
+  "${smoke_dir}/member-change-password.json" "${smoke_dir}/member-change-password-response.json")" = "204"
 jq -n --arg username "${member_username}" --arg password "${member_password}" \
   '{username: $username, password: $password}' > "${smoke_dir}/member-login.json"
 test "$(curl -sS -o "${smoke_dir}/member-session.json" -w "%{http_code}" -c "${member_cookie}" \
@@ -145,9 +169,33 @@ jq -e --arg id "${issue_tag_id}" '.data.items | all(.id != $id)' \
 test "$(request GET /api/v1/users "${member_cookie}" "" "" \
   "${smoke_dir}/member-users.json")" = "403"
 
-jq -n --arg password "ResetPass123!" '{password: $password}' > "${smoke_dir}/reset-member.json"
+jq -n --arg username "${operator_username}" \
+  '{username: $username, password: "123456"}' > "${smoke_dir}/operator-login.json"
+test "$(curl -sS -o "${smoke_dir}/operator-session.json" -w "%{http_code}" -c "${operator_cookie}" \
+  -H "Content-Type: application/json" --data-binary "@${smoke_dir}/operator-login.json" \
+  "${api_base}/api/v1/auth/login")" = "200"
+operator_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/operator-session.json")"
+jq -n --arg password "${operator_password}" \
+  '{current_password: "123456", new_password: $password}' > "${smoke_dir}/operator-change-password.json"
+test "$(request POST /api/v1/auth/change-password "${operator_cookie}" "${operator_csrf}" \
+  "${smoke_dir}/operator-change-password.json" "${smoke_dir}/operator-change-password-response.json")" = "204"
+jq -n --arg username "${operator_username}" --arg password "${operator_password}" \
+  '{username: $username, password: $password}' > "${smoke_dir}/operator-login.json"
+test "$(curl -sS -o "${smoke_dir}/operator-session.json" -w "%{http_code}" -c "${operator_cookie}" \
+  -H "Content-Type: application/json" --data-binary "@${smoke_dir}/operator-login.json" \
+  "${api_base}/api/v1/auth/login")" = "200"
+operator_csrf="$(jq -er '.data.csrf_token' "${smoke_dir}/operator-session.json")"
+test "$(request GET /api/v1/audit-logs "${operator_cookie}" "" "" \
+  "${smoke_dir}/operator-audit.json")" = "200"
+test "$(request GET /api/v1/users "${operator_cookie}" "" "" \
+  "${smoke_dir}/operator-users.json")" = "403"
+jq -n --arg name "M1 运营管理员标签 ${timestamp}" '{name: $name, description: "运营管理员验收"}' \
+  > "${smoke_dir}/operator-issue-tag.json"
+test "$(request POST /api/v1/issue-tags "${operator_cookie}" "${operator_csrf}" \
+  "${smoke_dir}/operator-issue-tag.json" "${smoke_dir}/operator-issue-tag-response.json")" = "201"
+
 test "$(request POST "/api/v1/users/${member_id}/reset-password" "${admin_cookie}" "${admin_csrf}" \
-  "${smoke_dir}/reset-member.json" "${smoke_dir}/reset-response.json")" = "204"
+  "" "${smoke_dir}/reset-response.json")" = "204"
 test "$(request GET /api/v1/auth/session "${member_cookie}" "" "" \
   "${smoke_dir}/revoked-member-session.json")" = "401"
 

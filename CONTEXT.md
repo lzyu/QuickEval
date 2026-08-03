@@ -2,6 +2,22 @@
 
 QuickEval captures independent human evaluations of business Agents and turns quality problems found in evaluations or production usage into traceable Badcases.
 
+**Local Account（本地账号）**:
+An account authenticated with a username and password. Administrators create it with the system initial password; it remains password-change-required until its owner sets a new password, and cannot access business work before then.
+_Avoid_: Temporary account, passwordless user
+
+**Super Administrator（超级管理员）**:
+The highest fixed QuickEval role. It has every operational capability and is the only role allowed to manage user accounts.
+_Avoid_: User administrator, owner
+
+**Operations Administrator（运营管理员）**:
+A fixed role that can manage evaluation configuration, datasets, evaluations, Badcases, issue tags, and audit logs, but cannot view or manage user accounts.
+_Avoid_: User administrator, member
+
+**Member（成员）**:
+A standard participant who evaluates, registers Badcases, and manages only the content allowed by the existing ownership rules.
+_Avoid_: Regular administrator
+
 ## Evaluation Structure
 
 **Evaluation Target（评测对象）**:
@@ -29,7 +45,7 @@ The optional, reviewable assignment of an Evaluation Case or Badcase to a Scenar
 _Avoid_: Scenario ownership, default scenario
 
 **Case Tag（用例标签）**:
-A classification used to organize and filter Evaluation Cases by the capability being exercised. A Global Case Tag is available in every Scenario, while a Scenario Case Tag is available only in its owning Scenario. It is distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
+A classification used to organize and filter Evaluation Cases by the capability being exercised. A Global Case Tag is available to every Evaluation Target, while a Target Case Tag is available only to its owning Evaluation Target. It is independent from Scenario Classification, distinct from an Issue Tag, and its assigned identity and displayed name are preserved with the case content in a Dataset Version.
 _Avoid_: Issue tag, Badcase category
 
 ## Evaluation Execution
