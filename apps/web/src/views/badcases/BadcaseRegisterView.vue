@@ -507,23 +507,25 @@ onBeforeUnmount(() => {
       <section class="register-panel evidence-panel">
         <h2>原始输入与现场证据</h2>
         <el-form label-position="top" :disabled="recordLocked">
-          <el-form-item label="原始输入" required :error="errors.description">
+          <el-form-item class="evidence-input-block original-input-block" label="原始输入" required :error="errors.description">
             <el-input
               v-model="form.description"
               type="textarea"
-              :rows="5"
+              :rows="4"
               maxlength="5000"
               placeholder="粘贴用户实际输入、触发指令或关键上下文，尽量保留原文"
             />
           </el-form-item>
-          <el-form-item label="问题描述">
+          <el-form-item class="evidence-input-block problem-description-block" label="问题描述">
             <el-input
               v-model="form.title"
+              type="textarea"
+              :rows="3"
               maxlength="200"
               placeholder="简要说明问题现象、影响或期望结果，可留空"
             />
           </el-form-item>
-          <el-form-item label="Agent 回答">
+          <el-form-item class="evidence-input-block agent-response-block" label="Agent 回答">
             <el-input
               v-model="form.agent_response_text"
               type="textarea"
@@ -533,7 +535,7 @@ onBeforeUnmount(() => {
               placeholder="需要复现或定位时再补充，可留空"
             />
           </el-form-item>
-          <el-form-item label="现场截图">
+          <el-form-item class="evidence-input-block screenshot-input-block" label="现场截图">
             <input
               ref="fileInput"
               class="visually-hidden"
@@ -612,7 +614,7 @@ onBeforeUnmount(() => {
       <section class="register-panel context-panel">
         <h2>归属与定位</h2>
         <el-form label-position="top" :disabled="recordLocked">
-          <el-form-item label="场景归类（可选）">
+          <el-form-item label="场景归类">
             <el-select v-model="form.scenario_id" clearable placeholder="暂不归类，稍后补充">
               <el-option
                 v-for="scenario in targetScenarios"
@@ -634,26 +636,28 @@ onBeforeUnmount(() => {
               <el-option v-for="tag in filteredIssueTags" :key="tag.id" :label="tag.name" :value="tag.id" />
             </el-select>
           </el-form-item>
-          <el-form-item label="运行环境" required :error="errors.environment">
-            <el-select v-model="form.environment">
-              <el-option label="测试" value="test" />
-              <el-option label="预发布" value="staging" />
-              <el-option label="生产" value="production" />
-              <el-option label="其他" value="other" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="Agent 版本">
-            <el-input v-model="form.agent_version" maxlength="100" placeholder="例如 20260803" />
-          </el-form-item>
-          <el-form-item label="发生时间" required :error="errors.occurred_at">
-            <el-date-picker
-              v-model="form.occurred_at"
-              type="datetime"
-              value-format="YYYY-MM-DDTHH:mm"
-              format="YYYY-MM-DD HH:mm"
-              placeholder="选择发生时间"
-            />
-          </el-form-item>
+          <div class="context-meta-grid">
+            <el-form-item label="运行环境" required :error="errors.environment">
+              <el-select v-model="form.environment">
+                <el-option label="测试" value="test" />
+                <el-option label="预发布" value="staging" />
+                <el-option label="生产" value="production" />
+                <el-option label="其他" value="other" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Agent 版本">
+              <el-input v-model="form.agent_version" maxlength="100" placeholder="例如 20260803" />
+            </el-form-item>
+            <el-form-item label="发生时间" required :error="errors.occurred_at">
+              <el-date-picker
+                v-model="form.occurred_at"
+                type="datetime"
+                value-format="YYYY-MM-DDTHH:mm"
+                format="YYYY-MM-DD HH:mm"
+                placeholder="选择发生时间"
+              />
+            </el-form-item>
+          </div>
           <div class="location-more">
             <button type="button" @click="moreLocationOpen = !moreLocationOpen">
               <span>更多定位信息</span>
@@ -841,15 +845,43 @@ onBeforeUnmount(() => {
   font-size: 16px;
 }
 
+.evidence-panel .evidence-input-block {
+  margin-bottom: 16px;
+}
+
+.evidence-panel .evidence-input-block:last-child {
+  margin-bottom: 0;
+}
+
+.evidence-panel :deep(.original-input-block .el-textarea__inner),
+.evidence-panel :deep(.agent-response-block .el-textarea__inner) {
+  min-height: 94px !important;
+}
+
+.evidence-panel :deep(.problem-description-block .el-textarea__inner) {
+  min-height: 76px !important;
+}
+
 .context-panel .el-select,
 .context-panel .el-date-editor {
   width: 100%;
 }
 
+.context-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.7fr) minmax(108px, 0.9fr) minmax(158px, 1.35fr);
+  gap: 12px;
+}
+
+.context-meta-grid .el-form-item {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
 .register-upload-zone {
   display: flex;
   width: 100%;
-  min-height: 102px;
+  min-height: 96px;
   align-items: center;
   justify-content: center;
   flex-direction: column;
@@ -1036,6 +1068,14 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .register-workspace {
     grid-template-columns: minmax(570px, 1.55fr) minmax(330px, 0.9fr);
+  }
+
+  .context-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .context-meta-grid .el-form-item:last-child {
+    grid-column: 1 / -1;
   }
 }
 
