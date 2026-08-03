@@ -798,6 +798,74 @@ test('dataset filters scope scenarios to the selected evaluation target', async 
   await expect(page.getByRole('option', { name: otherScenario.name })).toHaveCount(0)
 })
 
+test('Badcase filters scope scenarios to the selected evaluation target', async ({ page }) => {
+  const otherTarget = {
+    ...target,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5135',
+    name: '合同审核 Agent',
+  }
+  const otherScenario = {
+    ...scenario,
+    id: '019fa2a2-ed09-7660-988d-38cb279d5136',
+    name: '条款风险识别',
+    evaluation_target_id: otherTarget.id,
+    evaluation_target_name: otherTarget.name,
+  }
+  let requestedTargetID = ''
+
+  await mockAdminSession(page)
+  await page.route('**/api/v1/evaluation-targets?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [target, otherTarget], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/scenarios?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { items: [scenario, otherScenario], page: 1, page_size: 100, total: 2 },
+        meta,
+      }),
+    })
+  })
+  await page.route('**/api/v1/badcase-options', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { assignees: [], issue_tags: [] }, meta }),
+    })
+  })
+  await page.route(/\/api\/v1\/badcases(?:\?.*)?$/, async (route) => {
+    requestedTargetID = new URL(route.request().url()).searchParams.get('evaluation_target_id') || ''
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { items: [], page: 1, page_size: 20, total: 0 }, meta }),
+    })
+  })
+
+  await page.goto('/badcases')
+  const targetFilter = page.getByRole('combobox', { name: '按评测对象筛选' })
+  const scenarioFilter = page.getByRole('combobox', { name: '按评测场景筛选' })
+  await expect(targetFilter).toBeVisible()
+  await page.getByRole('button', { name: '更多筛选' }).click()
+  await expect(scenarioFilter).toBeDisabled()
+
+  await targetFilter.click()
+  await page.getByRole('option', { name: target.name }).click()
+  await expect.poll(() => requestedTargetID).toBe(target.id)
+  await expect(scenarioFilter).toBeEnabled()
+  await scenarioFilter.click()
+  await expect(page.getByRole('option', { name: scenario.name })).toBeVisible()
+  await expect(page.getByRole('option', { name: otherScenario.name })).toHaveCount(0)
+})
+
 test('views published dataset cases without creating a draft', async ({ page }) => {
   const olderVersionId = '019fa2a2-ed09-7660-988d-38cb279d5127'
   const latestCases = Array.from({ length: 11 }, (_, index) => ({

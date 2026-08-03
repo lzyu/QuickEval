@@ -2263,7 +2263,7 @@ h3 {
 
 .badcase-filter-bar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) 160px 160px auto;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 220px) 160px 160px auto;
   gap: 12px;
 }
 
